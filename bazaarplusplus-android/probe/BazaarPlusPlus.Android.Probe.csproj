@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>BazaarPlusPlus.Android.Probe</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <FrameworkPath Condition="'$(FrameworkPath)' == ''">$(MSBuildThisFileDirectory)../artifacts/framework</FrameworkPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx.Core" HintPath="$(FrameworkPath)/BepInEx.Core.dll" Private="false" />
+    <Reference Include="BepInEx.Unity.IL2CPP" HintPath="$(FrameworkPath)/BepInEx.Unity.IL2CPP.dll" Private="false" />
+  </ItemGroup>
+  <Target Name="ValidateFramework" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(FrameworkPath)/BepInEx.Unity.IL2CPP.dll')"
+           Text="Pass FrameworkPath pointing to the core DLLs from the pinned Android loader." />
+  </Target>
+</Project>

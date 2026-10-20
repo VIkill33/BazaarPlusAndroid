@@ -1,0 +1,12 @@
+{
+  "loader": {
+    "repository": "https://github.com/All-Of-Us-Mods/FusionCore",
+    "tag": "0.045",
+    "commit": "bf4c69d9d4724e4eff058664a5be0a1d9cfd4e61",
+    "apkUrl": "https://github.com/All-Of-Us-Mods/FusionCore/releases/download/0.045/fusionApp-debug.apk",
+    "apkSha256": "d5dad1ec90d09f35f82bcb550f55b312556c2ba10a1c4b5cced5b5c01ccf9bcf",
+    "frameworkArchive": "fusionApp/src/main/assets/BepInEx-arm64.zip",
+    "frameworkArchiveSha256": "cde9352c7fa85b9f27c2682a3d1ea6e2a5bfbd8fee837c01387c4b61ddd9d3e0"
+  },
+  "dotnetSdk": "10.0.402"
+}

@@ -66,6 +66,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 | 目录                                 | 内容                                        |
 | ------------------------------------ | ------------------------------------------- |
 | `bazaarplusplus-mod/`                | BepInEx 模组                                |
+| `bazaarplusplus-android/`            | Android 实验性移植：IL2CPP 游戏内图鉴、运行时检查与加载探针 |
 | `bazaarplusplus-installer/`          | 桌面安装器（Tauri 2 + React）               |
 | `bazaarplusplus-server/`             | Cloudflare Worker：Bundle 上传与 Ghost 发现 |
 | `bazaarplusplus-analyzer/`           | 把 Bundle 汇总成英雄与阵容快照              |

@@ -22,10 +22,7 @@ public static class ItemEnchantPreviewEligibility
 
     public static bool IsEligible(ECardType cardType, EInventorySection? section, bool isInCombat)
     {
-        if (isInCombat || cardType != ECardType.Item)
-            return false;
-
-        return section == EInventorySection.Hand || section == EInventorySection.Stash;
+        return ItemEnchantPreviewSectionPolicy.IsEligible(cardType, section, isInCombat);
     }
 
     private static bool IsOpponentBoardItem(Card card)

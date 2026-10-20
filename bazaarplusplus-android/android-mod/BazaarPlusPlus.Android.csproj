@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>BazaarPlusPlus.Android</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <FrameworkPath Condition="'$(FrameworkPath)' == ''">$(MSBuildThisFileDirectory)../artifacts/framework</FrameworkPath>
+    <InteropPath Condition="'$(InteropPath)' == ''">$(MSBuildThisFileDirectory)../artifacts/interop</InteropPath>
+    <DesktopSource>$(MSBuildThisFileDirectory)../../bazaarplusplus-mod/src/BazaarPlusPlus</DesktopSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx.Core" HintPath="$(FrameworkPath)/BepInEx.Core.dll" Private="false" />
+    <Reference Include="BepInEx.Unity.IL2CPP" HintPath="$(FrameworkPath)/BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="Il2CppInterop.Runtime" HintPath="$(FrameworkPath)/Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(FrameworkPath)/0Harmony.dll" Private="false" />
+    <Reference Include="$(InteropPath)/*.dll" Private="false" />
+    <Compile Include="$(MSBuildThisFileDirectory)../../bazaarplusplus-mod/src/BazaarPlusPlus.Localization/*.cs" Link="Shared/Localization/%(Filename)%(Extension)" />
+    <Compile Include="$(DesktopSource)/Game/CollectionPanel/Data/CollectionCardVm.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionCardVm.Search.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionCardSearch.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionFilterEngine.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionFilterState.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionFilterContext.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionHeroScope.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionTabProfile.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionTabKind.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionCardFacetRanks.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionPanelSelectionState.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionMechanic.cs" Link="Shared/Collection/%(Filename)%(Extension)" />
+    <Compile Include="$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceEnums.cs;$(DesktopSource)/GameInterop/DayTiers/GameDataDayTierTable.cs;$(DesktopSource)/GameInterop/TagTypography/ReferenceTagBaseResolver.cs;$(DesktopSource)/GameInterop/Cards/PackageIdentity.cs" Link="Shared/Collection/%(Filename)%(Extension)" />
+    <Compile Include="$(DesktopSource)/Game/CollectionPanel/Data/CollectionCardClassifier.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionCardClassification.cs" Link="Shared/Collection/%(Filename)%(Extension)" />
+    <Compile Include="$(DesktopSource)/Game/ItemEnchantPreview/ItemEnchantPreviewCandidateSelector.cs;$(DesktopSource)/Game/ItemEnchantPreview/ItemEnchantPreviewPalette.cs;$(DesktopSource)/Game/ItemEnchantPreview/ItemEnchantPreviewSectionPolicy.cs" Link="Shared/Enchant/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <Target Name="ValidateInterop" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(InteropPath)/TheBazaarRuntime.dll')" Text="InteropPath must contain the Android-generated game assemblies." />
+  </Target>
+</Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InteropPath Condition="'$(InteropPath)' == ''">$(MSBuildThisFileDirectory)../../artifacts/interop</InteropPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BazaarGameShared" HintPath="$(InteropPath)/BazaarGameShared.dll" />
+    <Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/ItemEnchantPreview/ItemEnchantPreviewCandidateSelector.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/ItemEnchantPreview/ItemEnchantPreviewSectionPolicy.cs" />
+  </ItemGroup>
+</Project>

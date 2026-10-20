@@ -66,6 +66,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 | Directory                            | Contents                                             |
 | ------------------------------------ | ---------------------------------------------------- |
 | `bazaarplusplus-mod/`                | The BepInEx mod                                      |
+| `bazaarplusplus-android/`            | Experimental Android port: IL2CPP in-game collection, runtime inspection, and loading probes |
 | `bazaarplusplus-installer/`          | The desktop installer (Tauri 2 + React)              |
 | `bazaarplusplus-server/`             | Cloudflare Worker: Bundle upload and Ghost discovery |
 | `bazaarplusplus-analyzer/`           | Turns Bundles into hero and build snapshots          |

@@ -3,7 +3,7 @@ using BazaarGameShared.Domain.Core.Types;
 
 namespace BazaarPlusPlus.GameInterop.Cards;
 
-internal static class PackageIdentity
+internal static partial class PackageIdentity
 {
     public static bool IsPackage(IReadOnlyCollection<EHiddenTag>? hiddenTags)
     {
