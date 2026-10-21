@@ -18,7 +18,8 @@ internal static class AndroidEventPreview
         var template = source.Template?.TryCast<TCardEncounterEvent>();
         var query = template?.SelectionContext?.SpawnContext?.TryCast<TSpawnContextQuery>();
         var sections = new List<string>();
-        var outcomes = BuildQuery(query, NativeUi.Text("Possible outcomes", "可能结果"));
+        var outcomes = BuildQuery(query, NativeUi.Text("Possible outcomes", "可能结果"),
+            offerChoices: false);
         if (!string.IsNullOrWhiteSpace(outcomes)) sections.Add(outcomes);
         var next = new List<string>();
         var transitions = template?.NextEncounterOnSelection;
@@ -47,12 +48,14 @@ internal static class AndroidEventPreview
         if (currentLevel < 4)
             sections.Add($"{NativeUi.Text("Board slots", "场上格数")} +2");
         var query = level.Rewards?.TryCast<TSpawnContextQuery>();
-        var rewards = BuildQuery(query, NativeUi.Text("Next level rewards", "下一级奖励"));
+        var rewards = BuildQuery(query,
+            NativeUi.Text("Possible next level reward choices", "下一级可能出现的奖励选项"),
+            offerChoices: true);
         if (!string.IsNullOrWhiteSpace(rewards)) sections.Add(rewards);
         return string.Join("\n", sections);
     }
 
-    private static string BuildQuery(TSpawnContextQuery? query, string heading)
+    private static string BuildQuery(TSpawnContextQuery? query, string heading, bool offerChoices)
     {
         var gameData = Data.GetStatic();
         if (query?.Groups == null || gameData == null) return string.Empty;
@@ -106,16 +109,18 @@ internal static class AndroidEventPreview
 
         if (groups.Count == 0) return string.Empty;
         var outerRandom = query.SelectionMethod == ESpawnSelectionMethod.Random;
-        var choice = outerRandom
+        var choice = outerRandom && !offerChoices
             ? NativeUi.Text(" (random selection)", "（随机选取）") : string.Empty;
-        var showPercent = outerRandom && groups.All(group => !group.Conditional)
+        var showPercent = !offerChoices && outerRandom && groups.All(group => !group.Conditional)
             && groups.All(group => group.Weight > 0);
         var totalWeight = showPercent ? groups.Aggregate(0UL, (sum, group) => sum + group.Weight) : 0UL;
         var lines = groups.Select(group =>
         {
             var chance = showPercent
                 ? $"{Math.Round(group.Weight * 100d / totalWeight, 1):0.#}% " : string.Empty;
-            return "• " + chance + group.Text;
+            var condition = group.Conditional
+                ? NativeUi.Text(" (conditional)", "（有条件）") : string.Empty;
+            return "• " + chance + group.Text + condition;
         });
         return $"<b>{heading}{choice}</b>\n" + string.Join("\n", lines);
     }
