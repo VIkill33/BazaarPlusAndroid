@@ -22,6 +22,13 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private TextMeshProUGUI? _text;
     private RectTransform? _content;
     private ScrollRect? _scroll;
+    private AndroidBuildBoard? _board;
+    private RectTransform? _boardHost;
+    private Button? _previousBuildButton;
+    private Button? _nextBuildButton;
+    private TextMeshProUGUI? _buildPosition;
+    private AndroidBuildMatch[] _matches = Array.Empty<AndroidBuildMatch>();
+    private int _buildIndex;
     private Button? _sourceButton;
     private Button? _candidatePageButton;
     private readonly List<Button> _candidateButtons = new();
@@ -44,6 +51,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     {
         try
         {
+            if (_open) _board?.Tick();
             if (_canvas == null)
             {
                 var font = NotoFontFallbackRuntime._loadedSansPrimary;
@@ -120,8 +128,17 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 button.gameObject.SetActive(false);
                 _candidateButtons.Add(button);
             }
+            _boardHost = NativeUi.Rect("BPP.RecommendedBoard", _panel,
+                new Vector2(.03f, .36f), new Vector2(.97f, .65f));
+            _board = new AndroidBuildBoard(_boardHost);
+            _previousBuildButton = NativeUi.Button(_panel, font, "‹",
+                new Vector2(.03f, .31f), new Vector2(.15f, .36f), PreviousBuild);
+            _buildPosition = NativeUi.Label(NativeUi.Rect("BPP.BuildPosition", _panel,
+                new Vector2(.16f, .31f), new Vector2(.84f, .36f)), font, string.Empty, 25);
+            _nextBuildButton = NativeUi.Button(_panel, font, "›",
+                new Vector2(.85f, .31f), new Vector2(.97f, .36f), NextBuild);
             (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font,
-                new Vector2(.03f, .04f), new Vector2(.97f, .66f));
+                new Vector2(.03f, .04f), new Vector2(.97f, .30f));
             _text.fontSize = 29;
             _text.enableAutoSizing = false;
             SetOpen(false);
@@ -197,6 +214,27 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         var hero = player.Hero.ToString();
         var liveState = BuildLiveState.From(board, stash, shop);
         var matches = Plugin.BuildRepository!.Find(hero, _selectedCandidates, liveState).Take(3).ToArray();
+        var changed = _matches.Length != matches.Length ||
+            _matches.Where((match, index) => index < matches.Length &&
+                (match.Build.Id != matches[index].Build.Id || match.LiveStateScore != matches[index].LiveStateScore ||
+                 match.MatchedCards != matches[index].MatchedCards)).Any();
+        _matches = matches;
+        if (changed) _buildIndex = 0;
+        if (_buildIndex >= matches.Length) _buildIndex = 0;
+        var chosen = matches.Length > 0 ? matches[_buildIndex] : null;
+        _board?.Show(chosen?.Build);
+        if (_boardHost != null) _boardHost.gameObject.SetActive(chosen != null);
+        if (_previousBuildButton != null) _previousBuildButton.gameObject.SetActive(chosen != null);
+        if (_nextBuildButton != null) _nextBuildButton.gameObject.SetActive(chosen != null);
+        if (_buildPosition != null) _buildPosition.gameObject.SetActive(chosen != null);
+        if (_scroll != null)
+            _scroll.GetComponent<RectTransform>().anchorMax =
+                new Vector2(.97f, chosen == null ? .66f : .30f);
+        if (_buildPosition != null) _buildPosition.text = matches.Length == 0 ? string.Empty :
+            $"{_buildIndex + 1}/{matches.Length} · {NativeUi.Text("Matched", "匹配")} " +
+            $"{chosen!.MatchedCards}/{_selectedCandidates.Count}";
+        if (_previousBuildButton != null) _previousBuildButton.interactable = matches.Length > 1;
+        if (_nextBuildButton != null) _nextBuildButton.interactable = matches.Length > 1;
         var lines = new List<string>
         {
             $"<b>{hero}</b> · {NativeUi.Text("Board/Stash/Shop", "场上／仓库／商店")} " +
@@ -213,16 +251,20 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 "当前构筑库尚无该英雄的十胜数据。"));
         else if (matches.Length == 0)
             lines.Add(NativeUi.Text("No matching ten-win builds in the current data.", "当前数据中没有匹配的十胜构筑。"));
-        foreach (var (match, rank) in matches.Select((value, index) => (value, index + 1)))
+        if (chosen != null)
         {
-            var build = match.Build;
-            lines.Add($"\n<b>#{rank} · {NativeUi.Text("Matched", "匹配")} {match.MatchedCards}/{_selectedCandidates.Count} " +
+            var build = chosen.Build;
+            lines.Add($"\n<b>#{_buildIndex + 1} · {NativeUi.Text("Matched", "匹配")} {chosen.MatchedCards}/{_selectedCandidates.Count} " +
                 $"· {NativeUi.Text("Ten-win runs", "十胜场次")} {build.TenWinRuns} " +
                 $"· {build.TenWinRateBps / 100.0:0.#}%</b>");
             foreach (var item in build.Items.OrderBy(value => value.Slot))
             {
                 var name = ResolveName(item.TemplateId);
-                lines.Add($"{item.Slot + 1:00} · {name} · {item.Tier} " +
+                var owned = board.Contains(item.TemplateId) ? NativeUi.Text("Board", "场上")
+                    : stash.Contains(item.TemplateId) ? NativeUi.Text("Stash", "仓库")
+                    : shop.Contains(item.TemplateId) ? NativeUi.Text("Shop", "商店")
+                    : NativeUi.Text("Missing", "未拥有");
+                lines.Add($"{item.Slot + 1:00} · {name} · {owned} · {item.Tier} " +
                     (string.IsNullOrWhiteSpace(item.Enchantment) ? string.Empty : $"· {item.Enchantment}"));
             }
         }
@@ -306,6 +348,22 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         UpdateCandidateButtons();
     }
 
+    private void PreviousBuild()
+    {
+        if (_matches.Length < 2) return;
+        _buildIndex = (_buildIndex + _matches.Length - 1) % _matches.Length;
+        _lastDescription = null;
+        _nextRefresh = 0;
+    }
+
+    private void NextBuild()
+    {
+        if (_matches.Length < 2) return;
+        _buildIndex = (_buildIndex + 1) % _matches.Length;
+        _lastDescription = null;
+        _nextRefresh = 0;
+    }
+
     private void Show(string description)
     {
         if (_text == null || _content == null || _scroll == null) return;
@@ -319,6 +377,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
 
     private void SetOpen(bool open)
     {
+        if (!open) { _board?.Hide(); _matches = Array.Empty<AndroidBuildMatch>(); }
         _open = open;
         AnyOpen = open;
         if (_panel != null) _panel.gameObject.SetActive(open);
@@ -356,6 +415,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     public void OnDestroy()
     {
         AnyOpen = false;
+        _board?.Hide();
         if (_canvas != null) UnityEngine.Object.Destroy(_canvas);
     }
 }
