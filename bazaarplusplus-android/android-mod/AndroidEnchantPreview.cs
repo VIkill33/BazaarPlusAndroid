@@ -26,13 +26,8 @@ internal static class AndroidEnchantPreview
         var enchantments = source.GetEnchantments();
         if (enchantments == null || enchantments.Count == 0) return string.Empty;
         var keys = new List<EEnchantmentType>();
-        var iterator = enchantments.GetEnumerator();
-        try
-        {
-            var cursor = iterator.Cast<Il2CppSystem.Collections.IEnumerator>();
-            while (cursor.MoveNext()) keys.Add(iterator.Current.Key);
-        }
-        finally { iterator.Cast<Il2CppSystem.IDisposable>().Dispose(); }
+        foreach (var kind in Enum.GetValues<EEnchantmentType>())
+            if (enchantments.ContainsKey(kind)) keys.Add(kind);
         var candidates = ItemEnchantPreviewCandidateSelector.SelectCandidates(current, keys);
         var before = AttributeDigest(source);
         var clock = Stopwatch.StartNew();
@@ -67,7 +62,7 @@ internal static class AndroidEnchantPreview
         return lines.Count == 0 ? string.Empty : "<b>BazaarPlusPlus</b>\n" + string.Join("\n", lines);
     }
 
-    private static ItemCard Clone(ItemCard source, EEnchantmentType kind, EInventorySection? section)
+    internal static ItemCard Clone(ItemCard source, EEnchantmentType? kind, EInventorySection? section)
     {
         // This is the desktop clone factory's explicit value-context whitelist.
         // Owner/template are read-only context; every mutable collection is copied.
@@ -80,7 +75,7 @@ internal static class AndroidEnchantPreview
             Size = source.Size, Tier = source.Tier, Type = source.Type, Owner = source.Owner,
             LeftSocketId = NativeNullableValue.Box(NativeNullableValue.Read<EContainerSocketId>(source, "get_LeftSocketId")),
             Section = NativeNullableValue.Box(section), State = source.State, Template = source.Template,
-            Enchantment = NativeNullableValue.Box<EEnchantmentType>(kind),
+            Enchantment = NativeNullableValue.Box(kind),
         };
     }
 
@@ -91,7 +86,7 @@ internal static class AndroidEnchantPreview
         return copy;
     }
 
-    private static int AttributeDigest(ItemCard card)
+    internal static int AttributeDigest(ItemCard card)
     {
         var digest = 0;
         foreach (var pair in card.Attributes) digest ^= HashCode.Combine(pair.Key, pair.Value);

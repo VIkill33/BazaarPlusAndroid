@@ -15,6 +15,7 @@ namespace BazaarPlusPlus.Android;
 
 public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer)
 {
+    internal static bool AnyOpen { get; private set; }
     private const int PageSize = 8;
     private readonly AndroidCollectionCatalog _catalog = new();
     private readonly CollectionFilterState _filter = new();
@@ -82,6 +83,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             var scene = SceneManager.GetActiveScene().handle;
             if (_scene != -1 && scene != _scene) SetOpen(false);
             _scene = scene;
+            if (_entry != null) _entry.gameObject.SetActive(!_open && !AndroidBuildPanelController.AnyOpen);
             if (_open && !_catalog.Ready && _catalog.Error == null && Data.IsManagerCreated())
                 _catalog.Start(Data.GetStatic());
             if (_catalog.Tick())
@@ -109,7 +111,11 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 _canvas = null;
             }
             Plugin.PluginLog?.LogError($"[BPP][Android] event=android.collection.tick_failed attempt={_failures} exception={error}");
-            if (_failures >= 3) enabled = false;
+            if (_failures >= 3)
+            {
+                AnyOpen = false;
+                enabled = false;
+            }
         }
     }
 
@@ -455,8 +461,9 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     private void SetOpen(bool open)
     {
         _open = open;
+        AnyOpen = open;
         _panel?.gameObject.SetActive(open);
-        _entry?.gameObject.SetActive(!open);
+        _entry?.gameObject.SetActive(!open && !AndroidBuildPanelController.AnyOpen);
         if (!open) ClearPreview();
         else { _catalog.Retry(); Refresh(); }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.visibility open={open}");
@@ -464,6 +471,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
 
     public void OnDestroy()
     {
+        AnyOpen = false;
         ClearPreview();
         RetireRequest();
         if (_canvas != null) UnityEngine.Object.Destroy(_canvas);

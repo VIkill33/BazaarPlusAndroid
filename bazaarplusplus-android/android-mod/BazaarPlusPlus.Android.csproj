@@ -21,6 +21,7 @@
     <Compile Include="$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceEnums.cs;$(DesktopSource)/GameInterop/DayTiers/GameDataDayTierTable.cs;$(DesktopSource)/GameInterop/TagTypography/ReferenceTagBaseResolver.cs;$(DesktopSource)/GameInterop/Cards/PackageIdentity.cs" Link="Shared/Collection/%(Filename)%(Extension)" />
     <Compile Include="$(DesktopSource)/Game/CollectionPanel/Data/CollectionCardClassifier.cs;$(DesktopSource)/Game/CollectionPanel/Data/CollectionCardClassification.cs" Link="Shared/Collection/%(Filename)%(Extension)" />
     <Compile Include="$(DesktopSource)/Game/ItemEnchantPreview/ItemEnchantPreviewCandidateSelector.cs;$(DesktopSource)/Game/ItemEnchantPreview/ItemEnchantPreviewPalette.cs;$(DesktopSource)/Game/ItemEnchantPreview/ItemEnchantPreviewSectionPolicy.cs" Link="Shared/Enchant/%(Filename)%(Extension)" />
+    <Compile Include="$(DesktopSource)/Game/LiveBuildPanel/Recommendations/BuildLiveState.cs" Link="Shared/Builds/%(Filename)%(Extension)" />
   </ItemGroup>
   <Target Name="ValidateInterop" BeforeTargets="ResolveReferences">
     <Error Condition="!Exists('$(InteropPath)/TheBazaarRuntime.dll')" Text="InteropPath must contain the Android-generated game assemblies." />

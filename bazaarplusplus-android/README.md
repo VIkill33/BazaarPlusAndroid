@@ -71,7 +71,13 @@ python3 bazaarplusplus-android/build_probe.py \
 
 当前适配边界和真机验证记录见 [docs/device-validation.md](docs/device-validation.md)。
 
-对局物品长按打开的原生详情和附魔下拉预览已验证可用。新增的多附魔悬浮信息
-原型 `AndroidEnchantTooltip`、`AndroidEnchantPreview` 与其运行时路径适配暂不从
-`Plugin.Load` 注册：启用原生 Harmony 钩子的构建出现查看物品时的原生崩溃，
-关闭后同一物品的长按及附魔预览恢复。此功能尚未通过真机验证。
+对局物品长按打开的原生详情和附魔下拉预览已验证可用。当前工作树改由
+`AndroidTooltipObserver` 观察原生详情并调用 `AndroidEnchantPreview` 生成多附魔信息，
+已替换会使游戏闪退的原生 Harmony 钩子。最新浮层层级及标准／高级输入模式尚待真机复测；
+物品预览现有「附魔／升级／任务奖励」切换，升级页按下一品质及光环倍率投影属性；
+左侧「长按预览」按钮可在按住物品前选择默认展示附魔或升级，并记住选择，适用于高级输入模式；
+事件卡与英雄等级提示可尝试显示可解析的结果、后续遭遇及升级奖励。对局中的「构筑推荐」按钮读取场上、
+仓库及商店物品，可切换来源、分页点选候选卡；按候选交集及场上／仓库／商店权重排序，
+显示最多三条十胜构筑匹配。
+这几条新增路径均已编译，尚未在真机验证触屏、数值及稳定性，不应视为完成。
+已完成和待验证功能的逐项清单见 [docs/feature-checklist.md](docs/feature-checklist.md)。
