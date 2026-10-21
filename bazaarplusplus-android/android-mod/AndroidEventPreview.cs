@@ -55,7 +55,7 @@ internal static class AndroidEventPreview
         return string.Join("\n", sections);
     }
 
-    private static string BuildQuery(TSpawnContextQuery? query, string heading, bool offerChoices)
+    internal static string BuildQuery(TSpawnContextQuery? query, string heading, bool offerChoices)
     {
         var gameData = Data.GetStatic();
         if (query?.Groups == null || gameData == null) return string.Empty;
