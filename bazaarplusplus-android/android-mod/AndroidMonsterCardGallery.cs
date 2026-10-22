@@ -1,5 +1,6 @@
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Item;
+using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Players;
 using Il2CppInterop.Runtime;
 using TheBazaar;
@@ -25,6 +26,8 @@ internal sealed class AndroidMonsterCardGallery
         internal Il2CppSystem.Threading.CancellationTokenSource? Cancellation;
         internal CardPreviewBase? Card;
         internal bool Ready;
+        internal int FitAttempts;
+        internal int NextFitFrame;
     }
 
     private readonly RectTransform _root;
@@ -42,6 +45,7 @@ internal sealed class AndroidMonsterCardGallery
         var background = _root.gameObject.AddComponent<Image>();
         background.color = new Color(.08f, .07f, .05f, .35f);
         background.raycastTarget = false;
+        _root.gameObject.AddComponent<RectMask2D>();
         _root.gameObject.SetActive(false);
     }
 
@@ -57,32 +61,42 @@ internal sealed class AndroidMonsterCardGallery
         if (count == 0) return;
         var canvas = _panel.GetComponentInParent<Canvas>();
         var scale = canvas != null && canvas.scaleFactor > 0 ? canvas.scaleFactor : 1f;
-        var cardWidth = Screen.width / 26f / scale;
-        var cardHeight = cardWidth * 2.05f;
-        var columnWidth = cardWidth + 10;
+        var slotWidth = Screen.width / 26f / scale;
+        var cardHeight = slotWidth * 2.05f;
         var rowHeight = cardHeight + 12;
-        var columns = Math.Min(count, Math.Max(1, Mathf.FloorToInt(
-            (Screen.width / scale - 500) / columnWidth)));
-        var rows = (count + columns - 1) / columns;
-        var panelWidth = columns * columnWidth + 42;
+        var placements = new List<(TCardInstanceItem Instance, int Slot, int Row, int Size)>();
+        var row = 0;
+        var occupied = 0;
+        var widestRow = 0;
+        for (var index = 0; index < count; index++)
+        {
+            var instance = items[index];
+            var template = Data.GetStatic()?.GetCardById(instance.TemplateId)?.TryCast<TCardBase>();
+            var size = SizeInSlots(template?.Size ?? ECardSize.Small);
+            if (occupied + size > 10) { row++; occupied = 0; }
+            placements.Add((instance, occupied, row, size));
+            occupied += size;
+            widestRow = Math.Max(widestRow, occupied);
+        }
+        var rows = row + 1;
+        var panelWidth = widestRow * slotWidth + 40;
         var panelHeight = rows * rowHeight + 44;
         _panel.offsetMin = new Vector2(-550 - panelWidth, 520 - panelHeight / 2);
         _panel.offsetMax = new Vector2(-550, 520 + panelHeight / 2);
         _root.anchorMin = Vector2.zero;
         _root.anchorMax = Vector2.right;
         _root.pivot = new Vector2(.5f, 0);
-        _root.offsetMin = new Vector2(16, 12);
-        _root.offsetMax = new Vector2(-16, panelHeight - 36);
+        _root.offsetMin = new Vector2(16, 16);
+        _root.offsetMax = new Vector2(-16, panelHeight - 24);
         _root.gameObject.SetActive(true);
-        for (var index = 0; index < count; index++)
+        foreach (var placement in placements)
         {
-            var column = index % columns;
-            var row = index / columns;
             var host = NativeUi.Rect("BPP.MonsterCard", _root, Vector2.up, Vector2.up);
             host.pivot = Vector2.up;
-            host.sizeDelta = new Vector2(cardWidth, cardHeight);
-            host.anchoredPosition = new Vector2(column * columnWidth + 4, -row * rowHeight - 4);
-            var request = new Request { Host = host, Instance = items[index] };
+            host.sizeDelta = new Vector2(placement.Size * slotWidth, cardHeight);
+            host.anchoredPosition = new Vector2(placement.Slot * slotWidth + 4,
+                -placement.Row * rowHeight - 8);
+            var request = new Request { Host = host, Instance = placement.Instance };
             var hitArea = host.gameObject.AddComponent<Image>();
             hitArea.color = new Color(0, 0, 0, .01f);
             hitArea.raycastTarget = true;
@@ -91,8 +105,15 @@ internal sealed class AndroidMonsterCardGallery
             button.onClick.AddListener(DelegateSupport.ConvertDelegate<UnityAction>(() => Select(request)));
             _requests.Add(request);
         }
-        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.started monster={monster.InternalName} items={count} rows={rows} card_width_px={cardWidth * scale:0.#} screen_width={Screen.width}");
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.started monster={monster.InternalName} items={count} slots={widestRow} rows={rows} slot_width_px={slotWidth * scale:0.#} screen_width={Screen.width}");
     }
+
+    private static int SizeInSlots(ECardSize size) => size switch
+    {
+        ECardSize.Medium => 2,
+        ECardSize.Large => 3,
+        _ => 1,
+    };
 
     private void Select(Request request)
     {
@@ -110,7 +131,16 @@ internal sealed class AndroidMonsterCardGallery
         if (!_root.gameObject.activeSelf || !Services.TryGet<AssetLoader>(out var loader) || loader == null) return;
         foreach (var request in _requests)
         {
-            if (request.Ready) continue;
+            if (request.Ready)
+            {
+                if (request.FitAttempts > 0 && Time.frameCount >= request.NextFitFrame)
+                {
+                    Fit(request);
+                    request.FitAttempts--;
+                    request.NextFitFrame = Time.frameCount + 2;
+                }
+                continue;
+            }
             try
             {
                 if (request.Creation == null)
@@ -135,6 +165,8 @@ internal sealed class AndroidMonsterCardGallery
                     rect.localScale = Vector3.one;
                     rect.localRotation = Quaternion.identity;
                     request.Card.gameObject.SetActive(true);
+                    PrepareLayoutSize(request.Card);
+                    request.Card.Resize();
                     request.Setup = request.Card.SetUp(template, false, request.Instance, request.Cancellation!.Token);
                 }
                 if (request.Setup is { IsCompleted: true } && !request.Ready)
@@ -144,6 +176,8 @@ internal sealed class AndroidMonsterCardGallery
                     request.Card!.Resize();
                     request.Card.Show(true);
                     Fit(request);
+                    request.FitAttempts = 3;
+                    request.NextFitFrame = Time.frameCount + 2;
                     Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.card_ready template_id={request.Instance.TemplateId}");
                 }
             }
@@ -159,22 +193,28 @@ internal sealed class AndroidMonsterCardGallery
     {
         var card = request.Card!;
         var rect = card.GetComponent<RectTransform>();
+        PrepareLayoutSize(card);
+        card.Resize();
+        Canvas.ForceUpdateCanvases();
+        var frame = card._currentFrame?.GetComponent<RectTransform>()
+            ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
+        var bounds = request.Host.rect;
+        if (frame.rect.width <= 1 || frame.rect.height <= 1) return;
+        var scale = Mathf.Min(bounds.width / frame.rect.width,
+            bounds.height / frame.rect.height);
+        rect.localScale = new Vector3(scale, scale, scale);
+        var center = request.Host.InverseTransformPoint(frame.TransformPoint(frame.rect.center));
+        rect.anchoredPosition += bounds.center - new Vector2(center.x, center.y);
+    }
+
+    private static void PrepareLayoutSize(CardPreviewBase card)
+    {
+        var rect = card.GetComponent<RectTransform>();
+        if (rect.rect.width > 1 && rect.rect.height > 1) return;
         var fitter = card.GetComponent<AspectRatioFitter>();
         var ratio = fitter != null && fitter.aspectRatio > .01f ? fitter.aspectRatio : .8f;
-        if (rect.rect.width <= 1 || rect.rect.height <= 1)
-        {
-            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500);
-            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 500 * ratio);
-        }
-        Canvas.ForceUpdateCanvases();
-        var art = card._cardImage.rectTransform.rect;
-        var bounds = request.Host.rect;
-        var width = art.width > 1 ? art.width : rect.rect.width;
-        var scale = bounds.width / Mathf.Max(1, width);
-        rect.localScale = new Vector3(scale, scale, scale);
-        var center = request.Host.InverseTransformPoint(card._cardImage.rectTransform.TransformPoint(
-            new Vector3(art.center.x, art.center.y, 0)));
-        rect.anchoredPosition -= new Vector2(center.x, center.y);
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500);
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 500 * ratio);
     }
 
     internal void Hide()
