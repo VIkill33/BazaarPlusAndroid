@@ -85,6 +85,7 @@ Each of the five canonical triage roles uses its own name as its label. Read `do
 每个功能点开始前，必须完成以下阅读与核对，不能直接凭功能名称实现：
 
 1. 阅读 Android [README](bazaarplusplus-android/README.md)、[功能清单](bazaarplusplus-android/docs/feature-checklist.md)和[真机验证记录](bazaarplusplus-android/docs/device-validation.md)，确认已实现、已验证、待验证和暂缓范围。
+   涉及启动器、初始化、修复、签名或 APK 打包时，还须阅读[启动器架构决策](bazaarplusplus-android/docs/adr/0001-dedicated-launcher.md)和[构建说明](bazaarplusplus-android/launcher/BUILDING.md)。历史方案见[启动器方案](bazaarplusplus-android/docs/launcher-proposal.md)，当前行为与验收范围以实现、ADR 和真机记录为准。
 2. 阅读原插件 [AGENTS.md](bazaarplusplus-mod/AGENTS.md)、[MEMORY.md](bazaarplusplus-mod/docs/MEMORY.md)、[架构索引](bazaarplusplus-mod/docs/ARCHITECTURE.md)，再按下表阅读相应功能文档、Gotchas 和相关 ADR。
 3. 沿文档中的路径阅读桌面插件当前源码和测试，理解数据来源、规则、边界条件、UI 层级及交互生命周期。文档与代码不一致时核对实际行为，不把旧说明直接照搬。
 4. 涉及游戏 API 或崩溃时，对照对应游戏版本的本地反编译代码及 Android 生成代理，确认签名和运行时语义；桌面 API 不能直接作为 Android 兼容证据。
@@ -103,7 +104,7 @@ UI 设计还须阅读 [design.md](docs/design.md)：游戏内面板跟随游戏�
 
 ### 2. 项目架构与代码边界
 
-本项目是 BepInEx / Unity IL2CPP 游戏内插件，不是普通 Android Activity 或 Gradle 应用。当前结构如下；具体构建引用以项目文件为准。
+本项目包含 BepInEx / Unity IL2CPP 游戏内插件和独立 Android 启动器。游戏内功能在插件中实现；启动器以 Java／JNI 和 Gradle 工程负责环境准备与加载。当前结构如下；具体构建引用以项目文件为准。
 
 | 目录或文件 | 职责 |
 | --- | --- |
@@ -114,6 +115,8 @@ UI 设计还须阅读 [design.md](docs/design.md)：游戏内面板跟随游戏�
 | `android-mod/NativeUi.cs`、`NativeNullableValue.cs`、`NativePreviewCleanup.cs` | Android 原生 UI、互操作与资源清理适配 |
 | `bazaarplusplus-android/probe/`、`runtime-probe/` | 加载与运行时诊断探针，不等同于功能插件 |
 | `bazaarplusplus-android/inspect_game.py`、`build_probe.py` | 设备／安装包检查与固定工具链构建 |
+| `bazaarplusplus-android/launcher/` | 受版本管理的 FusionCore 定制启动器；兼容规则与上游输入分别由 `compatibility.json`、`upstream.json` 拥有 |
+| `bazaarplusplus-android/build_launcher.py`、`verify_launcher.py` | 签名 APK 与对应源码打包、设备会话及插件摘要验证 |
 | `bazaarplusplus-android/tests/`、`data/`、`docs/` | 离线验证、注明来源的数据与功能证据 |
 | `bazaarplusplus-mod/` | 桌面功能及部分源码链接共享规则的来源 |
 
