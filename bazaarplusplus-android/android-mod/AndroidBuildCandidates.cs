@@ -29,12 +29,13 @@ internal sealed class AndroidBuildCandidates
 
     private readonly Dictionary<Button, Request> _requests = new();
 
-    internal void Show(Button button, Guid id)
+    internal void Show(Button button, Guid id, float captionHeight = 0)
     {
         if (_requests.TryGetValue(button, out var existing) && existing.Id == id) return;
         Remove(button);
         var host = NativeUi.Rect("BPP.CandidateCard", button.transform,
-            new Vector2(.02f, .08f), new Vector2(.30f, .92f));
+            captionHeight > 0 ? new Vector2(.05f, .05f + captionHeight) : new Vector2(.02f, .08f),
+            captionHeight > 0 ? new Vector2(.95f, .95f) : new Vector2(.30f, .92f));
         _requests.Add(button, new Request { Button = button, Id = id, Host = host });
         // An invisible graphic keeps taps on the card routed to the parent candidate button.
         var hit = NativeUi.Rect("BPP.CandidateHit", button.transform, Vector2.zero, Vector2.one);

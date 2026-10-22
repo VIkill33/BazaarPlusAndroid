@@ -32,6 +32,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private Button? _sourceButton;
     private Button? _candidatePageButton;
     private readonly List<Button> _candidateButtons = new();
+    private readonly List<TextMeshProUGUI> _candidateMarkers = new();
     private readonly AndroidBuildCandidates _candidateCards = new();
     private readonly List<(Guid Id, string Name)> _boardCandidates = new();
     private readonly List<(Guid Id, string Name)> _stashCandidates = new();
@@ -124,19 +125,31 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             for (var slot = 0; slot < 10; slot++)
             {
                 var captured = slot;
-                var column = slot % 5;
-                var top = slot < 5 ? .86f : .76f;
-                var left = .03f + column * .19f;
+                var left = .03f + slot * .095f;
                 var button = NativeUi.Button(_panel, font, string.Empty,
-                    new Vector2(left, top - .08f), new Vector2(left + .18f, top),
+                    new Vector2(left, .68f), new Vector2(left + .085f, .86f),
                     () => ToggleCandidate(captured));
-                button.GetComponentInChildren<TextMeshProUGUI>().fontSize = 22;
                 var label = button.GetComponentInChildren<TextMeshProUGUI>();
+                label.fontSize = 25;
+                label.enableAutoSizing = true;
+                label.fontSizeMin = 18;
+                label.fontSizeMax = 25;
+                label.textWrappingMode = TextWrappingModes.NoWrap;
+                label.overflowMode = TextOverflowModes.Ellipsis;
                 var labelRect = label.GetComponent<RectTransform>();
-                labelRect.anchorMin = new Vector2(.32f, 0);
-                labelRect.anchorMax = Vector2.one;
-                labelRect.offsetMin = new Vector2(4, 3);
-                labelRect.offsetMax = new Vector2(-4, -3);
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = new Vector2(1, .22f);
+                labelRect.offsetMin = new Vector2(5, 3);
+                labelRect.offsetMax = new Vector2(-5, -3);
+                var markerRect = NativeUi.Rect("BPP.CandidateSelection", button.transform,
+                    Vector2.one, Vector2.one, new Vector2(-38, -38), new Vector2(-4, -4));
+                var markerBackground = markerRect.gameObject.AddComponent<Image>();
+                markerBackground.color = new Color(.06f, .10f, .12f, .95f);
+                markerBackground.raycastTarget = false;
+                var marker = NativeUi.Label(markerRect, font, string.Empty, 26);
+                marker.GetComponent<RectTransform>().offsetMin = Vector2.zero;
+                marker.GetComponent<RectTransform>().offsetMax = Vector2.zero;
+                _candidateMarkers.Add(marker);
                 button.gameObject.SetActive(false);
                 _candidateButtons.Add(button);
             }
@@ -324,12 +337,15 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             }
             var candidate = candidates[index];
             var selected = _selectedCandidates.Contains(candidate.Id);
-            button.GetComponentInChildren<TextMeshProUGUI>().text =
-                (selected ? "✓ " : "○ ") + candidate.Name;
+            button.GetComponentInChildren<TextMeshProUGUI>().text = candidate.Name;
+            var marker = _candidateMarkers[slot];
+            marker.text = selected ? "✓" : "○";
+            marker.color = selected ? new Color(.65f, 1, .71f, 1) : new Color(.80f, .83f, .85f, 1);
             button.GetComponent<Image>().color = selected
                 ? new Color(.19f, .32f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
             button.gameObject.SetActive(true);
-            _candidateCards.Show(button, candidate.Id);
+            _candidateCards.Show(button, candidate.Id, captionHeight: .22f);
+            marker.transform.parent.SetAsLastSibling();
         }
     }
 
