@@ -32,6 +32,20 @@ internal static class NativeNullableValue
         return Unbox<T>(result, methodName);
     }
 
+    internal static unsafe T? Invoke<T, TArgument>(Il2CppObjectBase instance, string methodName,
+        TArgument argument) where T : unmanaged where TArgument : unmanaged
+    {
+        var method = IL2CPP.il2cpp_class_get_method_from_name(
+            IL2CPP.il2cpp_object_get_class(instance.Pointer), methodName, 1);
+        if (method == IntPtr.Zero) throw new MissingMethodException(methodName);
+        void** arguments = stackalloc void*[1];
+        arguments[0] = &argument;
+        var exception = IntPtr.Zero;
+        var result = IL2CPP.il2cpp_runtime_invoke(method, instance.Pointer, arguments, ref exception);
+        Il2CppException.RaiseExceptionIfNecessary(exception);
+        return Unbox<T>(result, methodName);
+    }
+
     private static unsafe T? Unbox<T>(IntPtr result, string methodName) where T : unmanaged
     {
         if (result == IntPtr.Zero) return null;

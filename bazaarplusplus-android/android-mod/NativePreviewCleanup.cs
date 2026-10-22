@@ -11,21 +11,30 @@ namespace BazaarPlusPlus.Android;
 public sealed class NativePreviewCleanup(IntPtr pointer) : MonoBehaviour(pointer)
 {
     private sealed record Request(NativePreviewTask? Creation, NativeTask? Setup,
-        CardPreviewBase? Card, NativeCancellation? Cancellation);
+        CardPreviewBase? Card, NativeCancellation? Cancellation, GameObject? OwnedRoot);
     private static readonly List<Request> Pending = new();
 
     internal static void Retire(NativePreviewTask? creation, NativeTask? setup,
-        CardPreviewBase? card, NativeCancellation? cancellation)
+        CardPreviewBase? card, NativeCancellation? cancellation, GameObject? ownedRoot = null)
     {
+        if (ownedRoot != null)
+        {
+            // GenerateUICard and SetUp may still reference the parent, even before a card
+            // is returned. Keep that hidden subtree alive independently of the UI owner.
+            ownedRoot.transform.SetParent(null, false);
+            ownedRoot.SetActive(false);
+            UnityEngine.Object.DontDestroyOnLoad(ownedRoot);
+        }
         cancellation?.Cancel();
         if (card != null) card.gameObject.SetActive(false);
         if (creation == null && setup == null)
         {
             if (card != null) UnityEngine.Object.Destroy(card.gameObject);
+            if (ownedRoot != null) UnityEngine.Object.Destroy(ownedRoot);
             cancellation?.Dispose();
             return;
         }
-        Pending.Add(new Request(creation, setup, card, cancellation));
+        Pending.Add(new Request(creation, setup, card, cancellation, ownedRoot));
     }
 
     public void Update()
@@ -51,6 +60,7 @@ public sealed class NativePreviewCleanup(IntPtr pointer) : MonoBehaviour(pointer
             }
             finally
             {
+                if (request.OwnedRoot != null) UnityEngine.Object.Destroy(request.OwnedRoot);
                 request.Cancellation?.Dispose();
                 Pending.RemoveAt(index);
             }

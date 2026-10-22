@@ -1,5 +1,8 @@
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
+using BazaarPlusPlus.Game.CollectionPanel.Sources;
+using BazaarPlusPlus.Game.CollectionPanel.Grid;
+using BazaarPlusPlus.GameInterop.DayTiers;
 using Il2CppInterop.Runtime;
 using TheBazaar;
 using TheBazaar.AppFramework;
@@ -16,7 +19,20 @@ namespace BazaarPlusPlus.Android;
 public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer)
 {
     internal static bool AnyOpen { get; private set; }
-    private const int PageSize = 8;
+    private const int PageSize = 21;
+    private RectTransform? _gridHost;
+    private int _pageFirst;
+    private int _pageLast = -1;
+    private readonly AndroidBuildCandidates _thumbnails = new();
+    private IReadOnlyList<CollectionSourceEntry> _sources = Array.Empty<CollectionSourceEntry>();
+    private CollectionSourceEntry? _source;
+    private bool _followSource = true;
+    private AndroidChoicePopup? _choices;
+    private Button? _sourceButton;
+    private Button? _dayButton;
+    private GameDataDayTierTable? _dayTiers;
+    private int? _day;
+    private float _nextContextRead;
     private readonly AndroidCollectionCatalog _catalog = new();
     private readonly CollectionFilterState _filter = new();
     private readonly List<Button> _rows = new();
@@ -40,6 +56,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     private BazaarGameShared.Domain.Cards.TCardInstance? _pendingInstance;
     private TMP_InputField? _search;
     private TextMeshProUGUI? _pageLabel;
+    private TextMeshProUGUI? _loadingHint;
     private TextMeshProUGUI? _status;
     private TextMeshProUGUI? _description;
     private RectTransform? _descriptionContent;
@@ -47,10 +64,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     private bool _open;
     private bool _uiBuilt;
     private int _page;
-    private int _heroIndex = -1;
-    private int _tierIndex = -1;
-    private int _sizeIndex = -1;
-    private float _nextTry;
+        private float _nextTry;
     private int _failures;
     private int _scene = -1;
     private Guid? _requested;
@@ -91,6 +105,12 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 _heroes = _catalog.Cards.SelectMany(card => card.Heroes).Distinct().OrderBy(hero => (int)hero).ToArray();
                 Refresh();
             }
+            if (_open && Time.realtimeSinceStartup >= _nextContextRead)
+            {
+                _nextContextRead = Time.realtimeSinceStartup + 1;
+                if (ReadContext()) Changed();
+            }
+            _thumbnails.Tick();
             try { TickPreview(); }
             catch (Exception error)
             {
@@ -138,29 +158,37 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         var background = _panel.gameObject.AddComponent<Image>();
         background.color = new Color(.025f, .04f, .065f, .995f);
         background.raycastTarget = true;
+        _sources = AndroidCollectionSources.Load();
+        _choices = new AndroidChoicePopup(_panel, font);
         var title = NativeUi.Rect("BPP.Title", _panel, new Vector2(.03f, .88f), new Vector2(.6f, .98f));
         NativeUi.Label(title, font, NativeUi.Text("Card Collection", "卡牌图鉴"), 44);
         NativeUi.Button(_panel, font, NativeUi.Text("Reset filters", "重置筛选"), new Vector2(.64f, .88f), new Vector2(.82f, .98f), ResetFilters);
         NativeUi.Button(_panel, font, NativeUi.Text("Close", "关闭"), new Vector2(.85f, .88f), new Vector2(.97f, .98f), () => SetOpen(false));
-        _heroButton = NativeUi.Button(_panel, font, NativeUi.Text("Hero: All", "英雄：全部"), new Vector2(.03f, .78f), new Vector2(.24f, .85f), CycleHero);
-        _tierButton = NativeUi.Button(_panel, font, NativeUi.Text("Tier: All", "品质：全部"), new Vector2(.25f, .78f), new Vector2(.42f, .85f), CycleTier);
-        _sizeButton = NativeUi.Button(_panel, font, NativeUi.Text("Size: All", "体型：全部"), new Vector2(.43f, .78f), new Vector2(.6f, .85f), CycleSize);
+        _heroButton = NativeUi.Button(_panel, font, NativeUi.Text("Hero: All", "英雄：全部"), new Vector2(.03f, .78f), new Vector2(.24f, .85f), ChooseHero);
+        _tierButton = NativeUi.Button(_panel, font, NativeUi.Text("Tier: All", "品质：全部"), new Vector2(.25f, .78f), new Vector2(.42f, .85f), ChooseTier);
+        _sizeButton = NativeUi.Button(_panel, font, NativeUi.Text("Size: All", "体型：全部"), new Vector2(.43f, .78f), new Vector2(.6f, .85f), ChooseSize);
         _itemsButton = NativeUi.Button(_panel, font, NativeUi.Text("Items", "物品"), new Vector2(.03f, .69f), new Vector2(.12f, .76f), () => { _filter.ActiveType = ECardType.Item; Changed(); });
         _skillsButton = NativeUi.Button(_panel, font, NativeUi.Text("Skills", "技能"), new Vector2(.13f, .69f), new Vector2(.22f, .76f), () => { _filter.ActiveType = ECardType.Skill; Changed(); });
         _search = NativeUi.Search(_panel, font, new Vector2(.24f, .69f), new Vector2(.6f, .76f), text => { _filter.SearchQuery = text; Changed(); });
+        _sourceButton = NativeUi.Button(_panel, font, string.Empty, new Vector2(.03f, .60f), new Vector2(.40f, .67f), ChooseSource);
+        _dayButton = NativeUi.Button(_panel, font, string.Empty, new Vector2(.41f, .60f), new Vector2(.60f, .67f), ChooseDay);
+        _gridHost = NativeUi.Rect("BPP.CollectionGrid", _panel, new Vector2(.03f, .14f), new Vector2(.60f, .58f));
         for (var index = 0; index < PageSize; index++)
         {
             var slot = index;
-            var top = .67f - index * .065f;
-            _rows.Add(NativeUi.Button(_panel, font, string.Empty, new Vector2(.03f, top - .058f), new Vector2(.6f, top), () => SelectSlot(slot)));
+            _rows.Add(NativeUi.Button(_gridHost, font, string.Empty, Vector2.zero, Vector2.zero, () => SelectSlot(slot)));
         }
+        _loadingHint = NativeUi.Label(NativeUi.Rect("BPP.LoadingHint", _gridHost, Vector2.zero, Vector2.one), font,
+            NativeUi.Text("Data may take longer to load the first time", "首次打开数据加载可能较慢"), 30);
+        _loadingHint.alignment = TextAlignmentOptions.Center;
+        _loadingHint.raycastTarget = false;
         NativeUi.Button(_panel, font, NativeUi.Text("Previous", "上一页"), new Vector2(.03f, .04f), new Vector2(.18f, .12f), () => { _page--; Refresh(); });
         NativeUi.Button(_panel, font, NativeUi.Text("Next", "下一页"), new Vector2(.45f, .04f), new Vector2(.6f, .12f), () => { _page++; Refresh(); });
         _pageLabel = NativeUi.Label(NativeUi.Rect("BPP.Page", _panel, new Vector2(.19f, .04f), new Vector2(.44f, .12f)), font, string.Empty, 27);
         _previewTierButton = NativeUi.Button(_panel, font, NativeUi.Text("Preview tier", "预览品质"),
-            new Vector2(.64f, .76f), new Vector2(.80f, .82f), CyclePreviewTier);
+            new Vector2(.64f, .76f), new Vector2(.80f, .82f), ChoosePreviewTier);
         _enchantmentButton = NativeUi.Button(_panel, font, NativeUi.Text("Enchantment", "附魔"),
-            new Vector2(.81f, .76f), new Vector2(.97f, .82f), CycleEnchantment);
+            new Vector2(.81f, .76f), new Vector2(.97f, .82f), ChooseEnchantment);
         _previewTierButton.interactable = _enchantmentButton.interactable = false;
         _previewHost = NativeUi.Rect("BPP.Preview", _panel, new Vector2(.64f, .38f), new Vector2(.97f, .75f));
         _status = NativeUi.Label(NativeUi.Rect("BPP.Status", _panel, new Vector2(.64f, .83f), new Vector2(.97f, .87f)), font,
@@ -178,34 +206,92 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (button != null) button.GetComponentInChildren<TextMeshProUGUI>().text = text;
     }
 
-    private void CycleHero()
+    private void ChooseHero()
     {
-        _heroIndex++;
-        if (_heroIndex >= _heroes.Length) _heroIndex = -1;
-        if (_heroIndex == -1) { if (!_filter.AllHeroesSelected) _filter.ToggleAllHeroes(); }
-        else _filter.ToggleHero(_heroes[_heroIndex]);
-        Caption(_heroButton, _heroIndex == -1 ? NativeUi.Text("Hero: All", "英雄：全部") :
-            NativeUi.Text("Hero: ", "英雄：") + (_heroes[_heroIndex] == EHero.Common ? NativeUi.Text("Common", "通用") : _heroes[_heroIndex].ToString()));
-        Changed();
+        var options = new List<(string, Action)> { (NativeUi.Text("All heroes", "全部英雄"), () =>
+        { if (!_filter.AllHeroesSelected) _filter.ToggleAllHeroes(); Changed(); }) };
+        foreach (var hero in _heroes)
+            options.Add((HeroName(hero), () =>
+            { if (_filter.AllHeroesSelected || _filter.EffectiveHero != hero) _filter.ToggleHero(hero); Changed(); }));
+        _choices?.Show(NativeUi.Text("Hero", "英雄"), options);
     }
 
-    private void CycleTier()
+    private void ChooseTier()
     {
-        _tierIndex = (_tierIndex + 2) % (Tiers.Length + 1) - 1;
-        _filter.Tiers.Clear();
-        if (_tierIndex >= 0) _filter.Tiers.Add(Tiers[_tierIndex]);
-        Caption(_tierButton, _tierIndex < 0 ? NativeUi.Text("Tier: All", "品质：全部") : NativeUi.Text("Tier: ", "品质：") + TierName(Tiers[_tierIndex]));
-        Changed();
+        var options = new List<(string, Action)> { (NativeUi.Text("All tiers", "全部品质"), () =>
+        { _filter.Tiers.Clear(); Changed(); }) };
+        foreach (var tier in Tiers)
+            options.Add((TierName(tier), () => { _filter.Tiers.Clear(); _filter.Tiers.Add(tier); Changed(); }));
+        _choices?.Show(NativeUi.Text("Starting tier", "起始品质"), options);
     }
 
-    private void CycleSize()
+    private void ChooseSize()
     {
-        _sizeIndex = (_sizeIndex + 2) % (Sizes.Length + 1) - 1;
-        _filter.Sizes.Clear();
-        if (_sizeIndex >= 0) _filter.Sizes.Add(Sizes[_sizeIndex]);
-        Caption(_sizeButton, _sizeIndex < 0 ? NativeUi.Text("Size: All", "体型：全部") : NativeUi.Text("Size: ", "体型：") + SizeName(Sizes[_sizeIndex]));
-        Changed();
+        var options = new List<(string, Action)> { (NativeUi.Text("All sizes", "全部体型"), () =>
+        { _filter.Sizes.Clear(); Changed(); }) };
+        foreach (var size in Sizes)
+            options.Add((SizeName(size), () => { _filter.Sizes.Clear(); _filter.Sizes.Add(size); Changed(); }));
+        _choices?.Show(NativeUi.Text("Size", "体型"), options);
     }
+
+    private EHero SourceHero() => _filter.AllHeroesSelected && AndroidCollectionContext.InRun && Data.Run?.Player != null
+        ? Data.Run.Player.Hero : _filter.EffectiveHero;
+
+    private void ChooseSource()
+    {
+        var options = new List<(string, Action)>
+        {
+            (NativeUi.Text("Follow current shop", "跟随当前商店"), () => { _followSource = true; ReadContext(); Changed(); }),
+            (NativeUi.Text("All sources", "全部来源"), () => { _followSource = false; _source = null; Changed(); }),
+        };
+        var kind = _filter.ActiveType == ECardType.Item ? CollectionSourceKind.Merchant : CollectionSourceKind.Trainer;
+        foreach (var source in _sources.Where(source => source.Kind == kind && source.IsVisibleForHero(SourceHero())))
+            options.Add((SourceName(source), () => { _followSource = false; _source = source; Changed(); }));
+        _choices?.Show(NativeUi.Text("Shop / Trainer", "商店／训练师"), options);
+    }
+
+    private void ChooseDay() => _choices?.Show(NativeUi.Text("Day filter", "天数筛选"),
+        new List<(string, Action)>
+        {
+            (NativeUi.Text("Follow run day", "跟随对局天数"), () => { _filter.UseRunDayFilter = true; Changed(); }),
+            (NativeUi.Text("All days", "不限天数"), () => { _filter.UseRunDayFilter = false; Changed(); }),
+        });
+
+    private string SourceName(CollectionSourceEntry source)
+    {
+        try
+        {
+            var template = Data.GetStatic()?.GetCardById(Il2CppSystem.Guid.Parse(source.PortraitTemplateId.ToString()));
+            var card = template?.TryCast<BazaarGameShared.Domain.Cards.TCardBase>();
+            var title = card?.Localization?.Title;
+            return title == null ? source.Name : TheBazaar.Tooltips.TooltipExtensions.GetLocalizedText(title) ?? source.Name;
+        }
+        catch (Exception) { return source.Name; }
+    }
+
+    private bool ReadContext()
+    {
+        var previousSource = _source;
+        var previousDay = _day;
+        var previousTier = _dayTiers?.MaximumTier;
+        try
+        {
+            (_day, _dayTiers) = AndroidCollectionContext.DayTiers();
+            if (_followSource)
+                _source = Data.Run?.Player == null ? null : AndroidCollectionContext.Current(_sources, Data.Run.Player.Hero);
+        }
+        catch (Exception error)
+        {
+            _day = null;
+            _dayTiers = null;
+            if (_followSource) _source = null;
+            Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.collection.context_failed exception={error}");
+        }
+        return !ReferenceEquals(previousSource, _source) || previousDay != _day || previousTier != _dayTiers?.MaximumTier;
+    }
+
+    private static string HeroName(EHero hero) => hero == EHero.Common
+        ? NativeUi.Text("Common", "通用") : TheBazaar.Utilities.LocalizableShared.GetLocalizedHero(hero);
 
     private static string TierName(ETier tier) => tier switch
     {
@@ -225,45 +311,86 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     {
         _filter.ResetFacets();
         _filter.ToggleAllHeroes();
-        _heroIndex = _tierIndex = _sizeIndex = -1;
         _search?.SetTextWithoutNotify(string.Empty);
         _search?.DeactivateInputField();
-        Caption(_heroButton, NativeUi.Text("Hero: All", "英雄：全部"));
-        Caption(_tierButton, NativeUi.Text("Tier: All", "品质：全部"));
-        Caption(_sizeButton, NativeUi.Text("Size: All", "体型：全部"));
+        _followSource = true;
+        _filter.UseRunDayFilter = true;
+        ReadContext();
         Changed();
     }
 
     private void Refresh()
     {
+        _loadingHint?.gameObject.SetActive(!_catalog.Ready && _catalog.Error == null);
         var items = _filter.ActiveType == ECardType.Item;
         _sizeButton?.gameObject.SetActive(items);
         if (_itemsButton != null) _itemsButton.GetComponent<Image>().color = items ? new Color(.28f, .35f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
         if (_skillsButton != null) _skillsButton.GetComponent<Image>().color = !items ? new Color(.28f, .35f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
+        if (_source != null && !_source.AppliesToHero(SourceHero()) && !_followSource) _source = null;
+        var source = _source != null && (_source.Kind == CollectionSourceKind.Merchant) == items ? _source : null;
+        var poolHero = SourceHero();
+        if (source != null && !source.AppliesToHero(poolHero)) source = null;
+        var pool = CollectionSourceOfferPoolResolver.Resolve(source, poolHero, _catalog.Cards);
         _visible = CollectionFilterEngine.Apply(_catalog.Cards, _filter,
-            new CollectionFilterContext { ApplyHeroFilter = !_filter.AllHeroesSelected });
-        var pages = Math.Max(1, (_visible.Count + PageSize - 1) / PageSize);
+            new CollectionFilterContext
+            {
+                ApplyHeroFilter = !_filter.AllHeroesSelected && (source == null ||
+                    (!items && !source.HasAllHeroesOfferSegment)),
+                OfferedCardIds = source == null ? null : pool.OfferedCardIds,
+                DayTiers = _dayTiers, SuppressDayGate = source?.SuppressDayGate ?? false,
+            });
+        Caption(_heroButton, NativeUi.Text("Hero: ", "英雄：") + (_filter.AllHeroesSelected
+            ? NativeUi.Text("All", "全部") : HeroName(_filter.EffectiveHero)) + " v");
+        Caption(_tierButton, NativeUi.Text("Tier: ", "品质：") + (_filter.Tiers.Count == 0 ? NativeUi.Text("All", "全部") : TierName(_filter.Tiers.First())) + " v");
+        Caption(_sizeButton, NativeUi.Text("Size: ", "体型：") + (_filter.Sizes.Count == 0 ? NativeUi.Text("All", "全部") : SizeName(_filter.Sizes.First())) + " v");
+        Caption(_sourceButton, (_followSource ? NativeUi.Text("Auto: ", "自动：") : string.Empty) +
+            (source == null ? NativeUi.Text("All sources", "全部来源") : SourceName(source)) + " v");
+        Caption(_dayButton, !_filter.UseRunDayFilter ? NativeUi.Text("All days v", "不限天数 v") :
+            _day.HasValue ? NativeUi.Text("Day ", "第 ") + _day + (_dayTiers == null ? NativeUi.Text(" (unavailable) v", " 天（不可用）v") : NativeUi.Text(" v", " 天 v")) : NativeUi.Text("No run v", "未在对局 v"));
+        var layout = CollectionGridLayout.Build(_visible, _filter.ActiveTab);
+        var shelvesPerPage = items ? 2 : 3;
+        var pages = Math.Max(1, (layout.ShelfCount + shelvesPerPage - 1) / shelvesPerPage);
         _page = Math.Clamp(_page, 0, pages - 1);
+        var firstShelf = _page * shelvesPerPage;
+        _pageFirst = layout.Count == 0 ? 0 : layout.ShelfAt(firstShelf).FirstIndex;
+        _pageLast = layout.Count == 0 ? -1 : layout.ShelfAt(Math.Min(layout.ShelfCount - 1, firstShelf + shelvesPerPage - 1)).LastIndex;
+        Canvas.ForceUpdateCanvases();
+        var bounds = _gridHost!.rect;
+        const float gap = 8;
+        var unit = Math.Max(1, Math.Min((bounds.width - (layout.Columns - 1) * gap) / layout.Columns,
+            bounds.height / (shelvesPerPage * layout.ShelfHeightUnits) - gap));
+        var originX = (bounds.width - layout.Columns * (unit + gap) + gap) * .5f;
+        var scrollY = firstShelf * layout.ShelfPitch(unit, gap);
         for (var slot = 0; slot < _rows.Count; slot++)
         {
-            var index = _page * PageSize + slot;
-            _rows[slot].gameObject.SetActive(index < _visible.Count);
-            if (index < _visible.Count)
+            var index = _pageFirst + slot;
+            var active = index <= _pageLast;
+            _rows[slot].gameObject.SetActive(active);
+            if (!_open || !active) _thumbnails.Remove(_rows[slot]);
+            if (active)
             {
-                var card = _visible[index];
-                Caption(_rows[slot], $"{card.DisplayName}   ·   {TierName(card.StartingTier)}" + (items ? $"   {SizeName(card.Size)}" : string.Empty));
+                var cell = layout.ContentRectFor(index, unit, gap, originX, 0);
+                var rect = _rows[slot].GetComponent<RectTransform>();
+                rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
+                rect.pivot = new Vector2(0, 1);
+                rect.anchoredPosition = new Vector2(cell.X, -(cell.Y - scrollY));
+                rect.sizeDelta = new Vector2(cell.Width, cell.Height);
+                Caption(_rows[slot], string.Empty);
+                if (_open) _thumbnails.Show(_rows[slot], _visible[index].Id, fillCell: true);
             }
         }
         if (_pageLabel != null) _pageLabel.text = !_catalog.Ready ? NativeUi.Text("Loading…", "载入中…") :
-            $"{_page + 1} / {pages}    ·    {_visible.Count}";
+            _visible.Count == 0 ? NativeUi.Text("No matching cards", "没有匹配的卡牌") : $"{_page + 1} / {pages}    ·    {_visible.Count}";
         if (_catalog.Error != null && _status != null) _status.text = NativeUi.Text("Could not load cards. Close and reopen to retry.", "卡牌载入失败，请关闭后重试。");
         if (_requested.HasValue && !_visible.Any(card => card.Id == _requested)) ClearPreview();
+        if (_open && _catalog.Ready)
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.filtered type={_filter.ActiveType} hero={poolHero} source={source?.Name} day={_day} day_filter={_filter.UseRunDayFilter} max_tier={_dayTiers?.MaximumTier} suppress_day={source?.SuppressDayGate ?? false} cards={_visible.Count} page={_page + 1} pages={pages}");
     }
 
     private void SelectSlot(int slot)
     {
-        var index = _page * PageSize + slot;
-        if (index >= _visible.Count) return;
+        var index = _pageFirst + slot;
+        if (index > _pageLast || index >= _visible.Count) return;
         ClearPreview();
         _requested = _visible[index].Id;
         _previewTier = _visible[index].StartingTier;
@@ -271,20 +398,18 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (_status != null) _status.text = _visible[index].DisplayName;
     }
 
-    private void CyclePreviewTier()
+    private void ChoosePreviewTier()
     {
-        if (!_requested.HasValue || _previewTiers.Count < 2) return;
-        var index = _previewTiers.FindIndex(choice => choice.Value == _previewTier);
-        _previewTier = _previewTiers[(index + 1) % _previewTiers.Count].Value;
-        RestartVariant();
+        if (!_requested.HasValue) return;
+        _choices?.Show(NativeUi.Text("Preview tier", "预览品质"), _previewTiers.Select(choice =>
+            (choice.Label, (Action)(() => { _previewTier = choice.Value; RestartVariant(); }))).ToArray());
     }
 
-    private void CycleEnchantment()
+    private void ChooseEnchantment()
     {
-        if (!_requested.HasValue || _enchantments.Count < 2) return;
-        var index = _enchantments.FindIndex(choice => choice.Value == _enchantment);
-        _enchantment = _enchantments[(index + 1) % _enchantments.Count].Value;
-        RestartVariant();
+        if (!_requested.HasValue) return;
+        _choices?.Show(NativeUi.Text("Enchantment", "附魔"), _enchantments.Select(choice =>
+            (choice.Label, (Action)(() => { _enchantment = choice.Value; RestartVariant(); }))).ToArray());
     }
 
     private void RestartVariant()
@@ -368,7 +493,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 }
                 if (_description != null && _descriptionContent != null && _preview._tooltipData != null)
                 {
-                    NativeUi.RichDescription(_description, _preview._tooltipData.BuildCombinedEffectDescription());
+                    NativeUi.RichDescription(_description, AndroidItemDescription.Build(_preview._tooltipData));
                     var width = Math.Max(1, _descriptionContent.rect.width - 24);
                     var preferred = _description.GetPreferredValues(_description.text, width, float.PositiveInfinity);
                     _descriptionContent.sizeDelta = new Vector2(0, Math.Max(60, preferred.y + 24));
@@ -464,14 +589,29 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         AnyOpen = open;
         _panel?.gameObject.SetActive(open);
         _entry?.gameObject.SetActive(!open && !AndroidBuildPanelController.AnyOpen);
-        if (!open) ClearPreview();
-        else { _catalog.Retry(); Refresh(); }
+        _choices?.Close();
+        if (!open) { ClearPreview(); _thumbnails.Hide(); }
+        else
+        {
+            _catalog.Retry();
+            ReadContext();
+            var player = Data.Run?.Player;
+            if (_followSource && player != null && AndroidCollectionContext.InRun)
+            {
+                _filter.ApplySelection(new CollectionPanelSelectionState(player.Hero, null, CollectionSourceKind.Merchant));
+                if (_source != null) _filter.ActiveType = _source.Kind == CollectionSourceKind.Merchant ? ECardType.Item : ECardType.Skill;
+            }
+            Changed();
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.context source={_source?.Name} day={_day} max_tier={_dayTiers?.MaximumTier} count={_visible.Count}");
+        }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.visibility open={open}");
     }
 
     public void OnDestroy()
     {
         AnyOpen = false;
+        _choices?.Close();
+        _thumbnails.Hide();
         ClearPreview();
         RetireRequest();
         if (_canvas != null) UnityEngine.Object.Destroy(_canvas);

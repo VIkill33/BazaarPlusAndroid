@@ -103,6 +103,18 @@ internal sealed class AndroidCollectionCatalog
         var heroes = Copy(card.Heroes);
         var tags = Copy(card.Tags);
         var hidden = Copy(card.HiddenTags);
+        var enchantments = new Dictionary<EEnchantmentType, CollectionCardEnchantmentFacets>();
+        var item = card.TryCast<BazaarGameShared.Domain.Cards.Item.TCardItem>();
+        if (item?.Enchantments != null)
+        {
+            foreach (var type in Enum.GetValues<EEnchantmentType>())
+            {
+                if (!item.Enchantments.ContainsKey(type)) continue;
+                var enchantment = item.Enchantments[type];
+                enchantments[type] = new CollectionCardEnchantmentFacets(type,
+                    Copy(enchantment.Tags), Copy(enchantment.HiddenTags));
+            }
+        }
         var title = card.Localization?.Title;
         var description = card.Localization?.Description;
         var displayName = title == null ? card.InternalName : Localize(title);
@@ -114,6 +126,7 @@ internal sealed class AndroidCollectionCatalog
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? card.InternalName : displayName,
             Description = displayDescription, InternalName = card.InternalName, ArtKey = card.ArtKey,
             IsPackage = PackageIdentity.IsPackage(hidden),
+            IsEnchantable = enchantments.Count > 0, Enchantments = enchantments,
             SearchText = string.Join(" ", displayName, title?.Text, card.InternalName, card.ArtKey,
                 displayDescription, description?.Text, card.Type, card.Size, card.StartingTier,
                 string.Join(" ", heroes), string.Join(" ", tags), string.Join(" ", hidden)),

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+<ItemGroup>
+<Reference Include="BazaarGameShared" HintPath="../../artifacts/interop/BazaarGameShared.dll" />
+<Compile Include="../../android-mod/AndroidCollectionSources.cs" />
+<EmbeddedResource Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Data/CollectionSources/collection-sources.json" LogicalName="BazaarPlusPlus.Android.collection-sources.json" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionSourceEntry.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionSourceOfferRule.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionSourceOfferPoolResolver.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionSourceOfferPoolResult.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionSourceEnums.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionHiddenTagGroups.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionSourceHeroParser.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardVm.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardFacetRanks.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionMechanic.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/GameInterop/Heroes/TheDragonsHeroIdentity.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/GameInterop/DayTiers/GameDataDayTierTable.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Grid/CollectionGridLayout.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Grid/CollectionGridCell.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Grid/CollectionGridConstants.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/UiTokens/BppOverlaySorting.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionTabKind.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionFilterEngine.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionFilterState.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionFilterContext.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionHeroScope.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionTabProfile.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionPanelSelectionState.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardSearch.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardVm.Search.cs;../../../bazaarplusplus-mod/src/BazaarPlusPlus/GameInterop/TagTypography/ReferenceTagBaseResolver.cs" />
+</ItemGroup></Project>

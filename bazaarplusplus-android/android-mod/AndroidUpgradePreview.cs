@@ -79,7 +79,7 @@ internal static class AndroidUpgradePreview
             }
         }
         var description = string.Join("\n", lines);
-        return description;
+        return AndroidItemDescription.WithAttributes(tooltip, description);
     }
 
     private static void ApplyRuntimeMultipliers(ItemCard source, ItemCard projected, TCardItem template, ETier nextTier)

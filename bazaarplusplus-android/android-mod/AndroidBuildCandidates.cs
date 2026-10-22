@@ -15,6 +15,7 @@ internal sealed class AndroidBuildCandidates
     private sealed class Request
     {
         internal required Button Button;
+        internal bool FillCell;
         internal required Guid Id;
         internal required RectTransform Host;
         internal NativePreviewTask? Creation;
@@ -29,14 +30,18 @@ internal sealed class AndroidBuildCandidates
 
     private readonly Dictionary<Button, Request> _requests = new();
 
-    internal void Show(Button button, Guid id, float captionHeight = 0)
+    internal void Show(Button button, Guid id, bool fillCell = false, float captionHeight = 0)
     {
-        if (_requests.TryGetValue(button, out var existing) && existing.Id == id) return;
+        if (_requests.TryGetValue(button, out var existing) && existing.Id == id)
+        {
+            if (existing.Card != null && existing.Ready) { existing.FitAttempts = 3; existing.NextFitFrame = Time.frameCount + 1; }
+            return;
+        }
         Remove(button);
         var host = NativeUi.Rect("BPP.CandidateCard", button.transform,
-            captionHeight > 0 ? new Vector2(.05f, .05f + captionHeight) : new Vector2(.02f, .08f),
-            captionHeight > 0 ? new Vector2(.95f, .95f) : new Vector2(.30f, .92f));
-        _requests.Add(button, new Request { Button = button, Id = id, Host = host });
+            fillCell || captionHeight > 0 ? new Vector2(.05f, .05f + captionHeight) : new Vector2(.02f, .08f),
+            fillCell || captionHeight > 0 ? new Vector2(.95f, .95f) : new Vector2(.30f, .92f));
+        _requests.Add(button, new Request { Button = button, Id = id, Host = host, FillCell = fillCell });
         // An invisible graphic keeps taps on the card routed to the parent candidate button.
         var hit = NativeUi.Rect("BPP.CandidateHit", button.transform, Vector2.zero, Vector2.one);
         var graphic = hit.gameObject.AddComponent<Image>();
@@ -47,8 +52,7 @@ internal sealed class AndroidBuildCandidates
     internal void Remove(Button button)
     {
         if (!_requests.Remove(button, out var request)) return;
-        NativePreviewCleanup.Retire(request.Creation, request.Setup, request.Card, request.Cancellation);
-        UnityEngine.Object.Destroy(request.Host.gameObject);
+        NativePreviewCleanup.Retire(request.Creation, request.Setup, request.Card, request.Cancellation, request.Host.gameObject);
         var hit = button.transform.Find("BPP.CandidateHit");
         if (hit != null) UnityEngine.Object.Destroy(hit.gameObject);
     }
@@ -144,8 +148,10 @@ internal sealed class AndroidBuildCandidates
         PrepareLayoutSize(card);
         card.Resize();
         Canvas.ForceUpdateCanvases();
-        var frame = card._currentFrame?.GetComponent<RectTransform>()
-            ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
+        // Collection cells follow body spans. Measure the artwork, because a large card's
+        // native frame rectangle contains empty margins that would shrink only large cards.
+        var frame = request.FillCell && card._cardImage != null ? card._cardImage.rectTransform :
+            card._currentFrame?.GetComponent<RectTransform>() ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
         if (frame.rect.width <= 1 || frame.rect.height <= 1) return;
         var bounds = request.Host.rect;
         var scale = Mathf.Min(bounds.width / frame.rect.width, bounds.height / frame.rect.height);

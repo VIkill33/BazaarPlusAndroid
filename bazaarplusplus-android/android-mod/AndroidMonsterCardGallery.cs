@@ -119,7 +119,7 @@ internal sealed class AndroidMonsterCardGallery
     {
         if (!request.Ready || request.Card?._tooltipData == null) return;
         var tooltip = request.Card._tooltipData;
-        var detail = tooltip.BuildCombinedEffectDescription();
+        var detail = AndroidItemDescription.Build(tooltip);
         if (string.IsNullOrWhiteSpace(detail))
             detail = NativeUi.Text("No item description available.", "暂无物品描述。");
         _onSelect($"<b>{tooltip.GetTitle()}</b>\n{detail}");
