@@ -461,7 +461,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                     // GenerateUICard rents the prefab; its state machine has only a
                     // Task<GameObject> awaiter. SetUp is a separate native async operation.
                     Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.preview_setup_started template_id={_pendingTemplate} had_card_data={_preparing._cardData != null}");
-                    _pendingSetup = _preparing.SetUp(_catalog.Templates[_pendingTemplate], false, _pendingInstance!, _requestCancellation!.Token);
+                    _pendingSetup = _preparing.SetUp(_catalog.Template(_pendingTemplate), false, _pendingInstance!, _requestCancellation!.Token);
                 }
             }
         }
@@ -504,7 +504,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 }
                 _fitFrame = Time.frameCount + 2;
                 _fitAttempts = 3;
-                Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.preview_ready template_id={_shown} requested_tier={_pendingInstance?.Tier} actual_tier={_preview._tooltipData?.CardInstance?.Tier} enchantment={_enchantment} template_starting_tier={_catalog.Templates[_pendingTemplate].StartingTier} tier_options={_previewTiers.Count} enchantment_options={_enchantments.Count}");
+                Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.preview_ready template_id={_shown} requested_tier={_pendingInstance?.Tier} actual_tier={_preview._tooltipData?.CardInstance?.Tier} enchantment={_enchantment} template_starting_tier={_catalog.Template(_pendingTemplate).StartingTier} tier_options={_previewTiers.Count} enchantment_options={_enchantments.Count}");
             }
             FinishRequest();
         }
@@ -519,9 +519,9 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (!Services.TryGet<AssetLoader>(out var loader) || loader == null) return;
         _pendingVersion = _requestVersion;
         _pendingTemplate = _requested.Value;
-        _pendingInstance = AndroidCardVariants.CreateInstance(_catalog.Templates[_pendingTemplate], _previewTier, _enchantment);
+        _pendingInstance = AndroidCardVariants.CreateInstance(_catalog.Template(_pendingTemplate), _previewTier, _enchantment);
         _requestCancellation = new Il2CppSystem.Threading.CancellationTokenSource();
-        _pendingPreview = loader.GenerateUICard(_previewHost, _requestCancellation.Token, _catalog.Templates[_pendingTemplate]);
+        _pendingPreview = loader.GenerateUICard(_previewHost, _requestCancellation.Token, _catalog.Template(_pendingTemplate));
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.preview_started template_id={_requested}");
     }
 
@@ -599,6 +599,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (!open) { ClearPreview(); _thumbnails.Hide(); }
         else
         {
+            if (Data.IsManagerCreated()) _catalog.EnsureCurrent(Data.GetStatic());
             _catalog.Retry();
             ReadContext();
             var player = Data.Run?.Player;

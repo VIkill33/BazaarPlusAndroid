@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+<ItemGroup>
+<Reference Include="BazaarGameShared" HintPath="../../artifacts/interop/BazaarGameShared.dll" />
+<Compile Include="../../android-mod/AndroidCollectionCache.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardVm.cs" />
+<Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionMechanic.cs" />
+</ItemGroup>
+</Project>

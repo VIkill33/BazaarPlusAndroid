@@ -1,5 +1,47 @@
 # Android 真机验证
 
+## 图鉴磁盘缓存（2026-10-23）
+
+参考桌面 `docs/architecture/collection.md` 的静态目录与筛选语义、
+`AndroidCollectionCatalog` 原有后台读取／分帧投影，以及手机版生成代理
+`JsonGameDataManager._dbPath`、`GetCardById` 和翻译清单路径接口。
+Android 只持久化 `CollectionCardVm` 托管快照；预览模板按需通过原生单卡接口获取，
+未修改共享桌面规则，没有本地可用的原生反编译方法体。
+
+缓存位于 BepInEx cache 下的 `bpp-collection-v1.json`。来源键包含静态数据库及存在时
+SQLite WAL、翻译清单的 SHA-256、游戏版本、当前语言、插件构建标识和缓存格式版本；
+负载另有 SHA-256。仅完整且没有投影异常的非空目录写入缓存，先写临时文件再原子替换。
+缺失、过期或损坏自动回退到完整读取，写入失败保留当前可浏览目录；关闭重开继续复用内存，
+重开时管理器身份或语言变化会丢弃旧模板与快照，未完成的旧读取结果不再接收。
+
+固定工具链编译零警告／错误；Python 4 项检查、BuildCorpus、EnchantPolicy、
+CollectionSources、PreviewTooltips 和新增 CollectionCache 测试通过。
+后者覆盖中文／搜索／筛选／附魔字段往返、数据库／翻译／语言／WAL 变更失效、
+负载篡改拒绝、无效快照不覆盖旧缓存及临时文件清理。
+
+本轮设备 `OBJVWSPNSCFQU48L`、Redmi Note 11T Pro、Android 14、2460×1080，
+游戏 `1.0.12825-production-android-d9601ded`（12825）。初始在已有对局三选一界面，
+随后通过 FusionCore 选择器重启，在大厅验证，没有恢复或推进对局，没有修改实际物品。
+构建产物与设备 DLL SHA-256 前缀为 `adad9d899100`，启动日志确认 `android.mod.loaded`。
+
+可重复入口 `verify_collection_cache.py --help`，分别在无有效缓存／重启后运行
+`--expect cold` 与 `--expect warm`。坐标须先对照当前截图确认；脚本断言目录来源、
+非空卡数、加载耗时、原生预览就绪与关闭日志，截图另行人工复核。
+本次证据保存在被忽略的 `artifacts/collection-cache/`：
+
+- `cold-final/`：已有旧构建缓存，本构建自动失效并完整读取；接受 1,850 张，拒绝 0 张，
+  目录耗时 30,116 ms，确认 `cache_written`，点击乌瓦希瓦利鸟后预览就绪并关闭。
+- `warm-standard/`：完全退出加载器后从选择器重启，日志仅有 `cache_hit`，
+  相同 1,850 张目录耗时 839 ms，没有执行全目录重建；列表显示皮格马利翁 156 件物品，
+  原生卡图与中文详情正常，预览就绪及关闭断言通过。
+- `reopen-standard/` 与 `reopen-advanced/`：标准／高级模式各两轮点选、点击及长按预览、
+  关闭重开；日志断言通过，没有图鉴加载／预览失败与额外原生提示观察事件。
+  模式截图确认切换，测试后已恢复标准模式。
+
+卡图、详情和关闭后无残留由截图人工复核，未声称自动视觉断言。缓存的语言／翻译／WAL
+内容变更、损坏与写入失败的设备故障注入，以及管理器热替换时序仍待真机验证；
+其中数据失效、损坏与无效写入保护已有离线覆盖。此次 839 ms 指目录恢复，不包括游戏启动或后续卡图资源加载。
+
 ## 图鉴关闭后原生物品提示残留修复（2026-10-22）
 
 参考桌面 `GameInterop/CardPreview` 的提示生命周期、图鉴独立详情语义，以及当前手机版

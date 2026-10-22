@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
@@ -10,12 +11,27 @@ namespace BazaarPlusPlus.Android;
 
 internal sealed class AndroidCollectionCatalog
 {
-    private Task<NativeCardMap>? _load;
+    private sealed record LoadResult(NativeCardMap? Map, CollectionCardVm[]? Cached, int NativeCount, string? CacheKey);
+    private Task<LoadResult>? _load;
+    private JsonGameDataManager? _manager;
+    private string? _language;
+    private string? _cacheKey;
+    private readonly Stopwatch _elapsed = new();
+    private static string CachePath => Path.Combine(BepInEx.Paths.CachePath, "bpp-collection-v1.json");
     private Queue<ITCard>? _pending;
     private int _rejected;
     private Exception? _firstProjectionError;
     internal List<CollectionCardVm> Cards { get; } = new();
-    internal Dictionary<Guid, TCardBase> Templates { get; } = new();
+    private Dictionary<Guid, TCardBase> Templates { get; } = new();
+
+    internal TCardBase Template(Guid id)
+    {
+        if (Templates.TryGetValue(id, out var template)) return template;
+        template = _manager?.GetCardById(new Il2CppSystem.Guid(id.ToString())).TryCast<TCardBase>()
+            ?? throw new InvalidOperationException($"Card template unavailable: {id}");
+        Templates.Add(id, template);
+        return template;
+    }
     internal bool Ready { get; private set; }
     internal string? Error { get; private set; }
     internal int NativeCount { get; private set; }
@@ -30,18 +46,56 @@ internal sealed class AndroidCollectionCatalog
         _firstProjectionError = null;
     }
 
+    // Called when opening; never carry native templates across a data-manager swap.
+    internal void EnsureCurrent(JsonGameDataManager manager)
+    {
+        var language = PlayerPreferences.Data?.LanguageCode ?? "en";
+        if (_manager?.Pointer == manager.Pointer && _language == language) return;
+        _manager = manager;
+        _language = language;
+        _load = null;
+        _pending = null;
+        Ready = false;
+        Error = null;
+        Cards.Clear();
+        Templates.Clear();
+        _rejected = 0;
+        _firstProjectionError = null;
+    }
+
     internal void Start(JsonGameDataManager manager)
     {
+        EnsureCurrent(manager);
         if (_load != null || _pending != null || Ready)
             return;
         Error = null;
+        _elapsed.Restart();
+        var dbPath = manager._dbPath;
+        var language = _language ?? "en";
+        var gameVersion = UnityEngine.Application.version;
+        var translations = TheBazaar.DataManagement.DataManifestActions.Translations.GetManifestFilePath();
         _load = Task.Run(() =>
         {
             // This call reads static SQLite/JSON data, not Unity objects. A CLR worker
             // must explicitly attach to the game's IL2CPP domain before native calls.
             var attachedHere = IL2CPP.il2cpp_thread_current() == IntPtr.Zero;
             var thread = attachedHere ? IL2CPP.il2cpp_thread_attach(IL2CPP.il2cpp_domain_get()) : IntPtr.Zero;
-            try { return manager.GetCardMap(); }
+            try
+            {
+                string? cacheKey = null;
+                try
+                {
+                    cacheKey = AndroidCollectionCache.SourceKey(dbPath, translations, gameVersion, language);
+                    var cached = AndroidCollectionCache.Read(CachePath, cacheKey);
+                    if (cached != null)
+                        return new LoadResult(null, cached.Cards, cached.NativeCount, cacheKey);
+                }
+                catch (Exception error)
+                {
+                    Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.collection.cache_miss exception={error.Message}");
+                }
+                return new LoadResult(manager.GetCardMap(), null, 0, cacheKey);
+            }
             finally { if (thread != IntPtr.Zero) IL2CPP.il2cpp_thread_detach(thread); }
         });
     }
@@ -56,7 +110,18 @@ internal sealed class AndroidCollectionCatalog
             {
                 if (!_load.IsCompleted)
                     return false;
-                var map = _load.GetAwaiter().GetResult();
+                var result = _load.GetAwaiter().GetResult();
+                _cacheKey = result.CacheKey;
+                _load = null;
+                if (result.Cached != null)
+                {
+                    Cards.AddRange(result.Cached);
+                    NativeCount = result.NativeCount;
+                    Ready = true;
+                    Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.cache_hit projected_count={Cards.Count} elapsed_ms={_elapsed.ElapsedMilliseconds}");
+                    return true;
+                }
+                var map = result.Map!;
                 NativeCount = map.Count;
                 _pending = new Queue<ITCard>(map.Count);
                 foreach (var pair in map)
@@ -83,9 +148,26 @@ internal sealed class AndroidCollectionCatalog
                 return false;
             _pending = null;
             Ready = true;
+            if (_rejected == 0 && Cards.Count > 0 && _cacheKey != null)
+            {
+                var key = _cacheKey;
+                var snapshot = new AndroidCollectionCache.Snapshot(NativeCount, Cards.ToArray());
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        AndroidCollectionCache.Write(CachePath, key, snapshot);
+                        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.cache_written projected_count={snapshot.Cards.Length}");
+                    }
+                    catch (Exception error)
+                    {
+                        Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.collection.cache_write_failed exception={error.Message}");
+                    }
+                });
+            }
             if (_firstProjectionError != null)
                 Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.collection.catalog_partial rejected_count={_rejected} exception={_firstProjectionError}");
-            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.catalog_ready native_count={NativeCount} projected_count={Cards.Count} rejected_count={_rejected}");
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.catalog_ready native_count={NativeCount} projected_count={Cards.Count} rejected_count={_rejected} elapsed_ms={_elapsed.ElapsedMilliseconds}");
             return true;
         }
         catch (Exception error)
