@@ -11,13 +11,60 @@ import shutil
 import subprocess
 import tarfile
 import zipfile
+import urllib.error
+import urllib.request
 
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def prepare(root, upstream, plugin_dir):
+def valid_dependency(path, descriptor):
+    return (path.is_file() and path.stat().st_size == descriptor["size"]
+            and digest(path) == descriptor["sha256"])
+
+
+def bundle_dependencies(manifest, assets, cache):
+    """Fetch pinned inputs at build time; a verified cache permits offline builds."""
+    cache.mkdir(parents=True, exist_ok=True)
+    for dependency in manifest["dependencies"]:
+        cached = cache / dependency["sha256"]
+        if not valid_dependency(cached, dependency):
+            last_error = None
+            for url in [dependency["url"], *dependency.get("fallbackUrls", [])]:
+                temp = cached.with_suffix(".part")
+                try:
+                    if not url.startswith("https://"):
+                        raise ValueError("Dependency source must use HTTPS")
+                    request = urllib.request.Request(url, headers={
+                        "Accept": "application/octet-stream", "User-Agent": "BazaarPlusPlusAndroid-build"})
+                    with urllib.request.urlopen(request, timeout=60) as response, temp.open("wb") as output:
+                        if response.status != 200 or not response.geturl().startswith("https://"):
+                            raise ValueError("Dependency response must be HTTPS 200")
+                        done = 0
+                        while chunk := response.read(65536):
+                            done += len(chunk)
+                            if done > dependency["size"]:
+                                raise ValueError("Dependency exceeds pinned size")
+                            output.write(chunk)
+                    if not valid_dependency(temp, dependency):
+                        raise ValueError("Dependency size or SHA-256 mismatch")
+                    temp.replace(cached)
+                    break
+                except (OSError, ValueError, urllib.error.URLError) as error:
+                    last_error = error
+                finally:
+                    temp.unlink(missing_ok=True)
+            else:
+                raise ValueError(f"Cannot bundle dependency {dependency['name']}: {last_error}") from last_error
+        asset = "launcher/dependencies/" + dependency["name"]
+        target = assets / asset
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(cached, target)
+        dependency["asset"] = asset
+
+
+def prepare(root, upstream, plugin_dir, dependency_dir=None):
     launcher = root / "launcher"
     lock = json.loads((launcher / "upstream.json").read_text())
     commit = subprocess.check_output(["git", "-C", str(upstream), "rev-parse", "HEAD"], text=True).strip()
@@ -75,6 +122,7 @@ def prepare(root, upstream, plugin_dir):
         return {"asset": asset, "size": path.stat().st_size, "sha256": digest(path)}
 
     assets = launcher / "fusionApp/src/main/assets"
+    bundle_dependencies(manifest, assets, dependency_dir or root / "artifacts/launcher-dependencies")
     manifest["plugin"] = {**descriptor(plugin, "launcher/" + plugin.name), "version": version}
     for key, name in [("framework", "BepInEx-arm64.zip"), ("runtime", "dotnet-arm64.zip")]:
         manifest[key] = descriptor(assets / name, name)
@@ -99,15 +147,25 @@ def prepare(root, upstream, plugin_dir):
     return manifest
 
 
+def verify_bundled_inputs(apk, manifest):
+    with zipfile.ZipFile(apk) as archive:
+        for descriptor in [manifest["framework"], manifest["runtime"], manifest["plugin"],
+                           *manifest["dependencies"]]:
+            payload = archive.read("assets/" + descriptor["asset"])
+            if len(payload) != descriptor["size"] or hashlib.sha256(payload).hexdigest() != descriptor["sha256"]:
+                raise ValueError(f"APK bundled input mismatch: {descriptor['asset']}")
+
+
 def main():
     root = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--upstream", type=Path, default=root / "artifacts/tooling/FusionCore")
     parser.add_argument("--plugin-dir", type=Path, default=root / "artifacts/mod")
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--dependency-dir", type=Path, help="Verified dependency cache (files named by SHA-256); missing inputs are downloaded during build")
     parser.add_argument("--keystore", type=Path, help="Existing release key; passwords and alias use KEYSTORE_PASSWORD/KEY_PASSWORD/KEY_ALIAS")
     args = parser.parse_args()
-    manifest = prepare(root, args.upstream.resolve(), args.plugin_dir.resolve())
+    manifest = prepare(root, args.upstream.resolve(), args.plugin_dir.resolve(), args.dependency_dir)
     if args.prepare_only:
         return
     if not args.keystore or not args.keystore.is_file():
@@ -118,6 +176,7 @@ def main():
     env = {**os.environ, "KEYSTORE_PATH": str(args.keystore.resolve())}
     subprocess.run(["./gradlew", ":fusionApp:assembleRelease", "--console=plain"], cwd=root / "launcher", env=env, check=True)
     apk = root / "launcher/fusionApp/build/outputs/apk/release/fusionApp-release.apk"
+    verify_bundled_inputs(apk, manifest)
     output = root / "artifacts/launcher"
     output.mkdir(parents=True, exist_ok=True)
     target = output / "BazaarPlusPlus-launcher.apk"
@@ -140,6 +199,7 @@ def main():
                      "bazaarplusplus-android/README.md", "bazaarplusplus-android/data/README.md",
                      "bazaarplusplus-android/docs/adr/0001-dedicated-launcher.md",
                      "bazaarplusplus-android/verify_launcher.py", "bazaarplusplus-android/inspect_game.py",
+                     "bazaarplusplus-android/tests/test_launcher_dependencies.py",
                      "bazaarplusplus-android/tests/LauncherFilesTest.java", "bazaarplusplus-android/tests/test_launcher_files.py"]
     with tarfile.open(output / "launcher-source.tar.gz", "w:gz") as archive:
         for relative in sorted(set(source_paths)):

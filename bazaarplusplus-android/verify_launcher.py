@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import zipfile
 
+from build_launcher import verify_bundled_inputs
 from inspect_game import find_adb, run, select_device
 
 
@@ -30,10 +31,11 @@ def main():
     with zipfile.ZipFile(args.apk) as archive:
         release = json.loads(archive.read("assets/launcher/release.json"))
         bundled = archive.read("assets/launcher/BazaarPlusPlus.Android.dll")
+    verify_bundled_inputs(args.apk, release)
     if not re.fullmatch(r"[A-Za-z0-9_-]+", release["storageRoot"]) or not re.fullmatch(r"[A-Za-z0-9_.]+", release["game"]["package"]):
         parser.error("APK manifest contains invalid device path components")
     target = f"/sdcard/{release['storageRoot']}/{release['game']['package']}/BepInEx"
-    checks = {"bundledPluginMatchesManifest": hashlib.sha256(bundled).hexdigest() == release["plugin"]["sha256"]}
+    checks = {"bundledInputsMatchManifest": True, "bundledPluginMatchesManifest": hashlib.sha256(bundled).hexdigest() == release["plugin"]["sha256"]}
     package = run(command + ["shell", "dumpsys", "package", release["applicationId"]])
     checks["installedLauncherVersionMatches"] = bool(re.search(r"versionName=" + re.escape(release["launcherVersion"]) + r"\s*$", package, re.MULTILINE))
     evidence = {"releaseId": release["releaseId"], "launcherVersion": release["launcherVersion"],

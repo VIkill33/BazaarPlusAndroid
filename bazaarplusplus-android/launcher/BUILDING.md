@@ -8,6 +8,13 @@
 按摘要复制；不要提交 APK、运行时压缩包、代理或私钥。使用对应手机版代理运行
 `../build_probe.py --help` 所述的插件构建；`build-inputs.json` 必须包含本次源码记录。
 
+`build_launcher.py::bundle_dependencies` 在构建时获取 `compatibility.json` 固定的 Unity 依赖，
+校验大小与 SHA-256 后一并写入 APK；手机初始化及修复仅提取内置资源。下载地址仍保留在
+发行清单中用于来源追溯，不作为运行时下载入口。默认依赖缓存位于被忽略的
+`artifacts/launcher-dependencies/`，也可通过 `--dependency-dir` 指定以 SHA-256 命名文件的缓存目录。
+缓存齐全可离线准备输入，缺失或损坏则重新获取；任何依赖无法校验都会终止构建。
+构建结束再次核对 APK 内框架、运行时、插件及全部 Unity 依赖的实际内容。
+
 需要 JDK、Android SDK、网络与 Gradle wrapper。Gradle 管理 Android 插件、NDK 和 CMake
 版本；SDK 必须接受相关许可。设置 `JAVA_HOME`、`ANDROID_HOME` 后，从仓库根运行：
 

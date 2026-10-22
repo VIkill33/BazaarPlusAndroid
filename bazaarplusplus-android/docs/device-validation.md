@@ -1,5 +1,39 @@
 # Android 真机验证
 
+## 启动器内置 Unity 依赖（2026-10-23）
+
+参考 `LauncherPreparation.prepare`、`build_launcher.py::prepare` 与
+[ADR-0001](adr/0001-dedicated-launcher.md)，把三个固定 GitHub 输入移至构建阶段下载、
+校验并写入 APK。运行时仅从内置资源提取，继续校验大小和 SHA-256；未修改桌面插件及
+游戏内 UI。来源 URL 和备用资源 API 保留在发行清单供追溯，备用入口仅用于构建。
+
+本次设备为 `OBJVWSPNSCFQU48L`、Redmi Note 11T Pro、Android 14、arm64，
+游戏版本仍为 `1.0.12825-production-android-d9601ded`（12825）。开始时处于已有对局的
+战斗画面，待战斗自行结束、停在遭遇选择界面后进行覆盖安装；没有点击遭遇或推进对局。
+用户确认手机系统安装提示后，同一签名的 `0.1.0-test.6` 覆盖安装成功。
+
+验收步骤与结果：
+
+- Python 9 项离线测试通过，包含执行生产 Java 文件事务／握手测试；新增依赖测试覆盖
+  已校验缓存无网络打包、坏缓存与主来源坏摘要时备用来源恢复、长度及摘要不符时拒绝构建、
+  APK 内依赖缺失／篡改时拒绝验收。
+- 签名 release 构建、Lint vital 与 APK 签名验证通过；直接读取 APK 内框架、运行时、插件及
+  三个 Unity 依赖，实际内容均与清单的大小和 SHA-256 匹配。
+- 停止启动器后，仅暂存 `BepInEx/unity-libs/6000.3.11.zip` 到同目录备份，
+  不清理账号、插件、代理或游戏持久数据。关闭 Wi-Fi 并开启飞行模式，确认
+  `Active default network: none`，通过中文首页的「启动游戏」执行准备。
+- 缺失 ZIP 从 APK 恢复，摘要与固定输入一致。本次会话与 DLL 摘要一致，插件入口和
+  会话加载日志出现；`verify_launcher.py --expect-loaded --not-before-ms …` 的
+  12 项自动断言通过，会话创建到握手约 18.0 秒。没有依赖上一轮加载确认。
+- 验证后移除测试备份，关闭飞行模式，恢复 Wi-Fi；移动数据保持原启用状态。
+  截图人工复核停在游戏加载画面；断网时游戏登录及自身资源加载不在通过范围内。
+
+证据位于被忽略的 `artifacts/launcher/`：`offline-tests.log`、`bundled-build.log`、
+`signing-report.txt` 和 `bundled-offline/` 下的验证脚本、网络状态、XML、截图、
+`verification.json`、`validation.log`、筛选后的当前会话事件。
+本次未清除全部应用缓存或重建游戏代理，因此全新设备无缓存初始化、完整修复、
+第二台设备和其他游戏版本仍待验证；没有将历史验收计作本次验收。
+
 ## 专用单 APK 启动器（2026-10-23）
 
 实现参考固定 FusionCore 的 `BootstrapActivity.prepareConfig`、`GameRuntime`、JNI
@@ -236,7 +270,7 @@ IL2CPP metadata 为 39。其他游戏版本和设备尚未验证。
 本次使用与游戏 Unity 版本匹配的
 [FusionCore Unity 依赖](https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/tag/6000.3.11f1)。
 原生库和符号库由加载器缓存；托管 Unity 库提供给 IL2CPP 代理生成器。
-如果加载器无法自动下载这些依赖，应先解决加载器初始化，再构建图鉴。
+该历史通用加载器流程需要下载；当前专用启动器改为构建时内置，验收见本文件开头。
 游戏 APK、代理程序集、依赖压缩包、设备记录和截图均留在被忽略的 `artifacts/`，
 不作为模组源代码分发。
 

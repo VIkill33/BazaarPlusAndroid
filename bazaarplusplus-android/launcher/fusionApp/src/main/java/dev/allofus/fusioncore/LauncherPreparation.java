@@ -4,8 +4,6 @@ import android.content.Context;
 import org.json.JSONObject;
 import org.json.JSONArray;
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -27,7 +25,7 @@ public final class LauncherPreparation {
                 .putLong("phaseTime", System.currentTimeMillis());
         if (!phase.startsWith("初始化失败")) edit.putString("lastPreparationStep", phase);
         // Keep a bounded stage trace. Raw error messages never enter the exported trace.
-        String safe = phase.startsWith("初始化失败") ? "初始化失败" : phase.startsWith("下载匹配依赖") ? "下载匹配依赖" : phase;
+        String safe = phase.startsWith("初始化失败") ? "初始化失败" : phase;
         try {
             JSONArray previous = new JSONArray(preferences.getString("stageTrace", "[]"));
             if (previous.length() == 0 || !previous.getJSONObject(previous.length() - 1).getString("stage").equals(safe)) {
@@ -45,10 +43,12 @@ public final class LauncherPreparation {
         if (!LauncherFiles.valid(output, descriptor.getString("sha256"), descriptor.getLong("size"))) {
             LauncherFiles.mkdir(output.getParentFile());
             File temp = new File(output.getPath() + ".part");
-            try (InputStream in = context.getAssets().open(descriptor.getString("asset"));
-                 OutputStream out = new FileOutputStream(temp)) { copy(in, out); }
-            verify(temp, descriptor);
-            LauncherFiles.replace(temp, output);
+            try {
+                try (InputStream in = context.getAssets().open(descriptor.getString("asset"));
+                     OutputStream out = new FileOutputStream(temp)) { copy(in, out); }
+                verify(temp, descriptor);
+                LauncherFiles.replace(temp, output);
+            } finally { if (temp.exists()) temp.delete(); }
         }
         return output;
     }
@@ -60,58 +60,13 @@ public final class LauncherPreparation {
 
     static void copy(InputStream in, OutputStream out) throws IOException {
         byte[] buffer = new byte[65536]; int count;
-        while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+        while ((count = in.read(buffer)) != -1) {
+            checkCancelled();
+            out.write(buffer, 0, count);
+        }
     }
 
     public interface Progress { void update(String text); }
-
-    static File dependency(Context context, JSONObject descriptor, Progress progress) throws Exception {
-        JSONArray fallback = descriptor.optJSONArray("fallbackUrls");
-        int count = 1 + (fallback == null ? 0 : fallback.length());
-        Exception last = null;
-        for (int i = 0; i < count; i++) {
-            checkCancelled();
-            try {
-                return downloadDependency(context, descriptor, i == 0 ? descriptor.getString("url") : fallback.getString(i - 1), progress);
-            } catch (IOException error) { last = error; }
-        }
-        checkCancelled();
-        throw new IOException("依赖下载或校验失败，请切换可访问 GitHub 的网络后重试（" + descriptor.getString("name") + "）", last);
-    }
-
-    static File downloadDependency(Context context, JSONObject descriptor, String sourceUrl, Progress progress) throws Exception {
-        File output = new File(context.getCacheDir(), "launcher-downloads/" + descriptor.getString("sha256"));
-        if (LauncherFiles.valid(output, descriptor.getString("sha256"), descriptor.getLong("size"))) return output;
-        LauncherFiles.mkdir(output.getParentFile());
-        File temp = new File(output.getPath() + ".part");
-        URL url = new URL(sourceUrl);
-        if (!url.getProtocol().equals("https")) throw new IOException("依赖来源必须使用 HTTPS");
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setConnectTimeout(15000); connection.setReadTimeout(30000);
-        connection.setRequestProperty("Accept", "application/octet-stream");
-        connection.setRequestProperty("User-Agent", "BazaarPlusPlusAndroid/" + BuildConfig.VERSION_NAME);
-        try {
-            if (connection.getResponseCode() != 200 || !connection.getURL().getProtocol().equals("https"))
-                throw new IOException("依赖下载失败，请检查网络后重试");
-            long expected = descriptor.getLong("size"), done = 0, last = 0;
-            try (InputStream in = connection.getInputStream(); OutputStream out = new FileOutputStream(temp)) {
-                byte[] buffer = new byte[65536]; int count;
-                while ((count = in.read(buffer)) != -1) {
-                    checkCancelled();
-                    done += count;
-                    if (done > expected) throw new IOException("依赖文件长度不符");
-                    out.write(buffer, 0, count);
-                    if (System.currentTimeMillis() - last > 200) {
-                        progress.update("下载匹配依赖 " + done / 1024 + " / " + expected / 1024 + " KB");
-                        last = System.currentTimeMillis();
-                    }
-                }
-            }
-            verify(temp, descriptor);
-            LauncherFiles.replace(temp, output);
-            return output;
-        } finally { connection.disconnect(); if (temp.exists()) temp.delete(); }
-    }
 
     /** Stage the whole archive; individually atomic file installs are reverified before every launch. */
     static void unpack(File archive, File destination, boolean preserveConfig) throws Exception {
@@ -148,7 +103,8 @@ public final class LauncherPreparation {
         JSONArray dependencies = release.getJSONArray("dependencies");
         for (int i = 0; i < dependencies.length(); i++) {
             JSONObject dependency = dependencies.getJSONObject(i);
-            File input = dependency(context, dependency, progress);
+            step(context, progress, "提取内置依赖 " + dependency.getString("name"));
+            File input = asset(context, dependency);
             String name = dependency.getString("name");
             File target = new File(runtime, name);
             if (name.endsWith(".zip")) target = new File(bep(), "unity-libs/" + name);
