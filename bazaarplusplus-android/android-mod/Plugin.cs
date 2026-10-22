@@ -27,5 +27,6 @@ public sealed class Plugin : BasePlugin
             warning: message => Log.LogWarning(message));
         BuildRepository.Warm();
         Log.LogInfo("[BPP][Android] event=android.mod.loaded");
+        AndroidLauncherHandshake.Complete();
     }
 }

@@ -1,0 +1,11 @@
+.idea/
+.gradle/
+.vs/
+.cxx/
+build/
+local.properties
+*.jks
+*.keystore
+fusionApp/src/main/assets/*.zip
+fusionApp/src/main/assets/launcher/
+fusionApp/src/main/jniLibs/

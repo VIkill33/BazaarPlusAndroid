@@ -1,0 +1,20 @@
+{
+  "repository": "https://github.com/All-Of-Us-Mods/FusionCore",
+  "commit": "bf4c69d9d4724e4eff058664a5be0a1d9cfd4e61",
+  "binaryInputs": {
+    "fusionApp/src/main/assets/BepInEx-arm64.zip": "cde9352c7fa85b9f27c2682a3d1ea6e2a5bfbd8fee837c01387c4b61ddd9d3e0",
+    "fusionApp/src/main/assets/dotnet-arm64.zip": "a25c4d9f2bc9c8b8221ceb9b4462fc5bb145a135112110b3441eee093c6dcb78",
+    "fusionApp/src/main/assets/il2cpp2mono-arm64.zip": "5c499e1b1af18b0566f375b9708597a3fc00f9cf223320404cf932f430737e88",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libSystem.Globalization.Native.so": "f95058fdda321edeb2aeeaf4fe0fa5fde63c7cc75bc5f7d8ec2df9fc4a237dbd",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libSystem.IO.Compression.Native.so": "a25f98dac3fb9571c1b022945480dc890d6e3f5a9bea1dd865b1cc9ed5bee8a6",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libSystem.Native.so": "c94870888a509da1c5389108c7c826857e6b0377562ba2c74936b198c75bffe2",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libSystem.Security.Cryptography.Native.OpenSsl.so": "89fff556d3f7dd399f99d5bdd49cebad5bde499b3d0438d78d3651676bafbdc4",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libclrjit.so": "50e00ee781af47437c8e57ef5e3bb2b522e5fb03fc88021b43f092d979d7596d",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libcoreclr.so": "ef89f4f41d767d1e80f6cbc746e01a2c084bdce8d28fffd55b95b5f73c85ea30",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libcrypto.so": "e65854aced6eb8f6556a4aabb3bf46cf86ac40a0fb70349c444a03acbd360d19",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libdobby.so": "aa188e0a34398ca7ca07e129a1b02bb16bdcd3a23ef7243163a46f12999ae550",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libmscordaccore.so": "d320190b73c555b54baeafb30bacba735165e037ed848eb614d71d743fc5ec32",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libmscordbi.so": "05e169b959c04fbf89e16b429495c185dfd4b55fd82f0652c3bd885fb100d0d5",
+    "fusionApp/src/main/jniLibs/arm64-v8a/libssl.so": "905939bafd7968aabbe916cfbc65ba9595f12901f1c36c0d4d2b39abcad9bcfb"
+  }
+}
