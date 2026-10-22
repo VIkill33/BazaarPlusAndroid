@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InteropPath Condition="'$(InteropPath)' == ''">$(MSBuildThisFileDirectory)../../artifacts/interop</InteropPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BazaarGameShared" HintPath="$(InteropPath)/BazaarGameShared.dll" />
+    <Compile Include="../../android-mod/AndroidEncounterTierDistribution.cs" Link="AndroidEncounterTierDistribution.cs" />
+    <Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/GameInterop/DayTiers/GameDataDayTierTable.cs" Link="GameDataDayTierTable.cs" />
+  </ItemGroup>
+</Project>

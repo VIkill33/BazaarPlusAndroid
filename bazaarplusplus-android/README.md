@@ -82,3 +82,9 @@ python3 bazaarplusplus-android/build_probe.py \
 多档升级描述已在真机显示；构筑面板和场上候选已在真机打开。具体数值、事件奖励、
 构筑匹配及其他物品仍需继续验证。
 已完成和待验证功能的逐项清单见 [docs/feature-checklist.md](docs/feature-checklist.md)。
+
+商店长按预览显示当前天数的品质概率，固定单品质奖励显示该品质 100%；特殊规则无法确认时明确提示。
+事件长按预览显示可解析的选项条件、具体奖励数值、奖励卡池限制和后续遭遇；奖励文字使用独立预览卡牌
+交给游戏原生工具提示渲染，不执行奖励或选择事件。米透、丛林遗迹和挖掘行动已在标准和高级输入模式
+验证展示；其他天数、复杂条件及实际领取奖励后的对照仍待验证。重复长按验收可运行
+`python3 bazaarplusplus-android/verify_encounter_preview.py --help` 查看参数，坐标须先对照当前截图确认。
