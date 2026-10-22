@@ -115,6 +115,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             catch (Exception error)
             {
                 RetireRequest();
+                NativePreviewTooltips.Release(_preview);
                 if (_preview != null) UnityEngine.Object.Destroy(_preview.gameObject);
                 _preview = null;
                 _shown = _requested;
@@ -444,6 +445,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             else
             {
                 _preparing = pending.Result;
+                if (_preparing != null) NativePreviewTooltips.Suppress(_preparing);
                 if (_preparing == null || !_open || _pendingVersion != _requestVersion || _previewHost == null)
                     FinishRequest();
                 else
@@ -473,6 +475,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             {
                 _preview = _preparing;
                 _preparing = null;
+                NativePreviewTooltips.Suppress(_preview);
                 _shown = _pendingTemplate;
                 _preview.Resize();
                 _preview.Show(true);
@@ -534,6 +537,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
 
     private void FinishRequest()
     {
+        NativePreviewTooltips.Release(_preparing);
         if (_preparing != null) UnityEngine.Object.Destroy(_preparing.gameObject);
         _preparing = null;
         _requestCancellation?.Dispose();
@@ -571,6 +575,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _requested = null;
         _shown = null;
         _requestCancellation?.Cancel();
+        NativePreviewTooltips.Release(_preparing);
+        NativePreviewTooltips.Release(_preview);
         if (_preparing != null) _preparing.gameObject.SetActive(false);
         if (_preview != null) UnityEngine.Object.Destroy(_preview.gameObject);
         _preview = null;

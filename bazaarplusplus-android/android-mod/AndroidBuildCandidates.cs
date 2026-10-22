@@ -52,6 +52,7 @@ internal sealed class AndroidBuildCandidates
     internal void Remove(Button button)
     {
         if (!_requests.Remove(button, out var request)) return;
+        if (request.FillCell) NativePreviewTooltips.Release(request.Card);
         NativePreviewCleanup.Retire(request.Creation, request.Setup, request.Card, request.Cancellation, request.Host.gameObject);
         var hit = button.transform.Find("BPP.CandidateHit");
         if (hit != null) UnityEngine.Object.Destroy(hit.gameObject);
@@ -97,6 +98,7 @@ internal sealed class AndroidBuildCandidates
                     }
                     request.Card = request.Creation.Result;
                     if (request.Card == null) { Fail(request, "create_null", null); continue; }
+                    if (request.FillCell) NativePreviewTooltips.Suppress(request.Card);
                     var rect = request.Card.GetComponent<RectTransform>();
                     rect.SetParent(request.Host, false);
                     rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
@@ -119,6 +121,7 @@ internal sealed class AndroidBuildCandidates
                         continue;
                     }
                     request.Ready = true;
+                    if (request.FillCell) NativePreviewTooltips.Suppress(request.Card!);
                     request.Card!.Resize();
                     request.Card.Show(true);
                     Fit(request);

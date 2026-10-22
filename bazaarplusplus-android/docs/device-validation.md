@@ -1,5 +1,49 @@
 # Android 真机验证
 
+## 图鉴关闭后原生物品提示残留修复（2026-10-22）
+
+参考桌面 `GameInterop/CardPreview` 的提示生命周期、图鉴独立详情语义，以及当前手机版
+生成代理 `CardPreviewBase` 的 `_showTooltips`、`OnHover`／`OnHoverOut` 与
+`TooltipParentComponent` 的主／副提示关闭接口。本地没有可用的游戏反编译方法体，
+因此未声称已对 Android 原生方法体完成根因验证；代码核对显示原图鉴关闭仅销毁卡面，
+没有释放原生提示。`NativePreviewTooltips.Suppress` 在卡面获取和设置完成后关闭提示触发与
+原生图形射线检测；`Release` 按原生数据指针匹配主／副提示，先解锁再关闭，避免影响其他物品。
+图鉴缩略图仅在 `AndroidBuildCandidates` 的 `FillCell` 路径应用；没有修改共享桌面源码。
+
+固定工具链构建零警告／错误，Python 4 项检查、BuildCorpus、EnchantPolicy、
+CollectionSources 和新增 PreviewTooltips 回归测试通过。后者验证独立代理包装但原生身份相同、
+主／副提示清理、锁定提示解锁、不关闭无关游戏提示、重复清理和未就绪路径。
+
+本轮设备 `OBJVWSPNSCFQU48L`、Redmi Note 11T Pro、Android 14、2460×1080；游戏
+`1.0.12825-production-android-d9601ded`（12825）。初始在系统桌面，从 FusionCore
+选择器启动；设备 DLL 与 `artifacts/mod/build-inputs.json` 的 SHA-256 一致，前缀
+`5997527820eb`，本次日志确认 `android.mod.loaded` 和 `android.collection.ui_ready`。
+恢复已有对局后为皮格马利翁第 2 天三选一画面，400 生命、9 金币、五件场上物品。
+初始标准模式，测试后恢复标准模式；没有购买、移动、出售或修改物品，没有选择遭遇或推进战斗。
+
+标准与高级模式分别完成三轮：打开图鉴、选择物品、点击并长按右侧卡面、关闭、重开。
+标准模式查看双头刃，高级模式查看传家宝，另查看乌瓦希瓦利鸟；卡面与文字详情正常。
+两种模式各补查连续选择前三张卡后立即关闭。返回游戏的截图均未见原生提示残留。
+高级模式额外长按实际场上疾速火柴盒，原生详情与附魔预览正常显示，松手后关闭。
+画面信息和无残留结论来自截图人工复核，不是自动视觉断言。
+
+可重复入口 `verify_collection_close.py --help`；先在游戏设置选择模式并关闭暂停菜单，
+等图鉴目录就绪后关闭，坐标必须依当前截图确认。例如本轮标准模式：
+
+```sh
+python3 bazaarplusplus-android/verify_collection_close.py \
+  --serial OBJVWSPNSCFQU48L --mode standard \
+  --entry 160 540 --slot 480 550 --preview 1980 450 --close 2240 75 \
+  --output bazaarplusplus-android/artifacts/tooltip-cleanup/standard
+```
+
+脚本每轮等待预览与关闭日志，断言没有原生提示观察事件和失败事件，保存操作前后截图，
+不声称自动识别屏幕内容。两种模式的 `validation.json` 均记录三轮通过；证据在被忽略的
+`artifacts/tooltip-cleanup/`，包含 `standard/`、`advanced/`、`input-initial.png`、
+`input-advanced.png`、`input-restored.png`、`rapid-closed.png`、`standard-rapid-closed.png`、
+`game-native-pressed.png`、`final-session.log`、`logcat.txt` 和 `build.log`。
+尚未执行场景销毁、晚完成任务和锁定预览提示的真机故障注入；锁定清理由离线回归覆盖。
+
 ## 图鉴首次加载提示（2026-10-22）
 
 `CollectionController.BuildUi` 在卡牌区域增加“首次打开数据加载可能较慢”；
