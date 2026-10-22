@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -58,6 +59,17 @@ def main():
                         "frameworkArchiveSha256": actual,
                         "interop": {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
                                     for path in sorted(interop.glob("*.dll"))}}
+            items = json.loads(subprocess.check_output([
+                args.dotnet, "msbuild", str(root / "android-mod/BazaarPlusPlus.Android.csproj"),
+                "-getItem:Compile,EmbeddedResource", "-p:Configuration=Release",
+                f"-p:FrameworkPath={framework}", f"-p:InteropPath={interop}"], text=True))["Items"]
+            manifest["sourceInputs"] = {
+                str(Path(item["FullPath"]).relative_to(root.parent)): hashlib.sha256(Path(item["FullPath"]).read_bytes()).hexdigest()
+                for group in items.values() for item in group
+                if Path(item["FullPath"]).is_relative_to(root.parent) and "/obj/" not in item["FullPath"]}
+            manifest["sourceCommit"] = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+            manifest["pluginVersion"] = re.search(r'const string Version = "([^"]+)"',
+                                                  (root / "android-mod/Plugin.cs").read_text()).group(1)
             (mod_output / "build-inputs.json").write_text(json.dumps(manifest, indent=2) + "\n")
             print(f"Android plugin: {mod_output / mod.name}")
 

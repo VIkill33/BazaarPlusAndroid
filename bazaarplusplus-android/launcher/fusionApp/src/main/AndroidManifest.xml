@@ -26,7 +26,7 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
-    <application android:label="@string/app_name" android:icon="@mipmap/app_icon" android:enableOnBackInvokedCallback="true" android:extractNativeLibs="true">
+    <application android:label="@string/app_name" android:icon="@mipmap/app_icon" android:enableOnBackInvokedCallback="true">
     <meta-data android:name="unity.splash-mode" android:value="0" />
     <meta-data android:name="unity.splash-enable" android:value="False" />
     <meta-data android:name="unity.launch-fullscreen" android:value="True" />
@@ -50,11 +50,6 @@
         android:screenOrientation="locked"
         android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
         android:launchMode="singleTask"
-        android:exported="false" />
-    <activity
-        android:name="dev.allofus.fusioncore.GameSettingsActivity"
-        android:theme="@style/Theme.Material3.Dark.NoActionBar"
-        android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
         android:exported="false" />
     <!-- StubActivity for dynamic loading of unregistered activities -->
     <activity

@@ -4,7 +4,6 @@
   "binaryInputs": {
     "fusionApp/src/main/assets/BepInEx-arm64.zip": "cde9352c7fa85b9f27c2682a3d1ea6e2a5bfbd8fee837c01387c4b61ddd9d3e0",
     "fusionApp/src/main/assets/dotnet-arm64.zip": "a25c4d9f2bc9c8b8221ceb9b4462fc5bb145a135112110b3441eee093c6dcb78",
-    "fusionApp/src/main/assets/il2cpp2mono-arm64.zip": "5c499e1b1af18b0566f375b9708597a3fc00f9cf223320404cf932f430737e88",
     "fusionApp/src/main/jniLibs/arm64-v8a/libSystem.Globalization.Native.so": "f95058fdda321edeb2aeeaf4fe0fa5fde63c7cc75bc5f7d8ec2df9fc4a237dbd",
     "fusionApp/src/main/jniLibs/arm64-v8a/libSystem.IO.Compression.Native.so": "a25f98dac3fb9571c1b022945480dc890d6e3f5a9bea1dd865b1cc9ed5bee8a6",
     "fusionApp/src/main/jniLibs/arm64-v8a/libSystem.Native.so": "c94870888a509da1c5389108c7c826857e6b0377562ba2c74936b198c75bffe2",

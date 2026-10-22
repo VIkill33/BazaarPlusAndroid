@@ -4,6 +4,6 @@
 
 #include <string>
 
-void try_hook_libunity(std::string &libUnityPath, const std::string &fallbackLibUnityPath);
+bool try_hook_libunity(const std::string &libUnityPath);
 
 #endif //FUSIONCORE_LIBUNITY_H

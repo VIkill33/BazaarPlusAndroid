@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Fusion Core</string>
+    <string name="app_name">集市增強啟動器</string>
     <string name="selector_title">選擇遊戲</string>
     <string name="selector_subtitle">下方列出支援的遊戲套件。</string>
     <string name="selector_action_settings">設定</string>
@@ -39,5 +39,4 @@
     <string name="selector_folder_create_failed">建立資料夾失敗：%1$s</string>
     <string name="settings_automatic">自動</string>
     <string name="bootstrap_status_extracting_mono_dlls">正在解壓縮 Mono 託管 DLL…</string>
-    <string name="bootstrap_mono_missing_dlls">未為 Il2Cpp2Mono 提供託管 DLL ZIP 檔案。</string>
 </resources>

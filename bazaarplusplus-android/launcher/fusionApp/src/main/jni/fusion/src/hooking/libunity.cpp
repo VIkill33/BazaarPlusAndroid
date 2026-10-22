@@ -24,7 +24,7 @@ void* scripting_method_invoke_hook(void* method, void* obj, void* args, void* ex
 
     return original_scripting_method_invoke(method, obj, args, exc, something);
 }
-void try_hook_libunity(std::string &libUnityPath, const std::string &fallbackLibUnityPath) {
+bool try_hook_libunity(const std::string &libUnityPath) {
 
     // should never be closed
     void *handle = dlopen(libUnityPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
@@ -33,7 +33,7 @@ void try_hook_libunity(std::string &libUnityPath, const std::string &fallbackLib
         log_format(LogLevel::ERROR, TAG,
                    "Failed to load libunity for hooking: {}. Error: {}",
                    libUnityPath.c_str(), safe_dlerror());
-        return;
+        return false;
     }
 
     fs::path libunity_path(libUnityPath);
@@ -41,7 +41,7 @@ void try_hook_libunity(std::string &libUnityPath, const std::string &fallbackLib
     if (!fs::exists(libunity_path) || !fs::exists(sym_path))
     {
         log_format(LogLevel::ERROR, TAG, "Failed to find libunity or libunity.sym.so at {}", libUnityPath.c_str());
-        return;
+        return false;
     }
 
     log_format(LogLevel::INFO, TAG, "Found libunity at {}", libUnityPath.c_str());
@@ -51,16 +51,14 @@ void try_hook_libunity(std::string &libUnityPath, const std::string &fallbackLib
                                           "_Z23scripting_method_invoke18ScriptingMethodPtr18ScriptingObjectPtrR18ScriptingArgumentsP21ScriptingExceptionPtrb");
     if (rva == 0)
     {
-        libUnityPath = fallbackLibUnityPath;
         log(LogLevel::ERROR, TAG, "Failed to find scripting_method_invoke in libunity.sym.so");
-        return;
+        return false;
     }
 
     uintptr_t base = get_module_base(libUnityPath.c_str());
     if (base == 0) {
-        libUnityPath = fallbackLibUnityPath;
         log(LogLevel::ERROR, TAG, "Failed to find base address of libunity");
-        return;
+        return false;
     }
 
     void *target = reinterpret_cast<void *>(base + rva);
@@ -72,11 +70,11 @@ void try_hook_libunity(std::string &libUnityPath, const std::string &fallbackLib
             == 0)
     {
         log(LogLevel::INFO, TAG, "Successfully hooked scripting_method_invoke");
+        return true;
     }
     else
     {
         log(LogLevel::ERROR, TAG, "Failed to hook scripting_method_invoke");
-        // reset libunity path
-        libUnityPath = fallbackLibUnityPath;
+        return false;
     }
 }

@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "game": {
+    "package": "com.tempogames.thebazaar",
+    "versionCode": 12825,
+    "versionName": "1.0.12825-production-android-d9601ded",
+    "unity": "6000.3.11f1",
+    "abi": "arm64-v8a",
+    "validation": "pending-custom-apk"
+  },
+  "baseLibrariesUrl": "https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/download/6000.3.11f1/Managed.zip",
+  "dependencies": [
+    {
+      "name": "libunity.so",
+      "url": "https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/download/6000.3.11f1/libunity.so.arm64-v8a",
+      "size": 28090600,
+      "sha256": "8c62d36ffd7b3fad1c1bd40c187df0282cf418015d19bb3e3b0f55627b6e72e6",
+      "fallbackUrls": [
+        "https://api.github.com/repos/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/assets/508329010?download=1"
+      ]
+    },
+    {
+      "name": "libunity.sym.so",
+      "url": "https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/download/6000.3.11f1/libunity.sym.so.arm64-v8a",
+      "size": 13399040,
+      "sha256": "7ee5db8cdd90f118b5b9bf408b0ad64e9dbb7da20292560bbe2bf73587e33f70",
+      "fallbackUrls": [
+        "https://api.github.com/repos/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/assets/508329141?download=1"
+      ]
+    },
+    {
+      "name": "6000.3.11.zip",
+      "url": "https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/download/6000.3.11f1/Managed.zip",
+      "size": 3069472,
+      "sha256": "e97362e2d6042a72be8f5e0204126d97283815b1fd47fc1a8f0e5c0aa21db1fa",
+      "fallbackUrls": [
+        "https://api.github.com/repos/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/assets/508328996?download=1"
+      ]
+    }
+  ],
+  "storageRoot": "BazaarPlusPlusAndroid"
+}

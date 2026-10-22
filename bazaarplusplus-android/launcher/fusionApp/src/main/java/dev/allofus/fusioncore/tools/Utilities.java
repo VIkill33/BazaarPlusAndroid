@@ -28,7 +28,7 @@ public class Utilities {
     private static final String TAG = "FusionCore";
 
     public static File getExternalFusionCoreDirectory(@Nullable String targetPackage, @Nullable String Folder) {
-        File fusionStorage = new File(Environment.getExternalStorageDirectory(), "BazaarPlusPlusAndroid");
+        File fusionStorage = new File(Environment.getExternalStorageDirectory(), dev.allofus.fusioncore.BuildConfig.LAUNCHER_STORAGE_ROOT);
         if (targetPackage != null) {
             fusionStorage = new File(fusionStorage, targetPackage);
         }

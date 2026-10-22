@@ -7,14 +7,17 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 
 public final class LauncherRelease {
-    public static final String GAME = "com.tempogames.thebazaar";
+    public static final String GAME = BuildConfig.TARGET_GAME;
     private LauncherRelease() {}
 
     public static String read(InputStream in) throws IOException {
         try (InputStream source = in; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192];
             int count;
-            while ((count = source.read(buffer)) != -1) out.write(buffer, 0, count);
+            while ((count = source.read(buffer)) != -1) {
+                if (out.size() + count > 2 * 1024 * 1024) throw new IOException("状态文件超出大小限制");
+                out.write(buffer, 0, count);
+            }
             return out.toString("UTF-8");
         }
     }

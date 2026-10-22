@@ -16,7 +16,7 @@ internal static class AndroidLauncherHandshake
             using var request = JsonDocument.Parse(File.ReadAllText(requestPath));
             var root = request.RootElement;
             var session = root.GetProperty("session").GetString();
-            if (!Guid.TryParse(session, out _) || root.GetProperty("pluginVersion").GetString() != "0.1.0")
+            if (!Guid.TryParse(session, out _) || root.GetProperty("pluginVersion").GetString() != Plugin.Version)
                 return;
             var dll = Path.Combine(Paths.PluginPath, "BazaarPlusPlus.Android.dll");
             var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(dll))).ToLowerInvariant();
@@ -27,7 +27,7 @@ internal static class AndroidLauncherHandshake
             File.WriteAllText(temp, JsonSerializer.Serialize(new
             {
                 session,
-                pluginVersion = "0.1.0",
+                pluginVersion = Plugin.Version,
                 sha256 = hash,
                 loaded = true,
                 loadedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),

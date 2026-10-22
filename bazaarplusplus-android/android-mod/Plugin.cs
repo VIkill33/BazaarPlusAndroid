@@ -6,9 +6,10 @@ using System.Net.Http;
 
 namespace BazaarPlusPlus.Android;
 
-[BepInPlugin("com.bazaarplusplus.android", "BazaarPlusPlus Android", "0.1.0")]
+[BepInPlugin("com.bazaarplusplus.android", "BazaarPlusPlus Android", Plugin.Version)]
 public sealed class Plugin : BasePlugin
 {
+    public const string Version = "0.1.1";
     internal static ManualLogSource? PluginLog;
     internal static AndroidBuildRepository? BuildRepository;
 

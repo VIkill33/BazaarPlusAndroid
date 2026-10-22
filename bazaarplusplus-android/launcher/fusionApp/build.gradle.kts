@@ -4,6 +4,11 @@ plugins {
     id("kotlin-parcelize")
 }
 
+val launcherCompatibility = groovy.json.JsonSlurper().parse(rootProject.file("compatibility.json")) as Map<*, *>
+val launcherGame = launcherCompatibility["game"] as Map<*, *>
+val launcherStorageRoot = launcherCompatibility["storageRoot"] as String
+require(launcherStorageRoot.matches(Regex("[A-Za-z0-9_-]+")) && launcherStorageRoot != "FusionCore")
+
 dependencies {
     implementation("androidx.core:core:1.19.0")
     implementation("androidx.annotation:annotation:1.10.0")
@@ -31,8 +36,10 @@ android {
         minSdk = 26
         targetSdk = 36
         applicationId = "com.bazaarplusplus.android.launcher"
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 5
+        versionName = "0.1.0-test.5"
+        buildConfigField("String", "LAUNCHER_STORAGE_ROOT", "\"$launcherStorageRoot\"")
+        buildConfigField("String", "TARGET_GAME", "\"${launcherGame["package"]}\"")
         ndk {
             abiFilters.add("arm64-v8a")
             // abiFilters.add("armeabi-v7a")
@@ -74,7 +81,7 @@ android {
     }
 
     lint {
-        abortOnError = false
+        abortOnError = true
     }
 }
 

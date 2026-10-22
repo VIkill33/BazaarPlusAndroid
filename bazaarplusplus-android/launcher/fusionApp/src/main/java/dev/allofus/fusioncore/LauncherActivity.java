@@ -34,35 +34,52 @@ public final class LauncherActivity extends AppCompatActivity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(Color.rgb(20, 24, 31));
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
         body.setBackgroundColor(Color.rgb(20, 24, 31));
         scroll.addView(body);
-        Utilities.applyWindowInsets(body, Math.round(24 * getResources().getDisplayMetrics().density));
+        int padding = Math.round(24 * getResources().getDisplayMetrics().density);
+        body.setPadding(padding, padding, padding, padding);
+        Utilities.applyWindowInsets(scroll, 0);
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.drawable.bpp_icon);
         icon.setContentDescription("集市增强图标");
-        body.addView(icon, new LinearLayout.LayoutParams(180, 180));
+        int iconSize = Math.round(72 * getResources().getDisplayMetrics().density);
+        body.addView(icon, new LinearLayout.LayoutParams(iconSize, iconSize));
         TextView title = new TextView(this);
         title.setText("集市增强\nBazaarPlusPlus"); title.setTextSize(28); title.setTextColor(Color.WHITE);
         body.addView(title);
         status = new TextView(this); status.setTextSize(17); status.setTextColor(Color.LTGRAY);
         status.setPadding(0, 24, 0, 24); body.addView(status);
         primary = button(body, "检查环境", this::launchOrExplain);
+        primary.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(224, 165, 57)));
+        primary.setTextColor(Color.rgb(20, 24, 31));
         button(body, "重新检测 / 检查环境", this::refresh);
-        button(body, "修复运行环境", () -> new AlertDialog.Builder(this).setTitle("修复运行环境")
+        LinearLayout extra = new LinearLayout(this);
+        extra.setOrientation(LinearLayout.VERTICAL);
+        extra.setVisibility(View.GONE);
+        button(body, "更多操作", () -> extra.setVisibility(extra.getVisibility() == View.GONE ? View.VISIBLE : View.GONE));
+        body.addView(extra);
+        button(extra, "修复运行环境", () -> new AlertDialog.Builder(this).setTitle("修复运行环境")
                 .setMessage("重新校验并准备框架、依赖与内置插件。保留游戏登录、持久数据和用户配置。请先退出正在运行的游戏。")
-                .setPositiveButton("检查并修复", (dialog, which) -> launchOrExplain())
+                .setPositiveButton("检查并修复", (dialog, which) -> launch(true))
                 .setNegativeButton("取消", null).show());
-        button(body, "查看授权用途", () -> new AlertDialog.Builder(this).setTitle("文件访问授权")
+        button(extra, "查看授权用途", () -> new AlertDialog.Builder(this).setTitle("文件访问授权")
                 .setMessage("运行框架、插件和游戏持久数据保存在启动器的独立共享目录。需要所有文件访问授权才能准备环境；不会迁移或覆盖原 FusionCore 环境。拒绝后可随时返回重试。")
                 .setPositiveButton("知道了", null).show());
-        button(body, "诊断与许可", this::diagnostics);
-        button(body, "导出诊断", () -> {
+        button(extra, "诊断与许可", this::diagnostics);
+        button(extra, "导出诊断", () -> {
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/json")
-                    .addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, "bazaarplusplus-diagnostics.json");
+                    .addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, "bazaarplusplus-diagnostics-" + BuildConfig.VERSION_NAME + ".json");
             startActivityForResult(intent, 9);
         });
+        button(extra, "退出启动器", () -> new AlertDialog.Builder(this).setTitle("退出启动器")
+                .setMessage("结束本启动器与其中运行的游戏。下次打开将重新检查环境，请先确认游戏已完成保存。")
+                .setPositiveButton("退出", (dialog, which) -> {
+                    finishAndRemoveTask(); android.os.Process.killProcess(android.os.Process.myPid());
+                }).setNegativeButton("取消", null).show());
         setContentView(scroll);
     }
 
@@ -91,15 +108,15 @@ public final class LauncherActivity extends AppCompatActivity {
             boolean found = false, compatible = false;
             try {
                 JSONObject release = LauncherRelease.manifest(this);
-                String version = LauncherRelease.game(this).versionName; found = true;
+                LauncherRelease.game(this); found = true;
                 LauncherRelease.check(this, release); compatible = true;
-                message = "游戏已安装：" + version + "\n兼容性：当前组合待专用 APK 真机验收\n内置插件：" +
+                message = "游戏：已安装\n兼容性：测试中\n内置插件：" +
                         release.getJSONObject("plugin").getString("version");
                 if (!authorized()) message += "\n需要文件访问授权";
                 else {
                     String phase = getSharedPreferences("launcher", 0).getString("phase", "尚未初始化");
                     // Arbitrary exception messages stay local; diagnostics export only a classified status.
-                    message += "\n" + phase;
+                    message += "\n" + (LauncherPreparation.BUSY.get() || phase.equals("尚未初始化") ? phase : "上次记录：" + phase);
                     if (getSharedPreferences("launcher", 0).contains("session")) message += "\n" + LauncherPreparation.loadStatus(this);
                 }
             } catch (android.content.pm.PackageManager.NameNotFoundException error) { message = "尚未安装正版 The Bazaar 游戏"; }
@@ -113,12 +130,17 @@ public final class LauncherActivity extends AppCompatActivity {
                 boolean busy = LauncherPreparation.BUSY.get();
                 primary.setEnabled(!busy);
                 primary.setText(busy ? "准备中或游戏仍在运行" : !installed ? "查看安装说明" : !supported ? "检查兼容性" :
-                        !authorized() ? "前往授权" : getSharedPreferences("launcher", 0).contains("session") ? "启动游戏" : "初始化");
+                        !authorized() ? "前往授权" : getSharedPreferences("launcher", 0).getString("phase", "").startsWith("初始化失败") ? "重试初始化" :
+                        getSharedPreferences("launcher", 0).contains("session") ? "启动游戏" : "初始化");
             });
         });
     }
 
     private void launchOrExplain() {
+        launch(false);
+    }
+
+    private void launch(boolean repair) {
         if (LauncherPreparation.BUSY.get()) { Toast.makeText(this, "请先退出当前游戏，再重新打开启动器", Toast.LENGTH_LONG).show(); return; }
         if (!installed) {
             new AlertDialog.Builder(this).setMessage("请通过游戏官方渠道安装正版 The Bazaar，再返回重新检测。首次登录及游戏资源下载由游戏完成。")
@@ -132,6 +154,7 @@ public final class LauncherActivity extends AppCompatActivity {
                 throw new IOException("至少需要 1 GB 可用空间；空间释放后重试");
             Intent intent = new Intent(this, BootstrapActivity.class);
             intent.putExtra(BootstrapActivity.EXTRA_TARGET_PACKAGE, LauncherRelease.GAME);
+            intent.putExtra("bpp_repair", repair);
             startActivity(intent);
         } catch (Exception error) { status.setText(error.getMessage()); }
     }
@@ -146,7 +169,12 @@ public final class LauncherActivity extends AppCompatActivity {
         try { report.put("gameVersion", LauncherRelease.game(this).versionName); } catch (Exception ignored) {}
         String phase = getSharedPreferences("launcher", 0).getString("phase", "尚未初始化");
         report.put("phase", phase.startsWith("初始化失败") ? "初始化失败（本地查看原因）" : phase);
-        if (authorized()) report.put("loadStatus", LauncherPreparation.loadStatus(this));
+        report.put("lastPreparationStep", getSharedPreferences("launcher", 0).getString("lastPreparationStep", "尚未初始化"));
+        report.put("stageTrace", new org.json.JSONArray(getSharedPreferences("launcher", 0).getString("stageTrace", "[]")));
+        File previous = new File(getFilesDir(), "previous-plugin.dll");
+        if (previous.isFile()) report.put("previousPluginSha256", LauncherFiles.sha256(previous));
+        if (authorized() && getSharedPreferences("launcher", 0).contains("session"))
+            report.put("loadStatus", LauncherPreparation.loadStatus(this));
         return report;
     }
 

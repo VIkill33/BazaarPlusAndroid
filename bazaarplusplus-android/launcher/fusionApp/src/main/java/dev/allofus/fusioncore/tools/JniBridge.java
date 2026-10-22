@@ -35,6 +35,12 @@ public class JniBridge {
     }
 
     public static void SetLoadingText(Activity activity, String text) {
+        String lower = text == null ? "" : text.toLowerCase(Locale.ROOT);
+        final String userText = lower.contains("cpp2il") ? "首次准备游戏运行环境，请保持应用在前台"
+                : lower.contains("interop") ? "正在生成游戏适配文件"
+                : lower.contains("plugin") ? "正在加载集市增强插件"
+                : lower.contains("fail") || lower.contains("error") ? "运行环境加载失败，请返回启动器查看诊断"
+                : "正在准备运行环境";
         activity.runOnUiThread(() -> {
             TextView view = activity.findViewById(R.id.loadingText);
             if (view == null) {
@@ -42,7 +48,7 @@ public class JniBridge {
                 return;
             }
 
-            view.setText(text);
+            view.setText(userText);
             Log.i(TAG, "Set loading text to "+text);
 
             // reset timer
@@ -62,7 +68,7 @@ public class JniBridge {
                     String timeString = String.format(Locale.getDefault(),
                             " (%02d:%02d)", minutes, seconds);
 
-                    view.setText(text + timeString);
+                    view.setText(userText + timeString);
 
                     handler.postDelayed(this, 1000);
                 }

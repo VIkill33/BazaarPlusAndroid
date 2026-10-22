@@ -70,7 +70,7 @@ static bool execute_fusion_config(const FusionConfig &config)
     }
 
     std::string libUnityPath = libUnity.string();
-    try_hook_libunity(libUnityPath, (gameLibsPath / "libunity.so").string());
+    if (!try_hook_libunity(libUnityPath)) return false;
 
     std::string patchedPath = patchedLibIl2Cpp.string();
     libmain_set_override_il2cpp_path(patchedPath.c_str());
