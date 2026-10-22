@@ -1,0 +1,11 @@
+Generation mode: built-in image_gen.
+Source: installed game's local APK, com.tempogames.thebazaar, version 1.0.12825-production-android-d9601ded, resource res/oj.png.
+Purpose: standalone Android plugin icon asset; launcher integration is not implemented yet.
+
+Use case: precise-object-edit
+Asset type: Android launcher icon for BazaarPlusPlus, a companion plugin for The Bazaar.
+Input images: Image 1 is the original game's launcher icon and the edit target.
+Primary request: Make only a subtle modification to this exact original icon to distinguish the Android plugin. Preserve the original deep near-black purple background, silver pointed chevron/arch, orange-gold faceted crystal, their silhouette, composition, lighting, and painterly metal and gemstone materials. Add a compact, clearly readable pair of plus symbols "++" in the open lower-right area beside the bottom half of the crystal. Render the plus symbols in warm gold with restrained beveling and a subtle dark outline, harmonious with the original artwork. Keep this addition subordinate to the original emblem but legible at small launcher sizes. Keep all important content safely within the central 80% of the square.
+Text (verbatim): "++"
+Constraints: Faithfully retain the original design; edit only by adding the small ++ identity mark and gently cleaning up image fidelity for a high-resolution 1024x1024 output. Single square icon, full-bleed deep purple background, no surrounding mockup or border. Preserve original icon corner shape.
+Avoid: redesign, extra gems, Android robot, phone, letters, words, banners, busy ornaments, excessive glow, watermark.
