@@ -11,6 +11,8 @@
     <DesktopSource>$(MSBuildThisFileDirectory)../../bazaarplusplus-mod/src/BazaarPlusPlus</DesktopSource>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../data/builds-2026-10-05.json.gz"
+      LogicalName="BazaarPlusPlus.Android.Data.BuildRecommendations.builds.json.gz" />
     <Reference Include="BepInEx.Core" HintPath="$(FrameworkPath)/BepInEx.Core.dll" Private="false" />
     <Reference Include="BepInEx.Unity.IL2CPP" HintPath="$(FrameworkPath)/BepInEx.Unity.IL2CPP.dll" Private="false" />
     <Reference Include="Il2CppInterop.Runtime" HintPath="$(FrameworkPath)/Il2CppInterop.Runtime.dll" Private="false" />

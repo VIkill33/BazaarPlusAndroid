@@ -5,6 +5,7 @@ using TheBazaar;
 using TheBazaar.AppFramework;
 using TheBazaar.UI;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 using NativePreviewTask = Il2CppSystem.Threading.Tasks.Task<TheBazaar.UI.CardPreviewBase>;
 
@@ -23,13 +24,20 @@ internal sealed class AndroidBuildBoard
         internal TCardInstance? Instance;
         internal CardPreviewBase? Card;
         internal bool Ready;
+        internal int FitAttempts;
+        internal int NextFitFrame;
     }
 
     private readonly RectTransform _root;
+    private readonly Action<string> _onSelect;
     private readonly List<Request> _requests = new();
     private AndroidBuild? _shownBuild;
 
-    internal AndroidBuildBoard(RectTransform root) => _root = root;
+    internal AndroidBuildBoard(RectTransform root, Action<string> onSelect)
+    {
+        _root = root;
+        _onSelect = onSelect;
+    }
 
     internal void Show(AndroidBuild? build)
     {
@@ -52,7 +60,14 @@ internal sealed class AndroidBuildBoard
                 new Vector2(item.Slot / 10f, 0),
                 new Vector2((item.Slot + item.Size) / 10f, 1),
                 new Vector2(3, 4), new Vector2(-3, -4));
-            _requests.Add(new Request { Host = host, Item = item });
+            var request = new Request { Host = host, Item = item };
+            var hitArea = host.gameObject.AddComponent<Image>();
+            hitArea.color = new Color(0, 0, 0, .01f);
+            hitArea.raycastTarget = true;
+            var button = host.gameObject.AddComponent<Button>();
+            button.targetGraphic = hitArea;
+            button.onClick.AddListener(DelegateSupport.ConvertDelegate<UnityAction>(() => Select(request)));
+            _requests.Add(request);
         }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.started build={build.Id} items={build.Items.Count}");
     }
@@ -62,7 +77,25 @@ internal sealed class AndroidBuildBoard
         if (_requests.Count == 0 || !Services.TryGet<AssetLoader>(out var loader) || loader == null) return;
         foreach (var request in _requests)
         {
-            if (request.Ready) continue;
+            if (request.Ready)
+            {
+                if (request.FitAttempts > 0 && Time.frameCount >= request.NextFitFrame)
+                {
+                    Fit(request);
+                    request.NextFitFrame = Time.frameCount + 2;
+                    request.FitAttempts--;
+                    if (request.FitAttempts == 0)
+                    {
+                        var art = request.Card!._cardImage;
+                        var rect = request.Card.GetComponent<RectTransform>();
+                        var frame = request.Card._currentFrame?.GetComponent<RectTransform>();
+                        var frameWidth = frame != null ? frame.rect.width : 0;
+                        var frameHeight = frame != null ? frame.rect.height : 0;
+                        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.card_fit template_id={request.Item.TemplateId} host={request.Host.rect.width:0.#}x{request.Host.rect.height:0.#} root={rect.rect.width:0.#}x{rect.rect.height:0.#} frame={frameWidth:0.#}x{frameHeight:0.#} art={art.rectTransform.rect.width:0.#}x{art.rectTransform.rect.height:0.#} texture={art.texture != null} material={request.Card._cardMaterial != null} active={art.gameObject.activeInHierarchy} alpha={art.color.a:0.##} scale={rect.localScale.x:0.###} position={rect.anchoredPosition}");
+                    }
+                }
+                continue;
+            }
             try
             {
                 var template = Data.GetStatic()?.GetCardById(
@@ -76,16 +109,23 @@ internal sealed class AndroidBuildBoard
                 }
                 if (request.Card == null && request.Creation.IsCompleted)
                 {
-                    if (request.Creation.IsFaulted || request.Creation.IsCanceled) { request.Ready = true; continue; }
+                    if (request.Creation.IsFaulted || request.Creation.IsCanceled)
+                    {
+                        Fail(request, "create", request.Creation.Exception);
+                        continue;
+                    }
                     request.Card = request.Creation.Result;
-                    if (request.Card == null) { request.Ready = true; continue; }
+                    if (request.Card == null) { Fail(request, "create_null", null); continue; }
                     var rect = request.Card.GetComponent<RectTransform>();
                     rect.SetParent(request.Host, false);
                     rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
                     rect.pivot = new Vector2(.5f, .5f);
                     rect.anchoredPosition = Vector2.zero;
                     rect.localScale = Vector3.one;
+                    rect.localRotation = Quaternion.identity;
                     request.Card.gameObject.SetActive(true);
+                    PrepareLayoutSize(request.Card);
+                    request.Card.Resize();
                     var enchantment = Enum.TryParse<EEnchantmentType>(request.Item.Enchantment, true, out var parsed)
                         ? parsed : (EEnchantmentType?)null;
                     // The analyzer stores tiers as 1..5; native ETier uses 0..4.
@@ -96,35 +136,71 @@ internal sealed class AndroidBuildBoard
                 if (request.Setup is { IsCompleted: true } && !request.Ready)
                 {
                     request.Ready = true;
-                    if (request.Setup.IsFaulted || request.Setup.IsCanceled) continue;
+                    if (request.Setup.IsFaulted || request.Setup.IsCanceled)
+                    {
+                        Fail(request, "setup", request.Setup.Exception);
+                        continue;
+                    }
                     request.Card!.Resize();
                     request.Card.Show(true);
                     Fit(request);
+                    request.FitAttempts = 3;
+                    request.NextFitFrame = Time.frameCount + 2;
+                    Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.card_ready template_id={request.Item.TemplateId} tier={request.Instance?.Tier}");
                 }
             }
             catch (Exception error)
             {
-                request.Ready = true;
-                Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.build_board.card_failed template_id={request.Item.TemplateId} exception={error}");
+                Fail(request, "exception", error);
             }
         }
+    }
+
+    private static void Fail(Request request, string phase, object? error)
+    {
+        request.Ready = true;
+        if (request.Card != null) request.Card.gameObject.SetActive(false);
+        Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.build_board.card_failed phase={phase} template_id={request.Item.TemplateId} exception={error}");
+    }
+
+    private void Select(Request request)
+    {
+        if (!request.Ready || request.Card?._tooltipData == null) return;
+        var tooltip = request.Card._tooltipData;
+        var detail = tooltip.BuildCombinedEffectDescription();
+        if (string.IsNullOrWhiteSpace(detail))
+            detail = NativeUi.Text("No item description available.", "暂无物品描述。");
+        _onSelect($"<b>{tooltip.GetTitle()}</b>\n{detail}");
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.card_selected template_id={request.Item.TemplateId}");
     }
 
     private static void Fit(Request request)
     {
         var card = request.Card!;
         var rect = card.GetComponent<RectTransform>();
+        PrepareLayoutSize(card);
+        card.Resize();
         Canvas.ForceUpdateCanvases();
-        var art = card._cardImage.rectTransform.rect;
-        var width = art.width > 1 ? art.width : rect.rect.width;
-        var height = art.height > 1 ? art.height : rect.rect.height;
+        var frame = card._currentFrame?.GetComponent<RectTransform>()
+            ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
+        var width = frame.rect.width;
+        var height = frame.rect.height;
         if (width <= 1 || height <= 1) return;
         var bounds = request.Host.rect;
         var scale = Mathf.Min(bounds.width / width, bounds.height / height);
         rect.localScale = new Vector3(scale, scale, scale);
-        var center = request.Host.InverseTransformPoint(card._cardImage.rectTransform.TransformPoint(
-            new Vector3(art.center.x, art.center.y, 0)));
+        var center = request.Host.InverseTransformPoint(frame.TransformPoint(frame.rect.center));
         rect.anchoredPosition -= new Vector2(center.x, center.y);
+    }
+
+    private static void PrepareLayoutSize(CardPreviewBase card)
+    {
+        var rect = card.GetComponent<RectTransform>();
+        if (rect.rect.width > 1 && rect.rect.height > 1) return;
+        var fitter = card.GetComponent<AspectRatioFitter>();
+        var ratio = fitter != null && fitter.aspectRatio > .01f ? fitter.aspectRatio : .8f;
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500);
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 500 * ratio);
     }
 
     internal void Hide()

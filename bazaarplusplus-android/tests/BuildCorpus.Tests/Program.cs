@@ -47,14 +47,24 @@ var cacheFolder = Path.Combine(Path.GetTempPath(), "bpp-android-builds-" + Guid.
 var cachePath = Path.Combine(cacheFolder, "builds.json");
 try
 {
-    var online = new AndroidBuildRepository(new HttpClient(new FixedHandler(payload)), cachePath);
+    var online = new AndroidBuildRepository(new HttpClient(new FixedHandler(payload)), cachePath,
+        loadBundled: false);
     await online.WarmAsync();
     if (online.Current?.BuildCount != 1 || !File.Exists(cachePath))
         throw new Exception("A valid remote corpus must publish and populate the cache.");
-    var offline = new AndroidBuildRepository(new HttpClient(new FixedHandler(null)), cachePath);
+    var offline = new AndroidBuildRepository(new HttpClient(new FixedHandler(null)), cachePath,
+        loadBundled: false);
     await offline.WarmAsync();
     if (offline.Find("Vanessa", new[] { firstCard }).Count != 1)
         throw new Exception("An offline startup must retain matching cached builds.");
+    var bundledPath = Path.Combine(cacheFolder, "bundled.json");
+    await File.WriteAllTextAsync(bundledPath, payload);
+    var bundled = new AndroidBuildRepository(new HttpClient(new FixedHandler(payload)), bundledPath);
+    await bundled.WarmAsync();
+    if (bundled.Current?.CountForHero("Pygmalien") != 834 || bundled.Current.BuildCount < 4000)
+        throw new Exception("The release's bundled corpus must retain Pygmalien recommendations.");
+    if (await File.ReadAllTextAsync(bundledPath) != payload)
+        throw new Exception("A tiny cached or remote response must not replace the bundled corpus.");
 }
 finally
 {

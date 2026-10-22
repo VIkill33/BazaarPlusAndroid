@@ -32,6 +32,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private Button? _sourceButton;
     private Button? _candidatePageButton;
     private readonly List<Button> _candidateButtons = new();
+    private readonly AndroidBuildCandidates _candidateCards = new();
     private readonly List<(Guid Id, string Name)> _boardCandidates = new();
     private readonly List<(Guid Id, string Name)> _stashCandidates = new();
     private readonly List<(Guid Id, string Name)> _shopCandidates = new();
@@ -44,6 +45,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private float _nextRefresh;
     private int _failures;
     private string? _lastDescription;
+    private string? _itemDetail;
 
     private enum CandidateSource { Board, Stash, Shop }
 
@@ -51,7 +53,11 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     {
         try
         {
-            if (_open) _board?.Tick();
+            if (_open)
+            {
+                _board?.Tick();
+                _candidateCards.Tick();
+            }
             if (_canvas == null)
             {
                 var font = NotoFontFallbackRuntime._loadedSansPrimary;
@@ -125,12 +131,18 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                     new Vector2(left, top - .08f), new Vector2(left + .18f, top),
                     () => ToggleCandidate(captured));
                 button.GetComponentInChildren<TextMeshProUGUI>().fontSize = 22;
+                var label = button.GetComponentInChildren<TextMeshProUGUI>();
+                var labelRect = label.GetComponent<RectTransform>();
+                labelRect.anchorMin = new Vector2(.32f, 0);
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = new Vector2(4, 3);
+                labelRect.offsetMax = new Vector2(-4, -3);
                 button.gameObject.SetActive(false);
                 _candidateButtons.Add(button);
             }
             _boardHost = NativeUi.Rect("BPP.RecommendedBoard", _panel,
                 new Vector2(.03f, .36f), new Vector2(.97f, .65f));
-            _board = new AndroidBuildBoard(_boardHost);
+            _board = new AndroidBuildBoard(_boardHost, ShowItemDetail);
             _previousBuildButton = NativeUi.Button(_panel, font, "‹",
                 new Vector2(.03f, .31f), new Vector2(.15f, .36f), PreviousBuild);
             _buildPosition = NativeUi.Label(NativeUi.Rect("BPP.BuildPosition", _panel,
@@ -219,7 +231,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 (match.Build.Id != matches[index].Build.Id || match.LiveStateScore != matches[index].LiveStateScore ||
                  match.MatchedCards != matches[index].MatchedCards)).Any();
         _matches = matches;
-        if (changed) _buildIndex = 0;
+        if (changed) { _buildIndex = 0; _itemDetail = null; }
         if (_buildIndex >= matches.Length) _buildIndex = 0;
         var chosen = matches.Length > 0 ? matches[_buildIndex] : null;
         _board?.Show(chosen?.Build);
@@ -254,6 +266,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (chosen != null)
         {
             var build = chosen.Build;
+            if (!string.IsNullOrWhiteSpace(_itemDetail))
+                lines.Add("\n" + _itemDetail);
             lines.Add($"\n<b>#{_buildIndex + 1} · {NativeUi.Text("Matched", "匹配")} {chosen.MatchedCards}/{_selectedCandidates.Count} " +
                 $"· {NativeUi.Text("Ten-win runs", "十胜场次")} {build.TenWinRuns} " +
                 $"· {build.TenWinRateBps / 100.0:0.#}%</b>");
@@ -304,6 +318,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             var index = _candidatePage * _candidateButtons.Count + slot;
             if (index >= candidates.Count)
             {
+                _candidateCards.Remove(button);
                 button.gameObject.SetActive(false);
                 continue;
             }
@@ -311,7 +326,10 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             var selected = _selectedCandidates.Contains(candidate.Id);
             button.GetComponentInChildren<TextMeshProUGUI>().text =
                 (selected ? "✓ " : "○ ") + candidate.Name;
+            button.GetComponent<Image>().color = selected
+                ? new Color(.19f, .32f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
             button.gameObject.SetActive(true);
+            _candidateCards.Show(button, candidate.Id);
         }
     }
 
@@ -322,6 +340,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (slot < 0 || index >= candidates.Count) return;
         var id = candidates[index].Id;
         if (!_selectedCandidates.Add(id)) _selectedCandidates.Remove(id);
+        _itemDetail = null;
         _nextRefresh = 0;
     }
 
@@ -352,6 +371,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     {
         if (_matches.Length < 2) return;
         _buildIndex = (_buildIndex + _matches.Length - 1) % _matches.Length;
+        _itemDetail = null;
         _lastDescription = null;
         _nextRefresh = 0;
     }
@@ -360,6 +380,14 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     {
         if (_matches.Length < 2) return;
         _buildIndex = (_buildIndex + 1) % _matches.Length;
+        _itemDetail = null;
+        _lastDescription = null;
+        _nextRefresh = 0;
+    }
+
+    private void ShowItemDetail(string detail)
+    {
+        _itemDetail = detail;
         _lastDescription = null;
         _nextRefresh = 0;
     }
@@ -377,7 +405,12 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
 
     private void SetOpen(bool open)
     {
-        if (!open) { _board?.Hide(); _matches = Array.Empty<AndroidBuildMatch>(); }
+        if (!open)
+        {
+            _board?.Hide();
+            _candidateCards.Hide();
+            _matches = Array.Empty<AndroidBuildMatch>();
+        }
         _open = open;
         AnyOpen = open;
         if (_panel != null) _panel.gameObject.SetActive(open);
@@ -388,6 +421,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _lastDescription = null;
             _selectionInitialized = false;
             _selectedCandidates.Clear();
+            _itemDetail = null;
             _source = CandidateSource.Board;
             _candidatePage = 0;
         }
@@ -416,6 +450,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     {
         AnyOpen = false;
         _board?.Hide();
+        _candidateCards.Hide();
         if (_canvas != null) UnityEngine.Object.Destroy(_canvas);
     }
 }

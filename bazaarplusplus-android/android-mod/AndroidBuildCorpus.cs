@@ -29,6 +29,8 @@ internal sealed class AndroidBuildCorpus
 
     internal DateTimeOffset GeneratedAt { get; }
     internal int BuildCount => _heroes.Values.Sum(builds => builds.Count);
+    internal IReadOnlyDictionary<string, int> HeroBuildCounts =>
+        _heroes.ToDictionary(hero => hero.Key, hero => hero.Value.Count, StringComparer.Ordinal);
     internal int CountForHero(string hero) =>
         _heroes.TryGetValue(CanonicalHero(hero), out var builds) ? builds.Count : 0;
 
