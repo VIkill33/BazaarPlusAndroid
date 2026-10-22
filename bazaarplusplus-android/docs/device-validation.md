@@ -570,3 +570,37 @@ SHA-256 与设备保持一致；此前 Python 4 项检查、BuildCorpus 解析�
 `validation.log`、`validation-logcat.txt`、`validation.json` 与 `build-current.log`。
 当前场景未覆盖超过十件候选的分页、空来源、极长名称省略、其他语言及其他横屏比例，
 这些边界仍待验证；没有为验收改变对局库存。
+
+
+## 长按升级预览双模式失效修复（2026-10-23）
+
+参考桌面 `UpgradePreviewAttributeMultiplierResolver.Targets`、预览和输入架构文档，
+并核对本手机版生成代理 `TTargetCardBase.GetTargets` 的 IL：第二参数
+`Il2CppSystem.Nullable<uint>` 经 `Il2CppObjectBaseToPtrNotNull` 后拆箱。
+旧 `AndroidUpgradeAuraResolver.Targets` 传入空引用，设备日志显示升级预览在此抛出
+`NullReferenceException`；附魔预览不经过此路径，两种模式均正常。
+修复复用 `NativeNullableValue.Box<uint>(null)` 表示无目标数量上限，保留光环计算规则。
+不修改桌面源码，不重新引入原生 Harmony 钩子。
+
+设备为 22041216C，Android 14，分辨率 2460×1080，游戏
+`1.0.12825-production-android-d9601ded`；测试前在高级输入模式、已有皮格对局的选怪画面。
+插件构建零警告／错误，Python 9 项测试、BuildCorpus 和 EnchantPolicy 通过。
+签名启动器构建及覆盖安装成功；`verify_launcher.py --expect-loaded` 的 12 项断言通过，
+确认 APK、磁盘插件、当前会话握手和清单的 DLL SHA-256 一致：
+`e6222f33eb40dd7492ec44066aeb9e00424eb4194630d9add9889e13e6e700b9`。
+启动器每次准备会恢复内置插件，因此最终以包含修复 DLL 的 APK 验收，未以 push 成功替代加载证据。
+
+ADB 按当次截图定位，分别在标准和高级模式长按壶铃、公文包、回复多肉植物，
+六个有效用例各生成四档升级描述。每例日志自动断言生成成功、原物品品质及属性摘要未变、
+无预览异常、无对局命令及状态转换；截图人工复核各档文字。
+标准模式壶铃向下滑动可见传奇档；点击左侧空白处关闭原生放大详情和升级浮层。
+高级模式三例松开后浮层消失。一次标准模式公文包操作被仍打开的放大详情遮挡，
+未产生渲染日志，断言如实失败；关闭原生详情后重试通过，不计入上述六个有效用例。
+未购买、移动、出售或实际升级物品，未选择野怪或推进对局，结束恢复高级模式和「长按预览：升级」。
+当前启动日志及所采 logcat 未见预览错误或原生崩溃。
+
+证据保存在被忽略的 `artifacts/upgrade-fix/`：旧版 `before.log`、
+`target-proxy-il.txt`、构建与离线测试日志、`launcher-check/verification.json`、
+`advanced-*-holding.png`／`released.png`、`standard-*.json`／截图、
+`standard-scrolled.png`、`standard-dismissed.png`、`restored-mode.png`、`final.log` 和 `final-logcat.txt`。
+本轮确认空引用故障修复及双模式展示；实际升级后的数值对照、所有光环组合和其他设备仍待验证。

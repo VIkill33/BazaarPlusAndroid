@@ -120,7 +120,9 @@ internal static class AndroidUpgradeAuraResolver
         if (run == null)
             return source.InstanceId.Equals(target.InstanceId) && action.Target?.TryCast<TTargetCardSelf>() != null;
         var context = new TargetingContext(run, source.Cast<ICard>(), null);
-        foreach (var card in action.Target.GetTargets(context, null, null, null))
+        // The IL2CPP proxy unboxes this value-type argument; an absent limit
+        // still needs a native Nullable<uint> instance, not a null reference.
+        foreach (var card in action.Target.GetTargets(context, NativeNullableValue.Box<uint>(null), null, null))
             if (card.GetInstanceId().Equals(target.InstanceId)) return true;
         return false;
     }
