@@ -33,6 +33,14 @@ public final class LauncherActivity extends AppCompatActivity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        // Some home screens create a new entry above the running game instead of
+        // bringing its task forward. Reveal the existing top without relaunching Unity.
+        Intent entry = getIntent();
+        if (!isTaskRoot() && entry != null && Intent.ACTION_MAIN.equals(entry.getAction())
+                && entry.hasCategory(Intent.CATEGORY_LAUNCHER)) {
+            finish();
+            return;
+        }
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(Color.rgb(20, 24, 31));
@@ -205,7 +213,12 @@ public final class LauncherActivity extends AppCompatActivity {
         }
     }
 
-    @Override protected void onResume() { super.onResume(); visible = true; handler.post(refreshTask); }
+    @Override protected void onResume() {
+        super.onResume();
+        if (isFinishing()) return;
+        visible = true;
+        handler.post(refreshTask);
+    }
     @Override protected void onPause() { visible = false; handler.removeCallbacks(refreshTask); super.onPause(); }
     @Override protected void onDestroy() { handler.removeCallbacks(refreshTask); checks.shutdown(); super.onDestroy(); }
 }

@@ -1,5 +1,35 @@
 # Android 真机验证
 
+## 桌面重新打开恢复运行中的游戏（2026-10-23）
+
+参考 `LauncherActivity.onCreate`、`BootstrapActivity.runBootstrapFlow`、
+`InstrumentationHooks` 与 ADR-0001。真机故障栈为同一任务内的
+`LauncherActivity → StubActivity → LauncherActivity`：桌面 MAIN/LAUNCHER 入口
+新增首页并遮住仍存活的游戏。`LauncherActivity.onCreate` 现对非任务根的
+MAIN/LAUNCHER 重复入口立即 `finish()`，保留原游戏与任务；结束中的入口不启动首页刷新。
+不改变游戏加载、修复互斥、桌面插件及游戏内 UI。
+
+本次设备 `OBJVWSPNSCFQU48L`、Redmi Note 11T Pro、Android 14，游戏版本
+`1.0.12825-production-android-d9601ded`（12825）。旧版有已加载游戏及重复首页；
+修复版使用原签名覆盖安装，冷启动首页后点击「启动游戏」，进入游戏加载页及大厅。
+没有选择继续对局、购买、选择遭遇或推进战斗；最后保留大厅设置界面。
+
+- Python 9 项离线检查、签名 release 构建（含 Lint vital）及 APK 签名验证通过。
+- 新增 `verify_launcher_resume.py`，要求已运行的游戏处于前台；通过 HOME 及实测桌面
+  MAIN/LAUNCHER flags 重开入口，等待原游戏和完整栈恢复，断言 ActivityRecord、任务栈和
+  PID 均不变。旧版一次复现失败（前台及栈改变，PID 不变），修复版连续三轮的 9 项断言通过。
+- 使用非 MAIN 的显式入口冷启动，覆盖原故障的入口不一致条件；首页和启动游戏正常。
+  `verify_launcher.py --expect-loaded --not-before-ms …` 的 12 项当前构建／会话／DLL 断言通过。
+- 实际横屏底部连续两次上滑返回 MIUI 桌面（游戏手势防误触），按当前 UI XML 的
+  「集市增强启动器」坐标点击图标；返回原大厅设置页。ActivityRecord、任务栈和 PID
+  三项断言通过；画面保留由截图人工复核，不是自动视觉断言。
+
+证据位于被忽略的 `artifacts/launcher/`：`resume-before/` 为旧版失败，
+`resume-build.log` 为构建日志，`resume-loaded/` 为当前会话确认，`resume/` 为三轮
+任务栈、截图、`verification.json`、实际手势与点击的 `gesture-home.xml`、
+`gesture-home.png`、`gesture-return.txt`、`gesture-return.png` 和 `gesture-verification.json`。
+准备过程中返回、系统杀进程后的恢复、最近任务卡片及第二设备仍待验证。
+
 ## 启动器内置 Unity 依赖（2026-10-23）
 
 参考 `LauncherPreparation.prepare`、`build_launcher.py::prepare` 与
