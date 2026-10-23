@@ -14,6 +14,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private RectTransform? _buttons;
     private Button? _handle;
     private Canvas? _canvas;
+    private AndroidHoldPreview? _holdPreview;
     private bool _collapsed;
     private bool _autoHide;
     private float _lastInteraction;
@@ -74,6 +75,8 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             Layout();
         });
         Bind(_handle);
+        _holdPreview = gameObject.AddComponent<AndroidHoldPreview>();
+        _holdPreview.Build(_buttons!, font);
         _edge = AndroidDockSettings.Current.Edge;
         _along = AndroidDockSettings.Current.Along / 10000f;
         _autoHide = AutoHide;
@@ -124,8 +127,10 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     public void LateUpdate()
     {
         if (_group == null) return;
+        if (AndroidHoldPreview.Active) _lastInteraction = Time.realtimeSinceStartup;
         var visible = !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen;
         _group.gameObject.SetActive(visible);
+        _holdPreview?.SetAvailable(visible && !_collapsed);
         if (!visible)
         {
             _pointer = null;
@@ -141,7 +146,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             Layout();
         }
         if (_screen != new Vector2(Screen.width, Screen.height) || _safe != Screen.safeArea) Layout();
-        if (visible && _autoHide && !_collapsed && !_pointer.HasValue
+        if (visible && _autoHide && !_collapsed && !_pointer.HasValue && !AndroidHoldPreview.Active
             && Time.realtimeSinceStartup - _lastInteraction >= 5)
         {
             _collapsed = true;
@@ -169,7 +174,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     {
         _screen = new Vector2(Screen.width, Screen.height);
         _safe = Screen.safeArea;
-        _group!.sizeDelta = _collapsed ? new Vector2(160, 108) : new Vector2(270, _autoHide ? 355 : 280);
+        _group!.sizeDelta = _collapsed ? new Vector2(160, 108) : new Vector2(270, _autoHide ? 450 : 375);
         _buttons!.gameObject.SetActive(!_collapsed);
         _handle!.gameObject.SetActive(_collapsed || _autoHide);
         var handle = _handle.GetComponent<RectTransform>();

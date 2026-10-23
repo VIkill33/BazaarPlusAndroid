@@ -24,6 +24,8 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private const float PreviewWidth = 370;
 
     private float _nextScan;
+    private bool _wasHoldPreview;
+    private int _holdRevision;
     private IntPtr _lastCard;
     private int _lastController;
     private bool _lastLocked;
@@ -59,6 +61,10 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
 
     public void Update()
     {
+        var holdPreview = AndroidHoldPreview.Active;
+        if ((_wasHoldPreview && !holdPreview) || _holdRevision != AndroidHoldPreview.Revision) Hide();
+        _holdRevision = AndroidHoldPreview.Revision;
+        _wasHoldPreview = holdPreview;
         _monsterGallery?.Tick();
         if (Time.realtimeSinceStartup < _nextScan) return;
         _nextScan = Time.realtimeSinceStartup + .25f;
@@ -71,6 +77,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             {
                 if (controller == null || !controller.isActiveAndEnabled) continue;
                 var data = controller.CurrentTooltipData?.TryCast<CardTooltipData>();
+                if (data != null && AndroidHoldPreview.SuppressRetired(data)) continue;
                 var levelData = controller.CurrentTooltipData?.TryCast<HeroLevelTooltipData>();
                 var card = data?.CardInstance;
                 var item = card?.TryCast<ItemCard>();
@@ -82,7 +89,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 var locked = controller.IsLocked;
                 // Advanced mobile input can keep the live tooltip unlocked while
                 // the card is inspected; standard mode uses the locked long press.
-                if (levelData == null && !locked && PlayerPreferences.Data?.AlternativeInput != true) continue;
+                if (levelData == null && !locked && !AndroidHoldPreview.Active && PlayerPreferences.Data?.AlternativeInput != true) continue;
                 var longPressMode = AndroidLongPressPreviewSettings.Mode;
                 if (item != null && longPressMode == AndroidLongPressPreviewMode.None)
                 {
