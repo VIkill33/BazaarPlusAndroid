@@ -4,8 +4,10 @@ import android.content.Context;
 import org.json.JSONObject;
 import org.json.JSONArray;
 import java.io.*;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import dev.allofus.fusioncore.proto.TombstoneProtos;
 
 import dev.allofus.fusioncore.tools.Utilities;
 
@@ -14,6 +16,12 @@ public final class LauncherPreparation {
     static final AtomicBoolean BUSY = new AtomicBoolean();
     static final AtomicBoolean CANCEL = new AtomicBoolean();
     static volatile String activeSession;
+    private static volatile Context noteContext;
+    private static Thread.UncaughtExceptionHandler noteHandler;
+    private static final ThreadLocal<Boolean> notingCrash = ThreadLocal.withInitial(() -> false);
+    private static boolean runtimeNotes;
+    private static int runtimeInfoLeft;
+    private static int runtimeImportantLeft;
     private LauncherPreparation() {}
 
     public static File bep(String packageName) {
@@ -50,33 +58,212 @@ public final class LauncherPreparation {
         } catch (Exception ignored) {}
     }
 
-    /** Home became visible again before the loader was dismissed. */
-    public static void noteInterruptedLoader(Context context) {
-        android.content.SharedPreferences preferences = context.getSharedPreferences("launcher", 0);
-        if (!preferences.getBoolean("loaderActive", false)) return;
-        long started = preferences.getLong("loaderStartedAt", 0);
-        preferences.edit().putBoolean("loaderActive", false).commit();
-        BUSY.set(false);
-        activeSession = null;
-        phase(context, "初始化失败：准备运行环境时退出" + exitSuffix(context, started) + "。可从「更多」导出诊断日志后重试");
+    /** Set before the game process is entered. Survives process death that happens before the loader overlay. */
+    public static void markHandoff(Context context, boolean active) {
+        synchronized (LauncherPreparation.class) {
+            runtimeNotes = active;
+            if (active) {
+                runtimeInfoLeft = 30;
+                runtimeImportantLeft = 20;
+            }
+        }
+        try {
+            android.content.SharedPreferences.Editor edit = context.getSharedPreferences("launcher", 0).edit()
+                    .putBoolean("handoffActive", active);
+            if (active) edit.putLong("handoffStartedAt", System.currentTimeMillis());
+            edit.commit();
+        } catch (Exception ignored) {}
     }
 
-    private static String exitSuffix(Context context, long startedAt) {
-        if (android.os.Build.VERSION.SDK_INT < 30 || startedAt <= 0) return "";
+    /** Bounded runtime notes for the handoff window. Gameplay logs stay out of the diagnostic. */
+    public static boolean acceptRuntimeNote(String text) {
+        if (text == null || text.isEmpty()) return false;
+        String lower = text.toLowerCase(java.util.Locale.ROOT);
+        boolean important = lower.contains("error") || lower.contains("fail") || lower.contains("exception")
+                || lower.contains("crash") || lower.contains("plugin") || lower.contains("warn");
+        synchronized (LauncherPreparation.class) {
+            if (!runtimeNotes) return false;
+            if (important) {
+                if (runtimeImportantLeft <= 0) return false;
+                runtimeImportantLeft--;
+                return true;
+            }
+            if (runtimeInfoLeft <= 0) return false;
+            runtimeInfoLeft--;
+            return true;
+        }
+    }
+
+    /** Record an uncaught Java exception, then keep the previous handler. Re-wraps if the game replaces it. */
+    public static void watchCrashes(Context context) {
+        if (context != null) noteContext = context.getApplicationContext();
+        Thread.UncaughtExceptionHandler current = Thread.getDefaultUncaughtExceptionHandler();
+        if (current == noteHandler) return;
+        Thread.UncaughtExceptionHandler previous = current;
+        noteHandler = (thread, error) -> {
+            if (Boolean.TRUE.equals(notingCrash.get())) {
+                if (previous != null) previous.uncaughtException(thread, error);
+                return;
+            }
+            notingCrash.set(true);
+            try {
+                try {
+                    Context currentContext = noteContext;
+                    if (currentContext != null && error != null) {
+                        LauncherLog.note(currentContext.getFilesDir(), "未捕获异常 " + thread.getName() + " " + error.getClass().getSimpleName());
+                        if (error.getMessage() != null && !error.getMessage().isEmpty())
+                            LauncherLog.note(currentContext.getFilesDir(), "异常信息 " + error.getMessage());
+                        StackTraceElement[] frames = error.getStackTrace();
+                        int shown = 0;
+                        for (int i = 0; i < frames.length && shown < 6; i++) {
+                            StackTraceElement frame = frames[i];
+                            LauncherLog.note(currentContext.getFilesDir(), "异常栈 " + frame.getClassName() + "."
+                                    + frame.getMethodName() + ":" + frame.getLineNumber());
+                            shown++;
+                        }
+                    }
+                } catch (Exception ignored) {}
+                if (previous != null) previous.uncaughtException(thread, error);
+            } finally { notingCrash.set(false); }
+        };
+        Thread.setDefaultUncaughtExceptionHandler(noteHandler);
+    }
+
+    /** Home became visible again before startup finished, or a new process found an unfinished handoff. */
+    public static void noteInterruptedLoader(Context context) {
+        android.content.SharedPreferences preferences = context.getSharedPreferences("launcher", 0);
+        boolean loader = preferences.getBoolean("loaderActive", false);
+        boolean handoff = preferences.getBoolean("handoffActive", false);
+        if (!loader && !handoff) return;
+        if (!loader && BUSY.get()) return;
+        if (!loader && acknowledged(context) && !handoffNewerThanSession(preferences)) {
+            markHandoff(context, false);
+            return;
+        }
+        long loaderStarted = preferences.getLong("loaderStartedAt", 0);
+        long handoffStarted = preferences.getLong("handoffStartedAt", 0);
+        long started = loaderStarted > 0 && handoffStarted > 0 ? Math.min(loaderStarted, handoffStarted)
+                : Math.max(loaderStarted, handoffStarted);
+        markLoader(context, false);
+        markHandoff(context, false);
+        BUSY.set(false);
+        activeSession = null;
+        ExitNote exit = exitNote(context, started);
+        phase(context, "初始化失败：" + (loader ? "准备运行环境时退出" : "启动游戏时进程退出")
+                + exit.suffix + "。可从「更多」导出诊断日志后重试");
+        for (String line : exit.lines) LauncherLog.note(context.getFilesDir(), line);
+    }
+
+    private static final class ExitNote {
+        String suffix = "";
+        List<String> lines = java.util.Collections.emptyList();
+    }
+
+    private static ExitNote exitNote(Context context, long startedAt) {
+        ExitNote note = new ExitNote();
+        if (android.os.Build.VERSION.SDK_INT < 30 || startedAt <= 0) return note;
         try {
             android.app.ActivityManager manager = context.getSystemService(android.app.ActivityManager.class);
-            if (manager == null) return "";
+            if (manager == null) return note;
             android.app.ApplicationExitInfo match = null;
             for (android.app.ApplicationExitInfo info : manager.getHistoricalProcessExitReasons(context.getPackageName(), 0, 8)) {
                 if (info.getTimestamp() < startedAt) continue;
                 if (match == null || info.getTimestamp() > match.getTimestamp()) match = info;
             }
-            if (match == null) return "";
+            if (match == null) return note;
+            int reason = match.getReason();
+            String trace = reason == android.app.ApplicationExitInfo.REASON_CRASH
+                    || reason == android.app.ApplicationExitInfo.REASON_CRASH_NATIVE
+                    || reason == android.app.ApplicationExitInfo.REASON_ANR ? traceText(match) : "";
+            String signal = LauncherLog.crashSignal(trace);
             String description = match.getDescription() == null ? "" : LauncherLog.sanitize(match.getDescription());
             if (description.equals("（空）")) description = "";
-            else description = "：" + description;
-            return "（" + LauncherLog.processExit(match.getReason()) + description + "）";
-        } catch (Exception ignored) { return ""; }
+            String detail = !signal.isEmpty() ? " " + signal : description.isEmpty() ? "" : "：" + description;
+            note.suffix = "（" + LauncherLog.processExit(reason) + detail + "）";
+            note.lines = LauncherLog.crashLines(trace);
+            return note;
+        } catch (Exception ignored) { return note; }
+    }
+
+    private static String traceText(android.app.ApplicationExitInfo info) {
+        byte[] raw = readTrace(info);
+        if (raw == null || raw.length == 0) return "";
+        String text = decodeUtf8(raw);
+        if (text != null && (text.contains("signal ") || text.contains("backtrace") || text.contains("\tat "))) return text;
+        try { return tombstoneText(TombstoneProtos.Tombstone.parseFrom(raw)); }
+        catch (Exception ignored) { return text == null ? "" : text; }
+    }
+
+    private static byte[] readTrace(android.app.ApplicationExitInfo info) {
+        try (InputStream in = info.getTraceInputStream()) {
+            if (in == null) return null;
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int count, total = 0;
+            while ((count = in.read(buffer)) != -1 && total < 2 * 1024 * 1024) {
+                out.write(buffer, 0, count);
+                total += count;
+            }
+            return out.toByteArray();
+        } catch (Exception ignored) { return null; }
+    }
+
+    private static String decodeUtf8(byte[] raw) {
+        try {
+            java.nio.charset.CharsetDecoder decoder = java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT);
+            return decoder.decode(java.nio.ByteBuffer.wrap(raw)).toString();
+        } catch (Exception ignored) { return null; }
+    }
+
+    private static String tombstoneText(TombstoneProtos.Tombstone tombstone) {
+        StringBuilder text = new StringBuilder();
+        TombstoneProtos.Signal signal = tombstone.getSignalInfo();
+        String name = signal.getName().isEmpty() ? signalName(signal.getNumber()) : signal.getName();
+        if (!name.isEmpty()) {
+            text.append("signal ").append(signal.getNumber()).append(" (").append(name).append(')');
+            if (signal.getCode() != 0 || !signal.getCodeName().isEmpty())
+                text.append(", code ").append(signal.getCode()).append(" (").append(signal.getCodeName()).append(')');
+            if (signal.getHasFaultAddress()) text.append(", fault addr 0x").append(Long.toHexString(signal.getFaultAddress()));
+            text.append('\n');
+        }
+        if (!tombstone.getAbortMessage().isEmpty())
+            text.append("Abort message: '").append(tombstone.getAbortMessage().replace('\n', ' ')).append("'\n");
+        for (TombstoneProtos.Cause cause : tombstone.getCausesList()) {
+            if (!cause.getHumanReadable().isEmpty())
+                text.append("Cause: ").append(cause.getHumanReadable().replace('\n', ' ')).append('\n');
+        }
+        if (tombstone.getPageSize() != 0) text.append("page size ").append(tombstone.getPageSize()).append('\n');
+        if (tombstone.getHasBeen16KbMode()) text.append("16kb mode\n");
+        TombstoneProtos.Thread thread = tombstone.getTid() == 0 ? null : tombstone.getThreadsMap().get(tombstone.getTid());
+        if (thread == null && !tombstone.getThreadsMap().isEmpty())
+            thread = tombstone.getThreadsMap().values().iterator().next();
+        if (thread != null) {
+            text.append("backtrace:\n");
+            int count = 0;
+            for (TombstoneProtos.BacktraceFrame frame : thread.getCurrentBacktraceList()) {
+                if (count++ >= 8) break;
+                text.append('#').append(count - 1).append(" pc ").append(Long.toHexString(frame.getRelPc()))
+                        .append(' ').append(frame.getFileName());
+                if (!frame.getFunctionName().isEmpty())
+                    text.append(" (").append(frame.getFunctionName().replace('\n', ' ')).append(')');
+                text.append('\n');
+            }
+        }
+        return text.toString();
+    }
+
+    private static String signalName(int number) {
+        return switch (number) {
+            case 11 -> "SIGSEGV";
+            case 6 -> "SIGABRT";
+            case 7 -> "SIGBUS";
+            case 4 -> "SIGILL";
+            case 8 -> "SIGFPE";
+            case 13 -> "SIGPIPE";
+            default -> number == 0 ? "" : "SIG" + number;
+        };
     }
 
     static File asset(Context context, JSONObject descriptor) throws Exception {
@@ -213,16 +400,30 @@ public final class LauncherPreparation {
     /** Preserve a verified prior launch before starting a new session or changing the bundled DLL. */
     public static void rememberLastGood(Context context) {
         try {
+            if (!acknowledged(context)) return;
+            JSONObject request = new JSONObject(context.getSharedPreferences("launcher", 0).getString("session", "{}"));
+            context.getSharedPreferences("launcher", 0).edit().putString("lastGoodPluginSha256", request.getString("sha256")).commit();
+        } catch (Exception ignored) {}
+    }
+
+    private static boolean handoffNewerThanSession(android.content.SharedPreferences preferences) {
+        long handoffStarted = preferences.getLong("handoffStartedAt", 0);
+        try {
+            return handoffStarted > new JSONObject(preferences.getString("session", "{}")).optLong("startedAt");
+        } catch (Exception ignored) { return handoffStarted > 0; }
+    }
+
+    private static boolean acknowledged(Context context) {
+        try {
             JSONObject request = new JSONObject(context.getSharedPreferences("launcher", 0).getString("session", "{}"));
             File plugins = bep(LauncherGames.selected(context));
             JSONObject ack = new JSONObject(LauncherRelease.read(new FileInputStream(new File(plugins, "bpp-launch-loaded.json"))));
             String hash = request.getString("sha256");
-            if (LauncherSession.matches(request.getString("session"), ack.getString("session"),
+            return LauncherSession.matches(request.getString("session"), ack.getString("session"),
                     request.getString("pluginVersion"), ack.getString("pluginVersion"), hash, ack.getString("sha256"),
                     request.getLong("startedAt"), ack.getLong("loadedAt"), ack.getBoolean("loaded"),
-                    LauncherFiles.valid(new File(plugins, "plugins/BazaarPlusPlus.Android.dll"), hash, -1)))
-                context.getSharedPreferences("launcher", 0).edit().putString("lastGoodPluginSha256", hash).commit();
-        } catch (Exception ignored) {}
+                    LauncherFiles.valid(new File(plugins, "plugins/BazaarPlusPlus.Android.dll"), hash, -1));
+        } catch (Exception ignored) { return false; }
     }
 
     public static String loadStatus(Context context) {

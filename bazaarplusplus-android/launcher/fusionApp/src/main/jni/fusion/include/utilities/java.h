@@ -24,4 +24,6 @@ void setLoadingState(bool enabled);
 
 void setLoadingText(const char *text);
 
+void noteRuntime(const char *text);
+
 #endif //FUSIONCORE_JAVA_H

@@ -9,6 +9,8 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Bounded launcher log. Export is user-triggered and must not carry game logs, accounts, or tokens. */
@@ -27,8 +29,107 @@ public final class LauncherLog {
     private static final Pattern PATH = Pattern.compile("(?:[A-Za-z]:)?(?:\\\\|/)(?:[A-Za-z0-9._@+-]+(?:\\\\|/))+[A-Za-z0-9._@+-]*");
     private static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
     private static final Pattern HEX = Pattern.compile("\\b[a-fA-F0-9]{32,}\\b");
+    private static final Pattern SIGNAL = Pattern.compile(
+            "signal\\s+\\d+\\s+\\(([A-Za-z0-9]+)\\)(?:,\\s*code\\s+\\d+\\s+\\(([^)]*)\\))?(?:,\\s*fault addr\\s+(\\S+))?",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern ABORT = Pattern.compile("Abort message:\\s*'(.*)'", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CAUSE = Pattern.compile("Cause:\\s*(.+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PAGE = Pattern.compile("page size\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern FRAME = Pattern.compile("#\\d+\\s+pc\\s+([0-9a-fA-F]+)\\s+(\\S+)(?:\\s+\\((.*)\\))?");
+    private static final String[] RUNTIME_LIBRARIES = {
+            "libc.so", "libc++.so", "libm.so", "libdl.so", "libart.so", "libbase.so", "linker", "linker64",
+            "libunwindstack.so", "libutils.so", "libcutils.so", "libandroid_runtime.so", "libnativeloader.so"};
 
     private LauncherLog() {}
+
+    private static final class NativeCrash {
+        String signal = "";
+        String code = "";
+        String address = "";
+        String abort = "";
+        String cause = "";
+        String page = "";
+        boolean sixteenKb;
+        final List<String> frames = new ArrayList<>();
+    }
+
+    private static NativeCrash parseCrash(String trace) {
+        NativeCrash crash = new NativeCrash();
+        if (trace == null || trace.isBlank()) return crash;
+        int seen = 0;
+        for (String raw : trace.split("\n", 500)) {
+            if (++seen > 500) break;
+            String line = raw.trim();
+            if (line.isEmpty()) continue;
+            if (crash.signal.isEmpty()) {
+                Matcher signal = SIGNAL.matcher(line);
+                if (signal.find()) {
+                    crash.signal = signal.group(1);
+                    crash.code = signal.group(2) == null ? "" : signal.group(2).trim();
+                    crash.address = signal.group(3) == null ? "" : signal.group(3).trim();
+                    continue;
+                }
+            }
+            if (crash.abort.isEmpty()) {
+                Matcher abort = ABORT.matcher(line);
+                if (abort.find()) { crash.abort = abort.group(1).trim(); continue; }
+            }
+            if (crash.cause.isEmpty()) {
+                Matcher cause = CAUSE.matcher(line);
+                if (cause.find()) { crash.cause = cause.group(1).trim(); continue; }
+            }
+            if (crash.page.isEmpty()) {
+                Matcher page = PAGE.matcher(line);
+                if (page.find()) { crash.page = page.group(1); continue; }
+            }
+            if (line.equalsIgnoreCase("16kb mode")) { crash.sixteenKb = true; continue; }
+            if (crash.frames.size() >= 8) continue;
+            Matcher frame = FRAME.matcher(line);
+            if (!frame.find()) continue;
+            String file = frame.group(2);
+            int slash = Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\'));
+            String base = slash >= 0 ? file.substring(slash + 1) : file;
+            if (base.isEmpty() || base.charAt(0) == '[') continue;
+            String offset = frame.group(1).replaceFirst("^0+(?=.)", "");
+            String function = frame.group(3) == null ? "" : frame.group(3).trim();
+            crash.frames.add(base + "+0x" + offset + (function.isEmpty() ? "" : " " + function));
+        }
+        return crash;
+    }
+
+    private static String interestingLibrary(List<String> frames) {
+        String fallback = "";
+        for (String frame : frames) {
+            int end = frame.indexOf('+');
+            String library = end < 0 ? frame : frame.substring(0, end);
+            if (fallback.isEmpty()) fallback = library;
+            if (!runtimeLibrary(library)) return library;
+        }
+        return fallback;
+    }
+
+    private static boolean runtimeLibrary(String library) {
+        String name = library.toLowerCase(Locale.ROOT);
+        for (String runtime : RUNTIME_LIBRARIES) if (runtime.equals(name)) return true;
+        return false;
+    }
+
+    private static List<String> javaCrashLines(String trace) {
+        List<String> lines = new ArrayList<>();
+        if (trace == null || !trace.contains("at ")) return lines;
+        int seen = 0;
+        for (String raw : trace.split("\n", 40)) {
+            if (++seen > 40 || lines.size() >= 7) break;
+            String line = raw.trim();
+            if (line.isEmpty()) continue;
+            if (lines.isEmpty() && !line.startsWith("at ") && !line.startsWith("Caused by")) {
+                lines.add(sanitize("异常 " + line));
+                continue;
+            }
+            if (line.startsWith("at ")) lines.add(sanitize("异常栈 " + line.substring(3).trim()));
+        }
+        return lines;
+    }
 
     public static File file(File filesDir) { return new File(filesDir, FILE_NAME); }
 
@@ -44,6 +145,33 @@ public final class LauncherLog {
             case 10, 11 -> "被用户划掉";
             default -> "进程已结束";
         };
+    }
+
+    /** Short native-crash label, such as {@code SIGSEGV libil2cpp.so}. Empty when the trace has no signal. */
+    public static String crashSignal(String trace) {
+        NativeCrash crash = parseCrash(trace);
+        if (crash.signal.isEmpty()) return "";
+        String library = interestingLibrary(crash.frames);
+        return library.isEmpty() ? crash.signal : crash.signal + " " + library;
+    }
+
+    /** Sanitized signal, abort, page size and basename frames. Java traces yield a short stack instead. */
+    public static List<String> crashLines(String trace) {
+        NativeCrash crash = parseCrash(trace);
+        if (crash.signal.isEmpty()) return javaCrashLines(trace);
+        List<String> lines = new ArrayList<>();
+        String detail = crash.code;
+        if (!crash.address.isEmpty()) detail = detail.isEmpty() ? crash.address : detail + " " + crash.address;
+        if (!detail.isEmpty()) lines.add(sanitize("信号 " + detail));
+        if (!crash.abort.isEmpty()) lines.add(sanitize("中止信息 " + crash.abort));
+        if (!crash.cause.isEmpty()) lines.add(sanitize("崩溃原因 " + crash.cause));
+        if (!crash.page.isEmpty()) lines.add(sanitize("页面大小 " + crash.page + (crash.sixteenKb ? " 16kb" : "")));
+        else if (crash.sixteenKb) lines.add("页面大小 16kb");
+        for (String frame : crash.frames) {
+            if (lines.size() >= 12) break;
+            lines.add(sanitize("崩溃栈 " + frame));
+        }
+        return lines;
     }
 
     public static void note(File filesDir, String message) {

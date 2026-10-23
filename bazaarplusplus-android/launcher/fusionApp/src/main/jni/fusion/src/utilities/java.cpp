@@ -7,6 +7,8 @@ static JavaVM* g_vm = nullptr;
 jclass jniBridge = nullptr;
 jmethodID setLoadingStateID = nullptr;
 jmethodID setLoadingTextID = nullptr;
+jmethodID noteRuntimeID = nullptr;
+static bool g_noteRuntime = true;
 
 jobject appClassLoader = nullptr;
 jmethodID loadClassMethod = nullptr;
@@ -136,6 +138,8 @@ extern "C" void init_java(JavaVM *vm) {
                                                "(Landroid/app/Activity;Z)V");
     setLoadingTextID = env->GetStaticMethodID(jniBridge, "SetLoadingText",
                                               "(Landroid/app/Activity;Ljava/lang/String;)V");
+    noteRuntimeID = env->GetStaticMethodID(jniBridge, "NoteRuntime", "(Ljava/lang/String;)V");
+    if (env->ExceptionCheck()) env->ExceptionClear();
 
     if (!setLoadingStateID || !setLoadingTextID)
     {
@@ -203,6 +207,27 @@ void setLoadingText(const char *text) {
     env->CallStaticVoidMethod(jniBridge, setLoadingTextID, activity, jText);
     env->DeleteLocalRef(jText);
     env->DeleteLocalRef(activity);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_dev_allofus_fusioncore_tools_JniBridge_SetRuntimeNotes(JNIEnv *, jclass, jboolean enabled) {
+    g_noteRuntime = enabled == JNI_TRUE;
+}
+
+void noteRuntime(const char *text) {
+    if (!g_noteRuntime || !noteRuntimeID || !text || !text[0]) return;
+
+    JNIEnv *env = getJNIEnv();
+    if (!env) return;
+
+    jstring jText = env->NewStringUTF(text);
+    if (!jText) {
+        env->ExceptionClear();
+        return;
+    }
+    env->CallStaticVoidMethod(jniBridge, noteRuntimeID, jText);
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    env->DeleteLocalRef(jText);
 }
 
 JNIEnv* getJNIEnv() {

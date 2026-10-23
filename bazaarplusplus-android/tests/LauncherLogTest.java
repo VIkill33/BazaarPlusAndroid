@@ -28,6 +28,33 @@ public class LauncherLogTest {
         require(LauncherLog.sanitize(null).equals("（空）"));
         require(LauncherLog.sanitize("x".repeat(300)).endsWith("…") && LauncherLog.sanitize("x".repeat(300)).length() == 240);
 
+        String trace = "signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0\n"
+                + "Abort message: 'token=super-secret-token /storage/emulated/0/a'\n"
+                + "page size 16384\n"
+                + "16kb mode\n"
+                + "backtrace:\n"
+                + "      #00 pc 00000000000abcde  /system/lib64/libc.so (abort+160)\n"
+                + "      #01 pc 0000000000012345  /data/app/lib/arm64/libil2cpp.so (Runtime::Init+32)\n";
+        require(LauncherLog.crashSignal(trace).equals("SIGSEGV libil2cpp.so"));
+        require(LauncherLog.crashSignal(null).isEmpty());
+        require(LauncherLog.crashSignal("no signal here").isEmpty());
+        List<String> crash = LauncherLog.crashLines(trace);
+        require(crash.contains("信号 SEGV_MAPERR 0x0"));
+        require(crash.contains("页面大小 16384 16kb"));
+        String abort = crash.stream().filter(line -> line.startsWith("中止信息")).findFirst().orElse("");
+        require(abort.contains("token=[redacted]") && abort.contains("[path]") && !abort.contains("super-secret-token") && !abort.contains("/storage"));
+        String nativeFrame = crash.stream().filter(line -> line.contains("libil2cpp.so")).findFirst().orElse("");
+        require(nativeFrame.equals("崩溃栈 libil2cpp.so+0x12345 Runtime::Init+32") && !nativeFrame.contains("/data"));
+        require(crash.stream().anyMatch(line -> line.startsWith("崩溃栈 libc.so+0xabcde")));
+        require(LauncherLog.crashSignal("signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0\n"
+                + "#00 pc 0000000000000010  /system/lib64/libc.so (abort+1)\n").equals("SIGSEGV libc.so"));
+        List<String> javaCrash = LauncherLog.crashLines("java.lang.IllegalStateException: token=abc\n"
+                + "\tat dev.allofus.fusioncore.BootstrapActivity.prepare(BootstrapActivity.java:10)\n");
+        require(javaCrash.size() == 2);
+        require(javaCrash.get(0).contains("IllegalStateException") && javaCrash.get(0).contains("token=[redacted]") && !javaCrash.get(0).contains("token=abc"));
+        require(javaCrash.get(1).contains("BootstrapActivity.prepare") && !javaCrash.get(1).contains("at "));
+        require(LauncherLog.crashLines(null).isEmpty());
+
         File root = Files.createTempDirectory("bpp-launcher-log").toFile();
         try {
             File log = new File(root, LauncherLog.FILE_NAME);

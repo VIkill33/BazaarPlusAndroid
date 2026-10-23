@@ -1,6 +1,7 @@
 // Copyright (c) 2026 XtraCube
 #include <exports.h>
 #include <android/log.h>
+#include <string>
 #include <hooking/safehook.h>
 #include <logger.h>
 #include <utilities/java.h>
@@ -61,6 +62,7 @@ void write_log(const char *text)
         return;
     }
     log(LogLevel::INFO, "Fusion.NET", text);
+    noteRuntime(text);
 }
 
 void write_log_level(int level, const char *text)
@@ -70,6 +72,12 @@ void write_log_level(int level, const char *text)
     }
     LogLevel logLevel = static_cast<LogLevel>(level);
     log(logLevel, "Fusion.NET", text);
+    if (level >= static_cast<int>(LogLevel::WARN)) {
+        std::string line = std::string(level >= static_cast<int>(LogLevel::ERROR) ? "error: " : "warning: ") + text;
+        noteRuntime(line.c_str());
+    } else {
+        noteRuntime(text);
+    }
 }
 
 int8_t get_low_memory_mode()

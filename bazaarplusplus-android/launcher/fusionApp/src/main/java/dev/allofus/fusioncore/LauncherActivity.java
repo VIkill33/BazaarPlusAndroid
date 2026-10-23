@@ -45,6 +45,7 @@ public final class LauncherActivity extends AppCompatActivity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        dev.allofus.fusioncore.tools.JniBridge.attach(this);
         // Some home screens create a new entry above the running game instead of
         // bringing its task forward. Reveal the existing top without relaunching Unity.
         Intent entry = getIntent();

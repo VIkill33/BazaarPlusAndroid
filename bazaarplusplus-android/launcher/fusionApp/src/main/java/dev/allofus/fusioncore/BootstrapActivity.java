@@ -40,6 +40,7 @@ public class BootstrapActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        dev.allofus.fusioncore.tools.JniBridge.attach(this);
         if (!LauncherPreparation.BUSY.compareAndSet(false, true)) { finish(); return; }
         LauncherPreparation.rememberLastGood(getApplicationContext());
         LauncherPreparation.CANCEL.set(false);
@@ -91,6 +92,7 @@ public class BootstrapActivity extends AppCompatActivity {
     }
 
     private void runBootstrapFlow(String targetPackage) {
+        LauncherPreparation.markHandoff(getApplicationContext(), true);
         Context gameContext;
         try {
             gameContext = createPackageContext(targetPackage, CONTEXT_IGNORE_SECURITY | CONTEXT_INCLUDE_CODE);
@@ -163,10 +165,14 @@ public class BootstrapActivity extends AppCompatActivity {
 
         try {
             setPhaseStatus(getString(R.string.bootstrap_status_launching));
+            setPhaseStatus("正在连接原生库…");
             initializeFusion(config);
+            setPhaseStatus("正在初始化游戏…");
             runOnMainThread(() -> {
                 try {
                     GameRuntime.initializeApplication(preparedGameContext, getApplicationContext());
+                    LauncherPreparation.watchCrashes(getApplicationContext());
+                    setPhaseStatus("正在打开游戏界面…");
                     var intent = new Intent(this, launcherClass);
 
                     // Using the stub activity intent here avoids one extra layer of hooks running.
@@ -211,6 +217,8 @@ public class BootstrapActivity extends AppCompatActivity {
     private void failAndFinish(String message, Throwable error) {
         LauncherLog.note(getApplicationContext().getFilesDir(), message);
         LauncherPreparation.BUSY.set(false);
+        LauncherPreparation.markHandoff(getApplicationContext(), false);
+        dev.allofus.fusioncore.tools.JniBridge.stopRuntimeNotes();
         LauncherPreparation.activeSession = null;
         getSharedPreferences("launcher", 0).edit().remove("session").commit();
         LauncherPreparation.phase(getApplicationContext(), "初始化失败：" + (error != null && error.getMessage() != null ? error.getMessage() : "运行环境准备失败，可重试"));
