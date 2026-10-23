@@ -31,6 +31,11 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         }
     }
 
+    // Native item details include a cooldown clock protruding to the left of
+    // their frame. Reserve that space while keeping the preview 370 units wide.
+    private const float PreviewRightInset = 640;
+    private const float PreviewWidth = 370;
+
     private float _nextScan;
     private IntPtr _lastCard;
     private int _lastController;
@@ -174,8 +179,8 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         }
         else
         {
-            _panel.offsetMin = new Vector2(-930, 45);
-            _panel.offsetMax = new Vector2(-560, 1000);
+            _panel.offsetMin = new Vector2(-PreviewRightInset - PreviewWidth, 45);
+            _panel.offsetMax = new Vector2(-PreviewRightInset, 1000);
             _scroll.gameObject.SetActive(true);
             _monsterBackdrop?.SetActive(false);
             _monsterClose?.gameObject.SetActive(false);
@@ -264,7 +269,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _monsterBackdrop = backdrop.gameObject;
             _monsterBackdrop.SetActive(false);
             _panel = NativeUi.Rect("BPP.EnchantPreview", _canvasRoot.transform, Vector2.right, Vector2.right,
-                new Vector2(-930, 45), new Vector2(-560, 1000));
+                new Vector2(-PreviewRightInset - PreviewWidth, 45), new Vector2(-PreviewRightInset, 1000));
             var background = _panel.gameObject.AddComponent<Image>();
             background.color = new Color(.055f, .035f, .02f, .94f);
             background.raycastTarget = true;

@@ -1,5 +1,35 @@
 # Android 真机验证
 
+## 长按浮层避让冷却圆圈（2026-10-23）
+
+参考 Android 预览文档、`AndroidTooltipObserver.Render` / `BuildUi` 和桌面
+`NativePairedTooltipHost.GetPrimaryVisibleBounds`。旧浮层的右侧预留仅覆盖原生详情框，
+未覆盖向左突出的冷却圆圈；真机长按白银「私人喷气机」复现圆圈左侧被遮。
+本次只调整 Android 附加预览的水平预留，初建与再次渲染使用同一组常量，
+保持原有宽度、文字、滚动及预览规则。用户确认不再遮挡后要求缩小间距，已进一步收紧。
+
+设备 `OBJVWSPNSCFQU48L`（Redmi Note 11T Pro、Android 14），游戏
+`1.0.12825-production-android-d9601ded`，横屏 2460×1080、中文、移动界面缩放 100%。
+测试前为已有对局商店，初始高级输入、长按默认为升级；没有购买、实际升级／附魔或推进遭遇。
+编译使用本机对应 Android 代理，构建记录为 `artifacts/mod/build-inputs.json`。
+测试时在启动器完成准备后替换目标插件并同步测试会话摘要，核对新会话的
+`bpp-launch-loaded.json` 与本次 DLL SHA-256；未重新打包 APK，普通重启仍会恢复 APK 内置插件。
+
+- 插件编译零警告、零错误；Python 9 项检查与 `PreviewTooltips.Tests` 通过。
+- 收紧后的标准模式：私人喷气机附魔／升级页均可见，冷却圆圈完整且保留小间距，
+  点击页签能切换内容。附魔预览日志断言原物品未变化、无预览异常、无对局命令或状态推进。
+- 收紧后的高级模式：同一物品附魔／升级长按均正常，圆圈完整、间距紧凑，松手关闭；两轮各 5 项日志断言通过。结束时恢复高级输入、长按默认升级。
+- 标准模式锁定详情的空白关闭未在本次自动操作中确认，最终通过重启恢复场景；不将此项记为通过。
+- 截图为人工复核，未实现自动视觉边界断言；未覆盖其他物品、其他分辨率、界面缩放和第二台设备。
+
+证据位于被忽略的 `artifacts/tooltip-placement/`：`overlap.png` 为原问题，
+`build.log` / `tests.log` 为离线结果，`loaded.json` 为新会话确认，
+`tight-standard-enchant-*` / `tight-standard-upgrade.png` 为收紧后的标准模式，
+`tight-advanced-*` 为收紧后的高级模式。
+重复长按使用该目录的 `check_preview.py <名称> <当前截图的 x> <y> <enchant|upgrade>`，
+自动断言渲染日志、原物品未变化、无异常、无对局命令及状态推进；圆圈和间距仍须看图。
+
+
 ## 桌面重新打开恢复运行中的游戏（2026-10-23）
 
 参考 `LauncherActivity.onCreate`、`BootstrapActivity.runBootstrapFlow`、

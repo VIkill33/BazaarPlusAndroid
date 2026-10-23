@@ -93,6 +93,7 @@ SHA-256、当前语言和插件构建；变化或损坏时自动重建，缓存�
 
 当前适配边界和真机验证记录见 [docs/device-validation.md](docs/device-validation.md)。
 
+附加预览浮层向左预留原生详情及突出显示的冷却圆圈空间，保持原有宽度和滚动区域。
 对局物品长按打开的原生详情和附魔下拉预览已验证可用。Android 版改由
 `AndroidTooltipObserver` 观察原生详情并调用 `AndroidEnchantPreview` 生成多附魔信息，
 已替换会使游戏闪退的原生 Harmony 钩子。果篮的多附魔浮层已在标准和高级输入模式验证长按、滚动及关闭；
