@@ -346,7 +346,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         if (!_monsterPinned || _panel == null || _scroll == null || _content == null || _text == null) return;
         if (!_monsterDetailVisible)
         {
-            _panel.offsetMax += new Vector2(0, 350);
+            _panel.offsetMax += new Vector2(0, AndroidMonsterCardGallery.DetailHeight);
             _monsterDetailVisible = true;
         }
         NativeUi.RichDescription(_text, description);

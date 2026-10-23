@@ -1,5 +1,6 @@
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Item;
+using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Players;
 using Il2CppInterop.Runtime;
@@ -20,7 +21,7 @@ internal sealed class AndroidMonsterCardGallery
     private sealed class Request
     {
         internal required RectTransform Host;
-        internal required TCardInstanceItem Instance;
+        internal required TCardInstance Instance;
         internal NativePreviewTask? Creation;
         internal Il2CppSystem.Threading.Tasks.Task? Setup;
         internal Il2CppSystem.Threading.CancellationTokenSource? Cancellation;
@@ -30,10 +31,16 @@ internal sealed class AndroidMonsterCardGallery
         internal int NextFitFrame;
     }
 
+    internal const float DetailHeight = 350;
+    private const float CanvasHeight = 1080;
+    private const float SkillSlotScale = 1.2f;
+    private const float SkillSeparatorGap = 14;
+
     private readonly RectTransform _root;
     private readonly RectTransform _panel;
     private readonly Action<string> _onSelect;
     private readonly List<Request> _requests = new();
+    private RectTransform? _separator;
     private string? _monsterId;
 
     internal AndroidMonsterCardGallery(RectTransform panel, Action<string> onSelect)
@@ -54,48 +61,75 @@ internal sealed class AndroidMonsterCardGallery
         var id = monster?.Id.ToString();
         if (_monsterId == id && _root.gameObject.activeSelf) return;
         Hide();
-        if (monster?.Player?.Hand?.Items == null) return;
+        var items = monster?.Player?.Hand?.Items;
+        var skills = new List<TCardInstanceSkill>();
+        if (monster?.Player?.Skills != null)
+            foreach (var skill in monster.Player.Skills)
+                if (skill != null) skills.Add(skill);
+        var count = items?.Count ?? 0;
+        var skillCount = skills.Count;
+        if (monster == null || count + skillCount == 0) return;
         _monsterId = id;
-        var items = monster.Player.Hand.Items;
-        var count = items.Count;
-        if (count == 0) return;
         var canvas = _panel.GetComponentInParent<Canvas>();
         var scale = canvas != null && canvas.scaleFactor > 0 ? canvas.scaleFactor : 1f;
         var slotWidth = Screen.width / 26f / scale;
         var cardHeight = slotWidth * 2.05f;
         var rowHeight = cardHeight + 12;
-        var placements = new List<(TCardInstanceItem Instance, int Slot, int Row, int Size)>();
+        var placements = new List<(TCardInstance Instance, Vector2 Position, Vector2 Size)>();
         var row = 0;
         var occupied = 0;
         var widestRow = 0;
         for (var index = 0; index < count; index++)
         {
-            var instance = items[index];
+            var instance = items![index];
             var template = Data.GetStatic()?.GetCardById(instance.TemplateId)?.TryCast<TCardBase>();
             var size = SizeInSlots(template?.Size ?? ECardSize.Small);
             if (occupied + size > 10) { row++; occupied = 0; }
-            placements.Add((instance, occupied, row, size));
+            placements.Add((instance, new Vector2(occupied * slotWidth + 4, -row * rowHeight - 8),
+                new Vector2(size * slotWidth, cardHeight)));
             occupied += size;
             widestRow = Math.Max(widestRow, occupied);
         }
-        var rows = row + 1;
-        var panelWidth = widestRow * slotWidth + 40;
-        var panelHeight = rows * rowHeight + 44;
-        _panel.offsetMin = new Vector2(-550 - panelWidth, 520 - panelHeight / 2);
-        _panel.offsetMax = new Vector2(-550, 520 + panelHeight / 2);
+        var itemsHeight = count == 0 ? 0 : (row + 1) * rowHeight;
+        var skillSize = slotWidth * SkillSlotScale;
+        var skillPitch = skillSize + 8;
+        var skillsPerRow = Math.Max(1, (int)(10 * slotWidth / skillPitch));
+        var skillRows = (skillCount + skillsPerRow - 1) / skillsPerRow;
+        var skillsTop = itemsHeight + (count > 0 && skillCount > 0 ? SkillSeparatorGap : 0);
+        for (var index = 0; index < skillCount; index++)
+            placements.Add((skills[index], new Vector2(index % skillsPerRow * skillPitch + 4,
+                -skillsTop - index / skillsPerRow * skillPitch - 8), new Vector2(skillSize, skillSize)));
+        var contentWidth = Math.Max(widestRow * slotWidth, Math.Min(skillCount, skillsPerRow) * skillPitch);
+        var contentHeight = skillsTop + skillRows * skillPitch;
+        var panelWidth = contentWidth + 40;
+        var panelHeight = contentHeight + 44;
+        // Card details later grow the panel upward by DetailHeight; keep that inside the canvas.
+        var centerY = Mathf.Max(panelHeight / 2 + 16,
+            Mathf.Min(520, CanvasHeight - 16 - DetailHeight - panelHeight / 2));
+        _panel.offsetMin = new Vector2(-550 - panelWidth, centerY - panelHeight / 2);
+        _panel.offsetMax = new Vector2(-550, centerY + panelHeight / 2);
         _root.anchorMin = Vector2.zero;
         _root.anchorMax = Vector2.right;
         _root.pivot = new Vector2(.5f, 0);
         _root.offsetMin = new Vector2(16, 16);
         _root.offsetMax = new Vector2(-16, panelHeight - 24);
         _root.gameObject.SetActive(true);
+        if (count > 0 && skillCount > 0)
+        {
+            _separator = NativeUi.Rect("BPP.MonsterSkillSeparator", _root, Vector2.up, Vector2.one);
+            _separator.pivot = new Vector2(.5f, 1);
+            _separator.offsetMin = new Vector2(8, -itemsHeight - SkillSeparatorGap / 2 - 8);
+            _separator.offsetMax = new Vector2(-8, -itemsHeight - SkillSeparatorGap / 2 - 6);
+            var line = _separator.gameObject.AddComponent<Image>();
+            line.color = new Color(.85f, .68f, .38f, .35f);
+            line.raycastTarget = false;
+        }
         foreach (var placement in placements)
         {
             var host = NativeUi.Rect("BPP.MonsterCard", _root, Vector2.up, Vector2.up);
             host.pivot = Vector2.up;
-            host.sizeDelta = new Vector2(placement.Size * slotWidth, cardHeight);
-            host.anchoredPosition = new Vector2(placement.Slot * slotWidth + 4,
-                -placement.Row * rowHeight - 8);
+            host.sizeDelta = placement.Size;
+            host.anchoredPosition = placement.Position;
             var request = new Request { Host = host, Instance = placement.Instance };
             var hitArea = host.gameObject.AddComponent<Image>();
             hitArea.color = new Color(0, 0, 0, .01f);
@@ -105,7 +139,7 @@ internal sealed class AndroidMonsterCardGallery
             button.onClick.AddListener(DelegateSupport.ConvertDelegate<UnityAction>(() => Select(request)));
             _requests.Add(request);
         }
-        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.started monster={monster.InternalName} items={count} slots={widestRow} rows={rows} slot_width_px={slotWidth * scale:0.#} screen_width={Screen.width}");
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.started monster={monster.InternalName} items={count} skills={skillCount} slots={widestRow} item_rows={(count == 0 ? 0 : row + 1)} skill_rows={skillRows} slot_width_px={slotWidth * scale:0.#} screen_width={Screen.width}");
     }
 
     private static int SizeInSlots(ECardSize size) => size switch
@@ -120,10 +154,12 @@ internal sealed class AndroidMonsterCardGallery
         if (!request.Ready || request.Card?._tooltipData == null) return;
         var tooltip = request.Card._tooltipData;
         var detail = AndroidItemDescription.Build(tooltip);
+        var skill = request.Instance.TryCast<TCardInstanceSkill>() != null;
         if (string.IsNullOrWhiteSpace(detail))
-            detail = NativeUi.Text("No item description available.", "暂无物品描述。");
+            detail = skill ? NativeUi.Text("No skill description available.", "暂无技能描述。")
+                : NativeUi.Text("No item description available.", "暂无物品描述。");
         _onSelect($"<b>{tooltip.GetTitle()}</b>\n{detail}");
-        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.card_selected template_id={request.Instance.TemplateId}");
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.card_selected template_id={request.Instance.TemplateId} skill={skill}");
     }
 
     internal void Tick()
@@ -221,6 +257,8 @@ internal sealed class AndroidMonsterCardGallery
     {
         _root.gameObject.SetActive(false);
         _monsterId = null;
+        if (_separator != null) UnityEngine.Object.Destroy(_separator.gameObject);
+        _separator = null;
         foreach (var request in _requests)
         {
             NativePreviewCleanup.Retire(request.Creation, request.Setup, request.Card, request.Cancellation);
