@@ -159,12 +159,12 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         }
     }
 
-    // All positions use canvas units from the bottom-left, including the device safe area.
+    // Dock to the physical screen edges; retain the vertical safe area.
     private Rect Bounds()
     {
         var area = Screen.safeArea;
         var scale = _canvas!.scaleFactor;
-        return new Rect(area.x / scale, area.y / scale, area.width / scale, area.height / scale);
+        return new Rect(0, area.y / scale, Screen.width / scale, area.height / scale);
     }
 
     private Vector2 Clamp(Vector2 position)

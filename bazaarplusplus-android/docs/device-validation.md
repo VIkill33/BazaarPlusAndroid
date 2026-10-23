@@ -905,3 +905,37 @@ EnchantPolicy、HoldPreview 手势与聚焦几何覆盖检查通过；几何检�
 事件新视觉、其他野怪／所有体型、失焦与场景恢复、多设备及更大 UI 缩放仍待扩大验证；
 本轮不验证实际奖励数值。证据位于被忽略的 `artifacts/hold-preview/visual-*`，最终源代码构建
 日志为 `visual-final-build.log`，APK 构建日志为 `visual-final-apk-build.log`。
+
+
+## 预览左侧贴边与遮罩加深（2026-10-23）
+
+参考本文件的按住预览视觉改版记录、Android README／功能清单、桌面预览与输入架构文档、
+`TooltipPreviewModePolicy`、`BppDockButtonVisuals` 及 Android 现有实现。截图中的左侧空隙来自
+`Screen.safeArea.xMin`；`AndroidHoldPreviewVisuals.Refresh` 改为屏幕左右各留 8 个参考像素，
+按屏高缩放；`AndroidFloatingDock.Bounds` 改用物理屏幕水平范围，保留上下安全区域。
+背景黑色 alpha 从 0.22 提高到 0.55，沿用既有卡牌／详情挖空与透明输入盾，不改变预览数据规则。
+
+当前设备 `OBJVWSPNSCFQU48L`（22041216C）、Android 14、2460×1080，游戏
+`1.0.12825-production-android-d9601ded`；高级输入、自动收起开启、附魔附加预览靠左。
+签名测试 APK 覆盖安装后从启动器进入，加载与本次会话／DLL 摘要 12 项检查全部通过。
+启动期间第一次检查尚未得到新握手而拒绝旧记录，完成启动后重新通过。
+继续已有皮格第 1 天野怪选择画面，仅操作设置、悬浮入口与预览，未购买、出售、升级、选择野怪或推进战斗。
+
+离线：Python 9 项、BuildCorpus、EnchantPolicy、HoldPreview 手势与聚焦覆盖检查通过；
+插件构建零警告／错误，APK 内置输入校验及签名验证通过。插件 SHA-256：
+`db062dbbbed8632fbe073e4b7d1d2b8e54726c4514da55e3f8d9f117bcb4a6b0`。
+
+真机：
+- `edge-left-confirm.png`、`edge-expanded.png` 人工复核收起／展开入口组左边为屏幕边缘。
+- `edge-switch/` 一次按住连续查看小圆猪发射器、腺体，12 项断言通过；截图人工复核左右金框、
+  更深的背景遮罩、卡牌／原生详情／附加面板保持原色及松手恢复，无物品变更报告、对局命令、状态推进或新增崩溃。
+- 标准模式 `edge-standard-expanded.png` 复核左侧贴边与「仅高级模式」禁用外观；
+  `edge-standard-check.json` 断言按住不启动预览、同一日志会话及无新增错误。随后恢复高级模式。
+- `edge-holder-first-retry/` 查看左侧野怪并先松开模式按钮，11 项日志／崩溃缓冲区断言通过。
+  该路径截图拍摄时预览已退出，只据日志确认显示及退出，不把截图当作野怪新遮罩视觉验收。
+
+本轮尝试将左侧入口拖回右边，注入未形成有效右移，其中边缘滑动打开了系统返回菜单；
+关闭菜单后在已确认的左侧位置重跑先松手路径通过。`edge-holder-first/` 因入口坐标不匹配而没有
+启动预览，不计通过；右边拖动复测仍待验证。当前保留高级模式与左侧自动收起入口。
+多设备、界面放大、事件新视觉、系统边缘手势与场景恢复仍待扩大验证。
+证据均位于被忽略的 `artifacts/hold-preview/edge-*`；截图为人工复核，没有自动视觉内容断言。

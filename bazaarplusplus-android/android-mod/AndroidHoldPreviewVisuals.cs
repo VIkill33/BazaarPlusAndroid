@@ -63,8 +63,8 @@ internal sealed class AndroidHoldPreviewVisuals
     {
         var scale = Screen.height / 1080f;
         var safe = Screen.safeArea;
-        var edge = new Rect(safe.xMin + 8 * scale, safe.yMin + 8 * scale,
-            safe.width - 16 * scale, safe.height - 16 * scale);
+        var edge = new Rect(8 * scale, safe.yMin + 8 * scale,
+            Screen.width - 16 * scale, safe.height - 16 * scale);
         PlaceBorder(_frame, edge, 2 * scale);
         Place(_status, new Rect(edge.center.x - 180 * scale, edge.yMax - 62 * scale, 360 * scale, 48 * scale));
         // The root uses physical pixels, while the status typography follows the
@@ -102,7 +102,7 @@ internal sealed class AndroidHoldPreviewVisuals
         AddUiHole(AndroidTooltipObserver.FocusPanel);
         var regions = AndroidPreviewFocusLayout.DimmedRegions(new(0, 0, Screen.width, Screen.height), _holes);
         while (_tiles.Count < regions.Count)
-            _tiles.Add(Image("BPP.FocusDimTile", _dimRoot, new Color(0, 0, 0, .22f)));
+            _tiles.Add(Image("BPP.FocusDimTile", _dimRoot, new Color(0, 0, 0, .55f)));
         for (var i = 0; i < _tiles.Count; i++)
         {
             _tiles[i].gameObject.SetActive(i < regions.Count);
