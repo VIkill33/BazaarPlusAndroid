@@ -180,6 +180,34 @@ public final class LauncherLog {
         catch (Exception ignored) {}
     }
 
+    /** Unity wraps the original exception in a stackless Error; retain its causes separately. */
+    public static List<String> throwableLines(Throwable error) {
+        List<String> lines = new ArrayList<>();
+        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        Throwable current = error;
+        for (int depth = 0; current != null && depth < 8; depth++) {
+            if (!seen.add(current)) {
+                lines.add("异常原因链循环，已停止记录");
+                return lines;
+            }
+            lines.add(sanitize((depth == 0 ? "异常 " : "异常原因 ") + current.getClass().getName()
+                    + (current.getMessage() == null ? "" : ": " + current.getMessage())));
+            StackTraceElement[] frames = current.getStackTrace();
+            for (int i = 0; i < frames.length && i < 6; i++) {
+                StackTraceElement frame = frames[i];
+                lines.add(sanitize("异常栈 " + frame.getClassName() + "."
+                        + frame.getMethodName() + ":" + frame.getLineNumber()));
+            }
+            current = current.getCause();
+        }
+        if (current != null) lines.add("异常原因链过长，已停止记录");
+        return lines;
+    }
+
+    public static void noteThrowable(File filesDir, Throwable error) {
+        for (String line : throwableLines(error)) note(filesDir, line);
+    }
+
     public static void append(File file, long epochMs, String message) throws IOException {
         String body = sanitize(message);
         synchronized (LOCK) {

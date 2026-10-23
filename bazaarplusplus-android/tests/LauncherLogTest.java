@@ -55,6 +55,30 @@ public class LauncherLogTest {
         require(javaCrash.get(1).contains("BootstrapActivity.prepare") && !javaCrash.get(1).contains("at "));
         require(LauncherLog.crashLines(null).isEmpty());
 
+        // Same wrapping used by UnityPlayer's uncaught handler: empty outer stack, original in cause.
+        Throwable original = new NoSuchMethodError("Missing API token=private-token /storage/emulated/0/private");
+        original.setStackTrace(new StackTraceElement[] {
+                new StackTraceElement("com.unity3d.player.UnityPlayer", "initialize", "UnityPlayer.java", 42)});
+        Error unity = new Error("FATAL EXCEPTION [main]\nUnity version : 6000.3.11f1\n" + "Device info ".repeat(40));
+        unity.setStackTrace(new StackTraceElement[0]);
+        unity.initCause(new IllegalStateException("Cannot prepare activity", original));
+        List<String> wrapped = LauncherLog.throwableLines(unity);
+        require(wrapped.stream().anyMatch(line -> line.contains("异常原因 java.lang.NoSuchMethodError")));
+        require(wrapped.stream().anyMatch(line -> line.equals("异常栈 com.unity3d.player.UnityPlayer.initialize:42")));
+        require(wrapped.stream().anyMatch(line -> line.contains("Cannot prepare activity")));
+        require(wrapped.stream().noneMatch(line -> line.contains("private-token") || line.contains("/storage")));
+        require(wrapped.stream().allMatch(line -> line.length() <= 240));
+        require(LauncherLog.throwableLines(null).isEmpty());
+        Throwable first = new Throwable("first");
+        Throwable second = new Throwable("second", first);
+        first.initCause(second);
+        require(LauncherLog.throwableLines(first).get(LauncherLog.throwableLines(first).size() - 1).contains("循环"));
+        Throwable deep = original;
+        for (int i = 0; i < 20; i++) deep = new Throwable("wrapper " + i, deep);
+        List<String> boundedCauses = LauncherLog.throwableLines(deep);
+        require(boundedCauses.stream().filter(line -> line.startsWith("异常原因 ")).count() == 7);
+        require(boundedCauses.get(boundedCauses.size() - 1).contains("过长"));
+
         File root = Files.createTempDirectory("bpp-launcher-log").toFile();
         try {
             File log = new File(root, LauncherLog.FILE_NAME);
@@ -66,6 +90,10 @@ public class LauncherLogTest {
             LauncherLog.append(log, 1_700_000_001_000L, "token=super-secret-token");
             List<String> two = LauncherLog.readLines(log);
             require(two.size() == 2 && two.get(1).endsWith("token=[redacted]") && !two.get(1).contains("super-secret-token"));
+            LauncherLog.noteThrowable(root, unity);
+            String recorded = String.join("\n", LauncherLog.readLines(log));
+            require(recorded.contains("NoSuchMethodError") && recorded.contains("UnityPlayer.initialize:42"));
+            require(!recorded.contains("private-token") && !recorded.contains("/storage"));
             for (int i = 0; i < 210; i++) LauncherLog.append(log, 1_700_000_002_000L + i, "步骤 " + i);
             List<String> bounded = LauncherLog.readLines(log);
             require(bounded.size() == 200);

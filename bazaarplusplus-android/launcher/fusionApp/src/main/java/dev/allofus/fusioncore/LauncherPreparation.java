@@ -111,16 +111,7 @@ public final class LauncherPreparation {
                     Context currentContext = noteContext;
                     if (currentContext != null && error != null) {
                         LauncherLog.note(currentContext.getFilesDir(), "未捕获异常 " + thread.getName() + " " + error.getClass().getSimpleName());
-                        if (error.getMessage() != null && !error.getMessage().isEmpty())
-                            LauncherLog.note(currentContext.getFilesDir(), "异常信息 " + error.getMessage());
-                        StackTraceElement[] frames = error.getStackTrace();
-                        int shown = 0;
-                        for (int i = 0; i < frames.length && shown < 6; i++) {
-                            StackTraceElement frame = frames[i];
-                            LauncherLog.note(currentContext.getFilesDir(), "异常栈 " + frame.getClassName() + "."
-                                    + frame.getMethodName() + ":" + frame.getLineNumber());
-                            shown++;
-                        }
+                        LauncherLog.noteThrowable(currentContext.getFilesDir(), error);
                     }
                 } catch (Exception ignored) {}
                 if (previous != null) previous.uncaughtException(thread, error);

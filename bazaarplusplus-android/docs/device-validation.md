@@ -1,5 +1,41 @@
 # Android 真机验证
 
+## 启动闪退诊断候选（2026-10-24，待真机验证）
+
+参考 Android README、功能清单、启动器 ADR-0001、BUILDING、桌面插件架构／MEMORY
+及当前启动链；未修改游戏内插件或共享桌面规则。用户提供的 `launcher-log5` 显示
+小米 9、Android API 28、arm64、游戏 `1.0.12825-production-android-d9601ded`，
+准备完成后在“正在打开游戏界面…”阶段发生主线程 `Error`，导出只留下 Unity 版本等包装信息。
+现有证据无法判断真实异常类型，不能将此候选标记为已修复启动闪退。
+
+从连接设备读取同版游戏 APK，仅提取 Java 字节码到被忽略的
+`artifacts/startup-crash/`，分析后删除本次复制的 APK。`dexdump.txt` 中
+`com.unity3d.player.a.Q.uncaughtException` 构造含设备信息的 `Error`，清空其调用栈，
+再通过 `initCause` 保留原始异常。`LauncherPreparation.watchCrashes` 原先只记录外层，
+所以错误信息被单行上限截断且没有原始栈。现在由 `LauncherLog.throwableLines` 分条记录
+最多八层原因链及各层前六帧，复用脱敏和单行上限；循环链与过长链明确截断。
+`BootstrapActivity.failAndFinish` 同样保留原因链。诊断仍由用户主动导出，不自动上传。
+
+截图线索经上游原文核对：
+[Il2CppInterop #283](https://github.com/BepInEx/Il2CppInterop/issues/283) 报告 Windows x64
+钩子定位崩溃，明确说明元数据解析成功；
+[PR #291](https://github.com/BepInEx/Il2CppInterop/pull/291) 增加 x64 签名与回退处理。
+它们不足以证明本次 Android arm64 故障根因，未据此替换框架。
+
+本轮检查：
+- Python 离线 9 项通过；Java 回归覆盖 Unity 的空外层栈、嵌套原因、脱敏、循环链、
+  过长链及原因栈实际写入日志。证据为 `artifacts/startup-crash/offline-tests.log`。
+- 签名构建 `0.1.0-test.7` 通过，内置输入校验通过；签名报告 `Verifies`、v2 为 true，
+  证书 `CN=BazaarPlusPlus Android Test`。构建日志为 `artifacts/launcher-apk-build.log`。
+- 构建包含同一工作区的并行 Unity 预加载／配置变更修改，不属于独立验证包；
+  用户明确要求保留双方修改并不安装混合构建，本轮没有执行覆盖安装或游戏启动。
+- ADB 识别到设备 `OBJVWSPNSCFQU48L`、型号 22041216C、Android 14，检查时为启动器首页。
+  它不是报错的小米 9，未将该连接状态、历史结果或构建成功当作本次真机通过。
+
+剩余验收：在独立且来源一致的构建中，于受影响的小米 9 重现并导出新诊断，
+核对“异常原因”与对应栈后再修复实际故障；确认前不提交为已验收功能。
+
+
 ## 三入口收起、拖动与吸边（2026-10-23）
 
 参考 Android README、功能检查清单、本文既有设置记录、桌面

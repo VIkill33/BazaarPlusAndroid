@@ -216,6 +216,7 @@ public class BootstrapActivity extends AppCompatActivity {
 
     private void failAndFinish(String message, Throwable error) {
         LauncherLog.note(getApplicationContext().getFilesDir(), message);
+        LauncherLog.noteThrowable(getApplicationContext().getFilesDir(), error);
         LauncherPreparation.BUSY.set(false);
         LauncherPreparation.markHandoff(getApplicationContext(), false);
         dev.allofus.fusioncore.tools.JniBridge.stopRuntimeNotes();
