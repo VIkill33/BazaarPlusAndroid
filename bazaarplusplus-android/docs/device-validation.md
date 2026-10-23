@@ -1,5 +1,35 @@
 # Android 真机验证
 
+## 游戏内长按预览与面板位置设置（2026-10-23，用户确认通过）
+
+用户确认「长按预览：附魔／升级／无」与「预览面板位置」已加入游戏设置，
+并已验证通过。本次按该确认同步文档和提交，未重新执行真机操作；
+不将此前面板位置或长按预览的历史测试扩展为本次新增设置控件的自动验收。
+
+实现范围：
+
+- `android-mod/Plugin.Load` 注册 `AndroidNativeSettings`，其 `Install` 在原生设置
+  语言选项下方复用带标签的原生下拉行，`Refresh` 同步中英文标签与当前选择。
+- 「BPP：长按预览」直接选择附魔、升级或无；`AndroidLongPressPreviewSettings.Mode`
+  与左侧快捷按钮共用 PlayerPrefs 偏好，保留已有选择并拒绝非法枚举值。
+  「无」保留游戏原生物品详情，关闭物品附加预览。
+- 「BPP：预览面板位置」选择默认或靠屏幕左侧边缘；
+  `AndroidPreviewPanelSettings.SetLeftEdge` 先写临时文件再替换
+  `BepInEx/bpp-launcher-settings.json`，成功后更新运行时值，后续预览渲染使用新位置。
+  作用范围为物品附加预览共用面板（含任务奖励页），事件与怪物面板位置不变。
+- `LauncherSettingsActivity.readPosition` 优先读取共用文件，旧启动器偏好作为回退；
+  启动器设置写入同一文件，`LauncherPreparation` 启动前读取最新位置，保留游戏内选择。
+
+本次提交前复跑 Python 9 项离线检查、`LongPressSettings.Tests`（缺省、0／1／2、
+非法 -1／99 的加载、循环、直接选择与保存）及 `PreviewPanelSettings.Tests`
+（解析、持久化、写入失败时保留原设置）均通过；文档相对链接与 `git diff --check` 通过。
+本次未重新构建 APK 或插件，已有本地构建与检查日志保存在被忽略的 `artifacts/settings-build.log`、
+`artifacts/settings-apk-build.log`、`artifacts/settings-tests.log`；设置相关截图包括
+`artifacts/settings-native-before.png`、`artifacts/settings-open.png`、`artifacts/settings-fresh.png`。
+这些文件仅作为本地记录入口，不据此宣称完整自动视觉断言。
+本次用户确认未另行列出设备环境、标准／高级模式覆盖、重启持久化步骤及故障注入结果，
+因此不补写逐项通过结论，也不标记其他物品数值或设备兼容性已验收。
+
 ## 长按浮层避让冷却圆圈（2026-10-23）
 
 参考 Android 预览文档、`AndroidTooltipObserver.Render` / `BuildUi` 和桌面

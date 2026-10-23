@@ -21,6 +21,14 @@ for (var i = 0; i < 3; i++)
 }
 Require(AndroidLongPressPreviewSettings.Mode == initial, "Cycle did not return to initial mode.");
 Require(PlayerPrefs.SaveCount == 3, "Each change must save the preference.");
+foreach (var mode in Enum.GetValues<AndroidLongPressPreviewMode>()) {
+    AndroidLongPressPreviewSettings.Mode = mode;
+    Require(PlayerPrefs.StoredValue == (int)mode, "Direct selection was not persisted.");
+}
+var saved = PlayerPrefs.StoredValue;
+try { AndroidLongPressPreviewSettings.Mode = (AndroidLongPressPreviewMode)99; throw new Exception("Invalid mode accepted."); }
+catch (ArgumentOutOfRangeException) { }
+Require(PlayerPrefs.StoredValue == saved, "Invalid selection changed saved mode.");
 Console.WriteLine($"Long press settings passed for stored value {stored?.ToString() ?? "missing"}.");
 
 static void Require(bool condition, string message)

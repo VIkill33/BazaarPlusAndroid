@@ -146,8 +146,7 @@ public final class LauncherPreparation {
             LauncherFiles.replace(temp, target);
         }
         verify(target, plugin);
-        String position = context.getSharedPreferences(LauncherSettingsActivity.PREFERENCES, 0)
-                .getString(LauncherSettingsActivity.POSITION, "default");
+        String position = LauncherSettingsActivity.readPosition(context);
         JSONObject settings = new JSONObject().put("schema", 1)
                 .put("previewPanelPosition", "left".equals(position) ? "left" : "default");
         LauncherFiles.write(new File(bep(), "bpp-launcher-settings.json"), LauncherRelease.bytes(settings.toString()));

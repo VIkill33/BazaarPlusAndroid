@@ -20,8 +20,9 @@ internal static class AndroidLongPressPreviewSettings
                 ? (AndroidLongPressPreviewMode)stored : AndroidLongPressPreviewMode.Enchant;
             return _mode.Value;
         }
-        private set
+        set
         {
+            if (!Enum.IsDefined(value)) throw new ArgumentOutOfRangeException(nameof(value));
             _mode = value;
             PlayerPrefs.SetInt(Preference, (int)value);
             PlayerPrefs.Save();

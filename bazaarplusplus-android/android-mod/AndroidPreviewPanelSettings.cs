@@ -5,14 +5,31 @@ namespace BazaarPlusPlus.Android;
 
 internal static class AndroidPreviewPanelSettings
 {
-    // The launcher writes this snapshot atomically before starting Unity.
-    internal static bool LeftEdge { get; } = Load();
+    private static string SettingsPath => Path.Combine(Paths.BepInExRootPath, "bpp-launcher-settings.json");
+    internal static bool LeftEdge { get; private set; } = Load();
+
+    internal static void SetLeftEdge(bool value)
+    {
+        var path = SettingsPath;
+        var temporary = path + ".part";
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(new { schema = 1, previewPanelPosition = value ? "left" : "default" }));
+            File.Move(temporary, path, overwrite: true);
+            LeftEdge = value;
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
 
     private static bool Load()
     {
         try
         {
-            var path = Path.Combine(Paths.BepInExRootPath, "bpp-launcher-settings.json");
+            var path = SettingsPath;
             if (!File.Exists(path)) return false;
             return Parse(File.ReadAllText(path));
         }
