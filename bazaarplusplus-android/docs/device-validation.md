@@ -635,6 +635,26 @@ ADB 按当次截图定位，分别在标准和高级模式长按壶铃、公文�
 `standard-scrolled.png`、`standard-dismissed.png`、`restored-mode.png`、`final.log` 和 `final-logcat.txt`。
 本轮确认空引用故障修复及双模式展示；实际升级后的数值对照、所有光环组合和其他设备仍待验证。
 
+## 升级品质上限与长按「无」选项（2026-10-23，跳过真机）
+
+按用户要求，本次未连接或操作设备，不执行覆盖安装、双输入模式或实物升级验证。
+此前“四档描述”和滚动至传奇档仅证明展示路径可用；普通物品出现传奇升级目标是本次修复的错误。
+
+`AndroidUpgradePreview.Build` 改用 `AndroidUpgradeTierPolicy.TargetTiers`，只枚举高于当前品质、
+且不超过钻石的候选，再由现有模板查询和独立卡牌副本生成效果。青铜、白银、黄金、钻石、传奇
+五种起始品质的回归用例通过，钻石和传奇均无更高升级候选。
+
+`AndroidLongPressPreviewSettings` 以原偏好键保留 0=附魔、1=升级，新增 2=无，
+按钮按「附魔 → 升级 → 无」循环并保存；非法值回退附魔。`AndroidTooltipObserver.Update`
+在「无」模式跳过物品附加预览并隐藏已有浮层，保留游戏原生详情；模式变化会重新解析当前物品。
+事件、野怪和英雄等级预览保持原有入口。缺省值、旧 0/1、新 2、非法 -1/99 的加载、循环和保存
+均通过使用生产设置类与 PlayerPrefs 替身的离线回归。
+
+Python 9 项检查、BuildCorpus、EnchantPolicy 和上述新增回归通过；Android 插件编译零警告、零错误。
+签名 APK 与摘要见被忽略的 `artifacts/launcher/`，插件构建输入见 `artifacts/mod/build-inputs.json`，
+构建日志位于 `artifacts/upgrade-fix/`。
+两项改动的真机展示、关闭和重启后设置保留仍待验证，不标记为本次真机通过。
+
 ## 启动器暮紫琥珀 UI（2026-10-23）
 
 参考最近提交的 `docs/design/launcher-concept-c.png`、启动器 ADR-0001、
@@ -671,6 +691,40 @@ ADB 按当次截图定位，分别在标准和高级模式长按壶铃、公文�
 APK、签名报告、发行清单及对应源码包仍在 `artifacts/launcher/`。
 无游戏安装、未知版本、撤销授权、空间不足、实际修复、超大字体、平板及第二设备未做本轮故障注入，
 不能将正常路径结果扩展为这些场景通过。
+
+
+## 首次启动语言初始化与固定英文文案（2026-10-23）
+
+参考桌面本地化、图鉴、面板和输入架构文档，核对 Android 生成代理的
+`PlayerPreferences.Data`／`PreferencesData.LanguageCode` 与 `LocalizationService`。
+本地未提供桌面反编译源码，因此未据此声称确认手机版原生初始化内部实现。
+原 `Plugin.Load` 的语言提供器在偏好未就绪时返回英文，而两个 Controller 仅等待字体，
+`BuildUi` 一次性写入的按钮与标题不会随稍后到达的语言值刷新。
+
+两个 Controller 现等待有效语言偏好，固定文字由 `AndroidLocalizedText` 在显示时解析，
+值未变化时不重复写入 TMP；筛选值等动态文字仍由原视图状态刷新，避免覆盖选择。
+图鉴检测语言变化时清理旧预览、刷新控件并使目录语言失效；构筑英雄显示名改用
+`LocalizableShared.GetLocalizedHero`，查询仍使用原英雄标识。共享桌面源码未修改。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C）、Android 14、2460×1080，游戏
+`1.0.12825-production-android-d9601ded`。测试前为启动器首页，保留游戏登录和现有对局。
+签名 APK 覆盖安装后冷启动，最终插件 SHA-256：`c4f43150d9bab94dcb438a6fe72898e0fa314fe98635362f8aa60a46dbfd8f30`。
+`verify_launcher.py --expect-loaded --not-before-ms` 的 12 项断言通过，确认本次新会话、
+APK／磁盘／握手插件摘要及入口日志一致。新增组件注册、无托管回调封送警告、无插件
+UI tick 错误的 3 项日志断言通过；框架既有通用钩子警告不作为本修复引入的问题。
+
+ADB 按当次截图打开、关闭并重开图鉴和构筑面板；三个入口、标题、重置、关闭、物品／技能、
+搜索占位、加载提示、翻页和构筑英雄名经截图人工复核为中文，不是自动视觉断言。
+选择白银后筛选按钮保持「品质：白银」，未被固定文案绑定覆盖。
+当前停留大厅，构筑为空候选路径；没有继续对局、购买、选择遭遇、清除数据或变更游戏输入模式。
+
+本地化生命周期测试执行生产绑定组件与共享本地化引擎，覆盖无偏好英文回退→延迟中文、
+切回英文、动态模式更新、未绑定实例及相同文字不重写；Python 9 项检查、BuildCorpus、
+EnchantPolicy 通过，插件编译零警告／错误。
+证据在被忽略的 `artifacts/localization-fix/`：构建与测试日志、`final-loaded/verification.json`、
+`ui-log-assertions.json`、`final-collection.png`、`final-builds.png`、`tier-selected.png` 和 `final.log`。
+全新无偏好安装、真实首次语言初始化时序、双输入模式及游戏内热切换仍待真机验证；
+未清除账号／游戏数据来模拟首次安装，因此本项不标记完整真机验收，不作已验收功能提交。
 
 ## 启动器帮助页与首次安装引导（2026-10-23）
 

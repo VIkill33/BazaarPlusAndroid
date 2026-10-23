@@ -18,19 +18,6 @@ namespace BazaarPlusPlus.Android;
 
 public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(pointer)
 {
-    private const string LongPressUpgradePreference = "BPP.Android.LongPressUpgrade";
-    private static bool? _upgradeOnLongPress;
-    internal static bool UpgradeOnLongPress
-    {
-        get => _upgradeOnLongPress ??= PlayerPrefs.GetInt(LongPressUpgradePreference, 0) == 1;
-        set
-        {
-            _upgradeOnLongPress = value;
-            PlayerPrefs.SetInt(LongPressUpgradePreference, value ? 1 : 0);
-            PlayerPrefs.Save();
-        }
-    }
-
     // Native item details include a cooldown clock protruding to the left of
     // their frame. Reserve that space while keeping the preview 370 units wide.
     private const float PreviewRightInset = 640;
@@ -42,6 +29,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private bool _lastLocked;
     private int _lastLevel = -1;
     private int _lastItemState;
+    private AndroidLongPressPreviewMode? _lastLongPressMode;
     private GameObject? _canvasRoot;
     private RectTransform? _panel;
     private RectTransform? _content;
@@ -95,6 +83,12 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 // Advanced mobile input can keep the live tooltip unlocked while
                 // the card is inspected; standard mode uses the locked long press.
                 if (levelData == null && !locked && PlayerPreferences.Data?.AlternativeInput != true) continue;
+                var longPressMode = AndroidLongPressPreviewSettings.Mode;
+                if (item != null && longPressMode == AndroidLongPressPreviewMode.None)
+                {
+                    Hide();
+                    continue;
+                }
                 visible = true;
                 var pointer = card?.Pointer ?? levelData!.Pointer;
                 if (monsterCard != null && pointer == _dismissedMonster) continue;
@@ -104,12 +98,13 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                     NativeNullableValue.Read<EEnchantmentType>(item, "get_Enchantment"),
                     AndroidEnchantPreview.AttributeDigest(item));
                 if (_lastController == id && _lastCard == pointer && _lastLocked == locked
-                    && _lastLevel == currentLevel && _lastItemState == itemState) continue;
+                    && _lastLevel == currentLevel && _lastItemState == itemState
+                    && _lastLongPressMode == longPressMode) continue;
                 Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.tooltip.observed controller={id} locked={locked} card={card?.TemplateId} level={currentLevel}");
                 if (_panel == null) BuildUi(controller);
                 if (_panel == null) continue;
-                if (_lastCard != pointer)
-                    _mode = item != null && UpgradeOnLongPress && item.CanCardUpgrade()
+                if (_lastCard != pointer || _lastLongPressMode != longPressMode)
+                    _mode = item != null && longPressMode == AndroidLongPressPreviewMode.Upgrade && item.CanCardUpgrade()
                         ? PreviewMode.Upgrade : PreviewMode.Enchant;
                 _currentItem = item;
                 _currentEvent = eventCard;
@@ -123,6 +118,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 _lastLocked = locked;
                 _lastLevel = currentLevel;
                 _lastItemState = itemState;
+                _lastLongPressMode = longPressMode;
                 break;
             }
             if (!visible)
@@ -162,11 +158,15 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 preview = NativeUi.Text("No enchantment preview for this item.", "此物品暂无附魔预览。");
             else return false;
         }
+        var leftEdge = _currentItem != null && AndroidPreviewPanelSettings.LeftEdge;
         var nativeCanvas = _currentController.GetComponentInParent<Canvas>();
         var overlayCanvas = _canvasRoot?.GetComponent<Canvas>();
         if (nativeCanvas != null && overlayCanvas != null)
-            overlayCanvas.sortingOrder = nativeCanvas.sortingOrder + 1;
+            // Left placement overlaps the collection/build entry canvases (30000/30001).
+            overlayCanvas.sortingOrder = leftEdge ? Math.Max(30002, nativeCanvas.sortingOrder + 1)
+                : nativeCanvas.sortingOrder + 1;
         var monsterPreview = _currentMonster != null;
+        _panel.anchorMin = _panel.anchorMax = Vector2.right;
         if (monsterPreview)
         {
             if (_lastCard != _currentMonster!.Pointer) _monsterDetailVisible = false;
@@ -179,8 +179,14 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         }
         else
         {
-            _panel.offsetMin = new Vector2(-PreviewRightInset - PreviewWidth, 45);
-            _panel.offsetMax = new Vector2(-PreviewRightInset, 1000);
+            if (leftEdge) _panel.anchorMin = _panel.anchorMax = Vector2.zero;
+            // Keep a small touch margin inside the device safe area (notch/navigation).
+            var left = leftEdge ? 16 + Screen.safeArea.xMin * 1080f / Screen.height
+                : -PreviewRightInset - PreviewWidth;
+            _panel.offsetMin = new Vector2(left, 45);
+            _panel.offsetMax = new Vector2(left + PreviewWidth, 1000);
+            if (_currentItem != null)
+                Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.preview.placement position={(leftEdge ? "left" : "default")} x={left}");
             _scroll.gameObject.SetActive(true);
             _monsterBackdrop?.SetActive(false);
             _monsterClose?.gameObject.SetActive(false);
@@ -315,6 +321,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         _lastLocked = false;
         _lastLevel = -1;
         _lastItemState = 0;
+        _lastLongPressMode = null;
         _currentItem = null;
         _currentEvent = null;
         _currentMonster = null;

@@ -22,6 +22,7 @@
                 <com.google.android.material.button.MaterialButton android:id="@+id/launcher_refresh" style="@style/BppButton" android:layout_width="0dp" android:layout_weight="1" android:text="重新检查" android:textSize="14sp" app:icon="@drawable/bpp_refresh" app:iconTint="@color/bpp_text" app:iconGravity="textStart" android:paddingHorizontal="8dp" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/launcher_help" style="@style/BppButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="12dp" android:text="帮助" android:textSize="14sp" app:icon="@drawable/bpp_help" app:iconTint="@color/bpp_text" app:iconGravity="textStart" android:paddingHorizontal="8dp" />
             </LinearLayout>
+            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_settings" style="@style/BppButton" android:text="设置" android:layout_marginTop="8dp" />
             <com.google.android.material.button.MaterialButton android:id="@+id/launcher_more" style="@style/BppButton" android:text="更多：修复与许可" android:layout_marginTop="8dp" />
             <TextView style="@style/BppCaption" android:text="独立社区工具 · 非官方出品" android:textSize="12sp" android:gravity="center" android:layout_marginTop="28dp" />
             <TextView android:id="@+id/launcher_version" style="@style/BppCaption" android:textSize="11sp" android:gravity="center" android:layout_marginTop="4dp" />

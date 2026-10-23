@@ -29,9 +29,8 @@ internal static class AndroidUpgradePreview
         var section = NativeNullableValue.Read<EInventorySection>(source, "get_Section");
         var enchantment = NativeNullableValue.Read<EEnchantmentType>(source, "get_Enchantment");
         var previews = new List<string>();
-        foreach (var tier in Enum.GetValues<ETier>().Distinct().OrderBy(value => (int)value))
+        foreach (var tier in AndroidUpgradeTierPolicy.TargetTiers(sourceTier))
         {
-            if ((int)tier <= (int)sourceTier) continue;
             var description = BuildTier(source, template, tier, section, enchantment);
             if (string.IsNullOrWhiteSpace(description)) continue;
             var label = new LocalizableText(tier.ToString()).GetLocalizedText();

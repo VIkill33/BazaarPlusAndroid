@@ -67,6 +67,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         private float _nextTry;
     private int _failures;
     private int _scene = -1;
+    private string? _language;
     private Guid? _requested;
     private Guid? _shown;
     private int _requestVersion;
@@ -86,6 +87,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(PlayerPreferences.Data?.LanguageCode)) return;
             if (_canvas == null)
             {
                 if (_failures >= 3 || Time.realtimeSinceStartup < _nextTry) return;
@@ -93,6 +95,16 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 var font = NotoFontFallbackRuntime._loadedSansPrimary;
                 if (font == null) return;
                 BuildUi(font);
+            }
+            var language = PlayerPreferences.Data.LanguageCode;
+            if (_language != language)
+            {
+                _language = language;
+                _choices?.Close();
+                ClearPreview();
+                if (_status != null) _status.text = NativeUi.Text("Select a card", "点选左侧卡牌");
+                if (Data.IsManagerCreated()) _catalog.EnsureCurrent(Data.GetStatic());
+                Changed();
             }
             var scene = SceneManager.GetActiveScene().handle;
             if (_scene != -1 && scene != _scene) SetOpen(false);
@@ -152,7 +164,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 1;
         _canvas.AddComponent<GraphicRaycaster>();
-        _entry = NativeUi.Button(_canvas.transform, font, NativeUi.Text("Card Collection", "卡牌图鉴"),
+        _entry = NativeUi.Button(_canvas.transform, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"),
             new Vector2(0, .5f), new Vector2(0, .5f), () => SetOpen(true),
             new Vector2(30, -45), new Vector2(300, 45));
         _panel = NativeUi.Rect("BPP.Collection", _canvas.transform, Vector2.zero, Vector2.one);
@@ -162,14 +174,14 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _sources = AndroidCollectionSources.Load();
         _choices = new AndroidChoicePopup(_panel, font);
         var title = NativeUi.Rect("BPP.Title", _panel, new Vector2(.03f, .88f), new Vector2(.6f, .98f));
-        NativeUi.Label(title, font, NativeUi.Text("Card Collection", "卡牌图鉴"), 44);
-        NativeUi.Button(_panel, font, NativeUi.Text("Reset filters", "重置筛选"), new Vector2(.64f, .88f), new Vector2(.82f, .98f), ResetFilters);
-        NativeUi.Button(_panel, font, NativeUi.Text("Close", "关闭"), new Vector2(.85f, .88f), new Vector2(.97f, .98f), () => SetOpen(false));
+        NativeUi.Label(title, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"), 44);
+        NativeUi.Button(_panel, font, () => NativeUi.Text("Reset filters", "重置筛选"), new Vector2(.64f, .88f), new Vector2(.82f, .98f), ResetFilters);
+        NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"), new Vector2(.85f, .88f), new Vector2(.97f, .98f), () => SetOpen(false));
         _heroButton = NativeUi.Button(_panel, font, NativeUi.Text("Hero: All", "英雄：全部"), new Vector2(.03f, .78f), new Vector2(.24f, .85f), ChooseHero);
         _tierButton = NativeUi.Button(_panel, font, NativeUi.Text("Tier: All", "品质：全部"), new Vector2(.25f, .78f), new Vector2(.42f, .85f), ChooseTier);
         _sizeButton = NativeUi.Button(_panel, font, NativeUi.Text("Size: All", "体型：全部"), new Vector2(.43f, .78f), new Vector2(.6f, .85f), ChooseSize);
-        _itemsButton = NativeUi.Button(_panel, font, NativeUi.Text("Items", "物品"), new Vector2(.03f, .69f), new Vector2(.12f, .76f), () => { _filter.ActiveType = ECardType.Item; Changed(); });
-        _skillsButton = NativeUi.Button(_panel, font, NativeUi.Text("Skills", "技能"), new Vector2(.13f, .69f), new Vector2(.22f, .76f), () => { _filter.ActiveType = ECardType.Skill; Changed(); });
+        _itemsButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Items", "物品"), new Vector2(.03f, .69f), new Vector2(.12f, .76f), () => { _filter.ActiveType = ECardType.Item; Changed(); });
+        _skillsButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Skills", "技能"), new Vector2(.13f, .69f), new Vector2(.22f, .76f), () => { _filter.ActiveType = ECardType.Skill; Changed(); });
         _search = NativeUi.Search(_panel, font, new Vector2(.24f, .69f), new Vector2(.6f, .76f), text => { _filter.SearchQuery = text; Changed(); });
         _sourceButton = NativeUi.Button(_panel, font, string.Empty, new Vector2(.03f, .60f), new Vector2(.40f, .67f), ChooseSource);
         _dayButton = NativeUi.Button(_panel, font, string.Empty, new Vector2(.41f, .60f), new Vector2(.60f, .67f), ChooseDay);
@@ -180,11 +192,11 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             _rows.Add(NativeUi.Button(_gridHost, font, string.Empty, Vector2.zero, Vector2.zero, () => SelectSlot(slot)));
         }
         _loadingHint = NativeUi.Label(NativeUi.Rect("BPP.LoadingHint", _gridHost, Vector2.zero, Vector2.one), font,
-            NativeUi.Text("Data may take longer to load the first time", "首次打开数据加载可能较慢"), 30);
+            () => NativeUi.Text("Data may take longer to load the first time", "首次打开数据加载可能较慢"), 30);
         _loadingHint.alignment = TextAlignmentOptions.Center;
         _loadingHint.raycastTarget = false;
-        NativeUi.Button(_panel, font, NativeUi.Text("Previous", "上一页"), new Vector2(.03f, .04f), new Vector2(.18f, .12f), () => { _page--; Refresh(); });
-        NativeUi.Button(_panel, font, NativeUi.Text("Next", "下一页"), new Vector2(.45f, .04f), new Vector2(.6f, .12f), () => { _page++; Refresh(); });
+        NativeUi.Button(_panel, font, () => NativeUi.Text("Previous", "上一页"), new Vector2(.03f, .04f), new Vector2(.18f, .12f), () => { _page--; Refresh(); });
+        NativeUi.Button(_panel, font, () => NativeUi.Text("Next", "下一页"), new Vector2(.45f, .04f), new Vector2(.6f, .12f), () => { _page++; Refresh(); });
         _pageLabel = NativeUi.Label(NativeUi.Rect("BPP.Page", _panel, new Vector2(.19f, .04f), new Vector2(.44f, .12f)), font, string.Empty, 27);
         _previewTierButton = NativeUi.Button(_panel, font, NativeUi.Text("Preview tier", "预览品质"),
             new Vector2(.64f, .76f), new Vector2(.80f, .82f), ChoosePreviewTier);

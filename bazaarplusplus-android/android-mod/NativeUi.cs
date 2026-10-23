@@ -64,6 +64,22 @@ internal static class NativeUi
         return label;
     }
 
+    internal static TextMeshProUGUI Label(Transform parent, TMP_FontAsset font, Func<string> text, float size = 30)
+    {
+        var label = Label(parent, font, text(), size);
+        label.gameObject.AddComponent<AndroidLocalizedText>().Bind(label, text);
+        return label;
+    }
+
+    internal static Button Button(Transform parent, TMP_FontAsset font, Func<string> text, Vector2 min, Vector2 max,
+        Action callback, Vector2 offsetMin = default, Vector2 offsetMax = default)
+    {
+        var button = Button(parent, font, text(), min, max, callback, offsetMin, offsetMax);
+        var label = button.GetComponentInChildren<TextMeshProUGUI>();
+        label.gameObject.AddComponent<AndroidLocalizedText>().Bind(label, text);
+        return button;
+    }
+
     internal static Button Button(Transform parent, TMP_FontAsset font, string text, Vector2 min, Vector2 max,
         Action callback, Vector2 offsetMin = default, Vector2 offsetMax = default)
     {
@@ -87,7 +103,7 @@ internal static class NativeUi
         viewport.gameObject.AddComponent<RectMask2D>();
         var value = Label(viewport, font, string.Empty, 30);
         value.alignment = TextAlignmentOptions.MidlineLeft;
-        var placeholder = Label(viewport, font, Text("Search cards", "搜索卡牌"), 30);
+        var placeholder = Label(viewport, font, () => Text("Search cards", "搜索卡牌"), 30);
         placeholder.alignment = TextAlignmentOptions.MidlineLeft;
         placeholder.color = new Color(0.65f, 0.68f, 0.71f, 1);
         var input = rect.gameObject.AddComponent<TMP_InputField>();

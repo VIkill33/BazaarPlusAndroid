@@ -59,6 +59,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 _board?.Tick();
                 _candidateCards.Tick();
             }
+            if (string.IsNullOrWhiteSpace(PlayerPreferences.Data?.LanguageCode)) return;
             if (_canvas == null)
             {
                 var font = NotoFontFallbackRuntime._loadedSansPrimary;
@@ -98,10 +99,10 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 1;
             _canvas.AddComponent<GraphicRaycaster>();
-            _entry = NativeUi.Button(_canvas.transform, font, NativeUi.Text("Builds", "构筑推荐"),
+            _entry = NativeUi.Button(_canvas.transform, font, () => NativeUi.Text("Builds", "构筑推荐"),
                 new Vector2(0, .5f), new Vector2(0, .5f), () => SetOpen(true),
                 new Vector2(30, -145), new Vector2(300, -55));
-            _previewModeButton = NativeUi.Button(_canvas.transform, font, PreviewModeLabel(),
+            _previewModeButton = NativeUi.Button(_canvas.transform, font, PreviewModeLabel,
                 new Vector2(0, .5f), new Vector2(0, .5f), TogglePreviewMode,
                 new Vector2(30, -240), new Vector2(300, -150));
             _panel = NativeUi.Rect("BPP.BuildPanel", _canvas.transform, Vector2.zero, Vector2.one);
@@ -109,18 +110,18 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             background.color = new Color(.025f, .04f, .065f, .995f);
             background.raycastTarget = true;
             NativeUi.Label(NativeUi.Rect("BPP.BuildTitle", _panel, new Vector2(.03f, .89f),
-                new Vector2(.36f, .98f)), font, NativeUi.Text("Recommended builds", "构筑推荐"), 40);
+                new Vector2(.36f, .98f)), font, () => NativeUi.Text("Recommended builds", "构筑推荐"), 40);
             _sourceButton = NativeUi.Button(_panel, font, NativeUi.Text("Board", "场上"),
                 new Vector2(.37f, .89f), new Vector2(.53f, .98f), CycleSource);
             _candidatePageButton = NativeUi.Button(_panel, font, "1/1",
                 new Vector2(.54f, .89f), new Vector2(.68f, .98f), NextCandidatePage);
-            NativeUi.Button(_panel, font, NativeUi.Text("Refresh", "刷新"),
+            NativeUi.Button(_panel, font, () => NativeUi.Text("Refresh", "刷新"),
                 new Vector2(.70f, .89f), new Vector2(.82f, .98f), () =>
                 {
                     _ = Plugin.BuildRepository?.RefreshAsync();
                     _nextRefresh = 0;
                 });
-            NativeUi.Button(_panel, font, NativeUi.Text("Close", "关闭"),
+            NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"),
                 new Vector2(.85f, .89f), new Vector2(.97f, .98f), () => SetOpen(false));
             for (var slot = 0; slot < 10; slot++)
             {
@@ -262,7 +263,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (_nextBuildButton != null) _nextBuildButton.interactable = matches.Length > 1;
         var lines = new List<string>
         {
-            $"<b>{hero}</b> · {NativeUi.Text("Board/Stash/Shop", "场上／仓库／商店")} " +
+            $"<b>{TheBazaar.Utilities.LocalizableShared.GetLocalizedHero(player.Hero)}</b> · {NativeUi.Text("Board/Stash/Shop", "场上／仓库／商店")} " +
             $"{board.Count}/{stash.Count}/{shop.Count} · " +
             $"{NativeUi.Text("Candidates", "候选")} {_selectedCandidates.Count} · " +
             $"{NativeUi.Text("Data generated", "数据生成于")} {corpus.GeneratedAt:yyyy-MM-dd}"
@@ -450,16 +451,19 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (_previewModeButton != null) _previewModeButton.gameObject.SetActive(visible);
     }
 
-    private static string PreviewModeLabel() => AndroidTooltipObserver.UpgradeOnLongPress
-        ? NativeUi.Text("Hold: Upgrade", "长按预览：升级")
-        : NativeUi.Text("Hold: Enchants", "长按预览：附魔");
+    private static string PreviewModeLabel() => AndroidLongPressPreviewSettings.Mode switch
+    {
+        AndroidLongPressPreviewMode.Upgrade => NativeUi.Text("Hold: Upgrade", "长按预览：升级"),
+        AndroidLongPressPreviewMode.None => NativeUi.Text("Hold: None", "长按预览：无"),
+        _ => NativeUi.Text("Hold: Enchants", "长按预览：附魔"),
+    };
 
     private void TogglePreviewMode()
     {
-        AndroidTooltipObserver.UpgradeOnLongPress = !AndroidTooltipObserver.UpgradeOnLongPress;
+        AndroidLongPressPreviewSettings.Cycle();
         if (_previewModeButton != null)
             _previewModeButton.GetComponentInChildren<TextMeshProUGUI>().text = PreviewModeLabel();
-        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.tooltip.default_mode upgrade={AndroidTooltipObserver.UpgradeOnLongPress}");
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.tooltip.default_mode mode={AndroidLongPressPreviewSettings.Mode}");
     }
 
     public void OnDestroy()
