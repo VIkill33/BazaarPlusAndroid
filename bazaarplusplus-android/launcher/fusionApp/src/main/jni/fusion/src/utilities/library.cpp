@@ -89,13 +89,14 @@ PaddedOpenResult padded_dlopen(const char *library_name,
         if (ph.p_type != PT_LOAD) continue;
         if (!last || ph.p_vaddr + ph.p_memsz > last->p_vaddr + last->p_memsz) last = &ph;
     }
-    if (!last || !(last->p_flags & PF_W))
+    if (!last)
     {
-        log_format(LogLevel::ERROR, TAG, "No writable last PT_LOAD in {}", library_name);
+        log_format(LogLevel::ERROR, TAG, "No PT_LOAD in {}", library_name);
         return failure;
     }
 
-    // pool = whole pages right after the segment; grow memsz to cover it
+    // The final segment may be R or RX (for example, a relocated program-header table).
+    // Preserve its flags. The allocator changes permissions only on the new whole-page pool.
     const Elf_Addr pool_start = align_up(last->p_vaddr + last->p_memsz);
     const Elf_Addr pool_len = align_up(pool_size);
     last->p_memsz = pool_start + pool_len - last->p_vaddr;

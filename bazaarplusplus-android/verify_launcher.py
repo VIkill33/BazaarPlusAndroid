@@ -18,6 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--adb")
     parser.add_argument("--serial")
+    parser.add_argument("--package", help="Selected game package; defaults to the official game in the APK manifest")
     parser.add_argument("--apk", type=Path, default=root / "artifacts/launcher/BazaarPlusPlus-launcher.apk")
     parser.add_argument("--output", type=Path, default=root / "artifacts/launcher/verification")
     parser.add_argument("--expect-loaded", action="store_true")
@@ -32,13 +33,14 @@ def main():
         release = json.loads(archive.read("assets/launcher/release.json"))
         bundled = archive.read("assets/launcher/BazaarPlusPlus.Android.dll")
     verify_bundled_inputs(args.apk, release)
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", release["storageRoot"]) or not re.fullmatch(r"[A-Za-z0-9_.]+", release["game"]["package"]):
+    game_package = args.package or release["game"]["package"]
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", release["storageRoot"]) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+", game_package):
         parser.error("APK manifest contains invalid device path components")
-    target = f"/sdcard/{release['storageRoot']}/{release['game']['package']}/BepInEx"
+    target = f"/sdcard/{release['storageRoot']}/{game_package}/BepInEx"
     checks = {"bundledInputsMatchManifest": True, "bundledPluginMatchesManifest": hashlib.sha256(bundled).hexdigest() == release["plugin"]["sha256"]}
     package = run(command + ["shell", "dumpsys", "package", release["applicationId"]])
     checks["installedLauncherVersionMatches"] = bool(re.search(r"versionName=" + re.escape(release["launcherVersion"]) + r"\s*$", package, re.MULTILINE))
-    evidence = {"releaseId": release["releaseId"], "launcherVersion": release["launcherVersion"],
+    evidence = {"releaseId": release["releaseId"], "launcherVersion": release["launcherVersion"], "gamePackage": game_package,
                 "android": run(command + ["shell", "getprop", "ro.build.version.release"]),
                 "deviceModel": run(command + ["shell", "getprop", "ro.product.model"]), "checks": checks}
     if args.expect_loaded:

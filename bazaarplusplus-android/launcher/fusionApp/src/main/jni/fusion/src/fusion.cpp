@@ -58,7 +58,10 @@ static bool execute_fusion_config(const FusionConfig &config)
     else{
         patchedLibIl2Cpp = codeCache / "libil2cpp.so";
         fs::path libIl2Cpp = gameLibsPath / "libil2cpp.so";
-        allocate_setup_injected(libIl2Cpp.c_str(), patchedLibIl2Cpp.c_str(), 1024 * 1024);
+        if (!allocate_setup_injected(libIl2Cpp.c_str(), patchedLibIl2Cpp.c_str(), 1024 * 1024)) {
+            log(LogLevel::ERROR, TAG, "Cannot prepare IL2CPP trampoline pool");
+            return false;
+        }
     }
     if (config.useOriginalLibUnity)
     {

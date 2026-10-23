@@ -22,6 +22,12 @@ uintptr_t get_injected_pool_base()
 void *allocate_setup_injected(const char *library, const char *output_path, size_t pool_size)
 {
     padded_open = padded_dlopen(library, output_path, pool_size);
+    pool_rwx = false;
+    pool_pointer = 0;
+    if (!padded_open.handle || padded_open.pool_base == 0 || padded_open.pool_size == 0) {
+        log(LogLevel::ERROR, TAG, "Cannot initialize trampoline pool: library padding failed");
+        return nullptr;
+    }
 
     pool_rwx = mprotect(reinterpret_cast<void *>(padded_open.pool_base),
                         padded_open.pool_size,

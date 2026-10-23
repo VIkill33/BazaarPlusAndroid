@@ -1,5 +1,35 @@
 # Android 真机验证
 
+## LookingIN 客户端末尾 RX 段（2026-10-24，test.10）
+
+用户确认 test.9 原版可启动、第三方客户端失败。设备仍为 `OBJVWSPNSCFQU48L`、
+22041216C、Android 14，目标 `com.lookingin.bazaar.mod`，游戏版本
+`1.0.12825-production-android-d9601ded`、Unity 6000.3.11f1。
+01:46:52 的 `LibraryUtils` 首先报告 `No writable last PT_LOAD`，随后因运行库副本
+未生成而出现 `libil2cpp.so not found`；界面“硬件不支持”只是 Unity 原生加载失败通用提示。
+证据为 `artifacts/startup-crash/third-party-failure/`。
+
+从已安装客户端只读复制 `libil2cpp.so`，ELF 检查确认新增最高地址段为 RX，并包含迁移的
+程序头表。`utilities/library.cpp::padded_dlopen` 现在允许最后 PT_LOAD 为 RW、R 或 RX，
+只扩展其内存大小以预留整页池，保留原段权限；`allocate_setup_injected` 只对新池设置权限。
+填充失败时清空分配状态并停止启动，不再对空池调用 mprotect 或继续连接不存在的副本。
+`verify_launcher.py --package` 可核对当前所选客户端的会话与插件摘要，避免误读原版路径。
+
+本次验证入口 `verify_launcher_padding.py --help`：使用指定 NDK 编译生产
+`library.cpp`／`allocator.cpp`，在已授权 arm64 真机的独立 `/data/local/tmp/bpp-launcher-padding`
+目录执行测试，不操作游戏状态。RW／R／RX 三类合成 ELF 均通过 dlopen、导出函数调用、
+池内指令写入与实际执行、容量限制以及失败重置；末尾程序头布局与本次客户端一致。
+测试源码在 `tests/native/`，日志为
+`artifacts/startup-crash/third-party-failure/native-padding-tests.log`；Python 离线 9 项通过。
+签名 test.10 已构建并覆盖安装。实际启动第三方客户端后，新的 1 MB 池、IL2CPP 初始化、
+代理生成与插件加载均完成；使用 `--package com.lookingin.bazaar.mod` 的 12 项加载断言
+全部通过，`test10-client/current.png` 人工复核登录页、LookingIN 标记及 BPP 入口可见。
+未操作登录或账号表单、未新开对局，停止设备操作供用户继续验证；不扩展为登录完成或
+游戏内功能全部通过。证据为 `artifacts/startup-crash/test10-client/`，本次插件摘要
+与该 APK 内置输入和新会话匹配，不能用后续并行修改后的 DLL 替代本次证据。
+
+
+
 ## 启动闪退诊断候选（2026-10-24，待真机验证）
 
 参考 Android README、功能清单、启动器 ADR-0001、BUILDING、桌面插件架构／MEMORY
