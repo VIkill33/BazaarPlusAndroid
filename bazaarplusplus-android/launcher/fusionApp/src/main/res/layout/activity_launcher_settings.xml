@@ -8,6 +8,18 @@
             style="@style/BppButton" android:layout_width="wrap_content" android:text="返回" />
         <TextView style="@style/BppText" android:text="设置" android:textSize="28sp"
             android:textStyle="bold" android:layout_marginTop="24dp" android:accessibilityHeading="true" />
+        <TextView style="@style/BppText" android:text="启动目标" android:textSize="20sp"
+            android:layout_marginTop="32dp" android:accessibilityHeading="true" />
+        <TextView style="@style/BppCaption"
+            android:text="默认启动正版大巴扎。也可选择本机已安装、带桌面入口且已提取 arm64 IL2CPP 原生库的游戏。保存后，首页「启动游戏」会启动当前选择。"
+            android:layout_marginTop="8dp" />
+        <TextView android:id="@+id/target_current" style="@style/BppText" android:text="当前：正版大巴扎（默认）"
+            android:layout_marginTop="12dp" android:textIsSelectable="true" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/target_choose"
+            style="@style/BppButton" android:text="选择本机游戏" android:layout_marginTop="12dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/target_reset"
+            style="@style/BppButton" android:text="恢复正版游戏" android:layout_marginTop="8dp"
+            android:visibility="gone" />
         <TextView style="@style/BppText" android:text="附魔／升级面板位置" android:textSize="20sp"
             android:layout_marginTop="32dp" android:accessibilityHeading="true" />
         <TextView style="@style/BppCaption" android:text="选择长按物品时附加预览面板的展示位置。"
@@ -21,7 +33,7 @@
                 android:layout_height="wrap_content" android:minHeight="56dp" android:text="靠屏幕左侧边缘"
                 android:textColor="@color/bpp_text" />
         </RadioGroup>
-        <TextView style="@style/BppCaption" android:text="选择后自动保存，下次启动游戏时生效。"
+        <TextView style="@style/BppCaption" android:text="选择后自动保存，下次启动当前目标游戏时生效。"
             android:layout_marginTop="16dp" />
     </LinearLayout>
 </ScrollView>

@@ -200,7 +200,8 @@ def main():
                      "bazaarplusplus-android/docs/adr/0001-dedicated-launcher.md",
                      "bazaarplusplus-android/verify_launcher.py", "bazaarplusplus-android/inspect_game.py",
                      "bazaarplusplus-android/tests/test_launcher_dependencies.py",
-                     "bazaarplusplus-android/tests/LauncherFilesTest.java", "bazaarplusplus-android/tests/test_launcher_files.py"]
+                     "bazaarplusplus-android/tests/LauncherFilesTest.java", "bazaarplusplus-android/tests/LauncherLogTest.java",
+                     "bazaarplusplus-android/tests/test_launcher_files.py"]
     with tarfile.open(output / "launcher-source.tar.gz", "w:gz") as archive:
         for relative in sorted(set(source_paths)):
             path = root.parent / relative

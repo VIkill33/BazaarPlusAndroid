@@ -9,6 +9,8 @@ import android.widget.TextView;
 
 import java.util.Locale;
 
+import dev.allofus.fusioncore.LauncherLog;
+import dev.allofus.fusioncore.LauncherPreparation;
 import dev.allofus.fusioncore.R;
 
 public class JniBridge {
@@ -26,6 +28,7 @@ public class JniBridge {
             }
 
             view.setVisibility(enabled ? View.VISIBLE : View.GONE);
+            LauncherPreparation.markLoader(activity, enabled);
             Log.i(TAG, "Set loading state to "+enabled);
 
             if (!enabled && timerRunnable != null) {
@@ -35,6 +38,7 @@ public class JniBridge {
     }
 
     public static void SetLoadingText(Activity activity, String text) {
+        LauncherLog.note(activity.getFilesDir(), "加载状态 " + (text == null ? "" : text));
         String lower = text == null ? "" : text.toLowerCase(Locale.ROOT);
         final String userText = lower.contains("cpp2il") ? "首次准备游戏运行环境，请保持应用在前台"
                 : lower.contains("interop") ? "正在生成游戏适配文件"
@@ -49,6 +53,8 @@ public class JniBridge {
             }
 
             view.setText(userText);
+            View loader = activity.findViewById(R.id.loader);
+            if (loader != null && loader.getVisibility() == View.VISIBLE) LauncherPreparation.markLoader(activity, true);
             Log.i(TAG, "Set loading text to "+text);
 
             // reset timer

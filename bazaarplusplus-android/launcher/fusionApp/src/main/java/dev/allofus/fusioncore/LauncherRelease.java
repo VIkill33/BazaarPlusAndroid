@@ -29,17 +29,27 @@ public final class LauncherRelease {
     }
 
     public static PackageInfo game(Context context) throws Exception {
-        return context.getPackageManager().getPackageInfo(GAME, 0);
+        return game(context, GAME);
+    }
+
+    public static PackageInfo game(Context context, String packageName) throws Exception {
+        return context.getPackageManager().getPackageInfo(packageName, 0);
     }
 
     public static void check(Context context, JSONObject release) throws Exception {
-        JSONObject game = release.getJSONObject("game");
-        PackageInfo installed = game(context);
-        if (installed.getLongVersionCode() != game.getLong("versionCode") ||
-                !game.getString("versionName").equals(installed.versionName))
-            throw new IOException("当前游戏版本尚未验证，请等待匹配的启动器版本");
-        if (!new File(installed.applicationInfo.nativeLibraryDir, "libil2cpp.so").isFile() ||
-                !installed.applicationInfo.nativeLibraryDir.contains("arm64"))
+        check(context, release, GAME);
+    }
+
+    /** Official installs keep the verified version pin. A chosen package must still be arm64 IL2CPP. */
+    public static void check(Context context, JSONObject release, String packageName) throws Exception {
+        PackageInfo installed = game(context, packageName);
+        if (GAME.equals(packageName)) {
+            JSONObject game = release.getJSONObject("game");
+            if (installed.getLongVersionCode() != game.getLong("versionCode") ||
+                    !game.getString("versionName").equals(installed.versionName))
+                throw new IOException("当前游戏版本尚未验证，请等待匹配的启动器版本");
+        }
+        if (!LauncherGames.hasArm64Il2Cpp(installed.applicationInfo))
             throw new IOException("仅支持已安装原生库的 arm64 游戏");
     }
 

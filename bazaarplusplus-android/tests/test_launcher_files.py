@@ -14,6 +14,9 @@ class LauncherFilesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as output:
             subprocess.run([javac, "--release", "17", "-d", output,
                             str(root / "launcher/fusionApp/src/main/java/dev/allofus/fusioncore/LauncherFiles.java"),
+                            str(root / "launcher/fusionApp/src/main/java/dev/allofus/fusioncore/LauncherLog.java"),
                             str(root / "launcher/fusionApp/src/main/java/dev/allofus/fusioncore/LauncherSession.java"),
-                            str(root / "tests/LauncherFilesTest.java")], check=True)
+                            str(root / "tests/LauncherFilesTest.java"),
+                            str(root / "tests/LauncherLogTest.java")], check=True)
             subprocess.run([java, "-cp", output, "LauncherFilesTest"], check=True)
+            subprocess.run([java, "-cp", output, "LauncherLogTest"], check=True)

@@ -2,10 +2,13 @@ package dev.allofus.fusioncore;
 
 import android.os.Bundle;
 import android.content.Context;
+import android.content.Intent;
+import android.view.View;
 import java.io.File;
 import java.nio.file.Files;
 import org.json.JSONObject;
 import android.widget.RadioGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import dev.allofus.fusioncore.tools.Utilities;
@@ -14,10 +17,15 @@ import dev.allofus.fusioncore.tools.Utilities;
 public final class LauncherSettingsActivity extends AppCompatActivity {
     static final String PREFERENCES = "bpp_settings";
     static final String POSITION = "previewPanelPosition";
+    private boolean bindingPosition;
 
     static String readPosition(Context context) {
+        return readPosition(context, LauncherGames.selected(context));
+    }
+
+    static String readPosition(Context context, String packageName) {
         try {
-            File file = new File(LauncherPreparation.bep(), "bpp-launcher-settings.json");
+            File file = new File(LauncherPreparation.bep(packageName), "bpp-launcher-settings.json");
             if (file.isFile()) {
                 JSONObject settings = new JSONObject(new String(Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8));
                 if (settings.optInt("schema") == 1) {
@@ -34,14 +42,22 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_launcher_settings);
         Utilities.applyWindowInsets(findViewById(R.id.settings_scroll), 0);
         findViewById(R.id.settings_back).setOnClickListener(v -> finish());
+        findViewById(R.id.target_choose).setOnClickListener(v ->
+                startActivity(new Intent(this, LauncherGamePickerActivity.class)));
+        findViewById(R.id.target_reset).setOnClickListener(v -> {
+            LauncherGames.select(this, LauncherRelease.GAME);
+            showTarget();
+            showPosition();
+            Toast.makeText(this, "已恢复正版大巴扎。回到首页后点「启动游戏」。", Toast.LENGTH_LONG).show();
+        });
         RadioGroup position = findViewById(R.id.preview_position);
-        position.check("left".equals(readPosition(this))
-                ? R.id.preview_position_left : R.id.preview_position_default);
+        showPosition();
         position.setOnCheckedChangeListener((group, id) -> {
+            if (bindingPosition) return;
             String value = id == R.id.preview_position_left ? "left" : "default";
             try {
                 JSONObject settings = new JSONObject().put("schema", 1).put(POSITION, value);
-                LauncherFiles.write(new File(LauncherPreparation.bep(), "bpp-launcher-settings.json"),
+                LauncherFiles.write(new File(LauncherPreparation.bep(LauncherGames.selected(this)), "bpp-launcher-settings.json"),
                         LauncherRelease.bytes(settings.toString()));
                 getSharedPreferences(PREFERENCES, 0).edit().putString(POSITION, value).commit();
             } catch (Exception error) {
@@ -49,5 +65,34 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
                 recreate();
             }
         });
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        showTarget();
+        showPosition();
+    }
+
+    private void showPosition() {
+        RadioGroup position = findViewById(R.id.preview_position);
+        bindingPosition = true;
+        position.check("left".equals(readPosition(this))
+                ? R.id.preview_position_left : R.id.preview_position_default);
+        bindingPosition = false;
+    }
+
+    private void showTarget() {
+        TextView current = findViewById(R.id.target_current);
+        boolean custom = LauncherGames.custom(this);
+        String target = LauncherGames.selected(this);
+        if (!custom) current.setText("当前：正版大巴扎（默认）");
+        else {
+            String label = target;
+            try {
+                label = LauncherGames.label(getPackageManager(), getPackageManager().getApplicationInfo(target, 0));
+            } catch (Exception ignored) {}
+            current.setText("当前：" + label + "\n" + target);
+        }
+        findViewById(R.id.target_reset).setVisibility(custom ? View.VISIBLE : View.GONE);
     }
 }

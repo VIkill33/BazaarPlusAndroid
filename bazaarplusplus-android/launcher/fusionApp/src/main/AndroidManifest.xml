@@ -26,6 +26,12 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
     <application android:label="@string/app_name" android:icon="@mipmap/app_icon" android:enableOnBackInvokedCallback="true">
     <meta-data android:name="unity.splash-mode" android:value="0" />
     <meta-data android:name="unity.splash-enable" android:value="False" />
@@ -47,6 +53,8 @@
     <activity android:name="dev.allofus.fusioncore.LauncherHelpActivity"
         android:theme="@style/BppLauncherTheme" android:exported="false" />
     <activity android:name="dev.allofus.fusioncore.LauncherSettingsActivity"
+        android:theme="@style/BppLauncherTheme" android:exported="false" />
+    <activity android:name="dev.allofus.fusioncore.LauncherGamePickerActivity"
         android:theme="@style/BppLauncherTheme" android:exported="false" />
     <activity
         android:name="dev.allofus.fusioncore.BootstrapActivity"

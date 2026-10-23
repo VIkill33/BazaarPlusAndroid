@@ -19,7 +19,7 @@
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="vertical" android:background="@drawable/bpp_help_panel" android:padding="20dp">
                 <TextView style="@style/BppHelpTitle" android:text="01  安装正版游戏" />
-                <TextView style="@style/BppCaption" android:text="先通过官方渠道安装大巴扎（The Bazaar），再安装并打开 BazaarPlusPlus 启动器。插件和运行框架已随启动器内置，无需另行下载或手动复制 DLL。" />
+                <TextView style="@style/BppCaption" android:text="先通过官方渠道安装大巴扎（The Bazaar），再安装并打开 BazaarPlusPlus 启动器。插件和运行框架已随启动器内置，无需另行下载或手动复制 DLL。未另行选择时，启动的就是这款正版。若要改用本机其他游戏，见下方「改用本机其他游戏」。" />
                 <TextView style="@style/BppHelpTitle" android:text="02  检查环境并授权" />
                 <TextView style="@style/BppCaption" android:text="返回首页，点击「重新检查」。若显示「需要文件授权」，点击「前往授权」，在系统页面允许此启动器访问文件后返回。旧版 Android 会显示存储权限弹窗。授权用于准备独立目录中的框架、插件和游戏持久数据。" />
                 <TextView style="@style/BppHelpTitle" android:text="03  首次启动，等待准备完成" />
@@ -29,20 +29,31 @@
                 <TextView style="@style/BppHelpTitle" android:text="05  找到插件入口" />
                 <TextView style="@style/BppCaption" android:text="进入游戏、等待语言与卡牌数据准备后，可使用「卡牌图鉴」；对局中可打开「构筑推荐」。左侧「长按预览」按「附魔 → 升级 → 无」切换，长按物品查看附加信息；选择「无」保留游戏原生详情。首次打开图鉴加载数据可能较慢。" />
             </LinearLayout>
+            <TextView style="@style/BppHelpHeading" android:text="改用本机其他游戏" />
+            <TextView style="@style/BppHelpTitle" android:text="默认仍启动正版" />
+            <TextView style="@style/BppCaption" android:text="没有另作选择时，首页「启动游戏」启动已安装的正版大巴扎，并核对已验证的版本号。这一默认行为不变。" />
+            <TextView style="@style/BppHelpTitle" android:text="在设置里选择" />
+            <TextView style="@style/BppCaption" android:text="打开首页「设置」，找到「启动目标」，点「选择本机游戏」。列表参照 FusionCore：只收录带桌面入口的非系统应用，并进一步要求已提取的原生库目录中含有 arm64 的 libil2cpp.so。点某一项只保存目标，不会立刻启动。回到首页再点「启动游戏」，就会启动这项自选游戏。点「恢复正版游戏」可回到默认。" />
+            <TextView style="@style/BppHelpTitle" android:text="自选游戏还会检查什么" />
+            <TextView style="@style/BppCaption" android:text="自选游戏不要求与正版版本号相同，但仍须已提取 arm64 的 libil2cpp.so，且 Unity 版本与启动器内置依赖一致，否则准备会停在首页提示的原因。每款游戏使用各自的运行目录，不会覆盖正版目录。从桌面直接打开游戏不会加载本启动器的插件。" />
             <TextView style="@style/BppHelpHeading" android:text="在集市里，可以做什么" />
                 <TextView style="@style/BppHelpTitle" android:text="卡牌图鉴" />
                 <TextView style="@style/BppCaption" android:text="浏览物品与技能，按名称搜索、筛选，并切换品质与附魔预览。预览不会实际升级或附魔物品。" />
                 <TextView style="@style/BppHelpTitle" android:text="长按预览与面板位置" />
-                <TextView style="@style/BppCaption" android:text="在游戏中长按物品查看附魔或升级预览。首页「设置」可将附魔／升级面板改为靠屏幕左侧边缘，保存后下次启动游戏生效。" />
+                <TextView style="@style/BppCaption" android:text="在游戏中长按物品查看附魔或升级预览。首页「设置」可将附魔／升级面板改为靠屏幕左侧边缘，保存后下次启动当前目标游戏时生效。" />
                 <TextView style="@style/BppHelpTitle" android:text="构筑推荐" />
                 <TextView style="@style/BppCaption" android:text="对局中选择场上、仓库或商店候选，查看匹配的构筑。当前使用内置构筑快照。" />
             <TextView style="@style/BppHelpHeading" android:text="遇到问题" />
                 <TextView style="@style/BppHelpTitle" android:text="首页提示未安装游戏或兼容性待确认？" />
-                <TextView style="@style/BppCaption" android:text="确认正版游戏已安装，再返回首页点击「重新检查」。游戏更新后可能需要匹配的新启动器；兼容检查未通过时无法启动。" />
+                <TextView style="@style/BppCaption" android:text="确认正版游戏已安装，或到「设置」的「启动目标」改选本机其他符合要求的游戏，再返回首页点击「重新检查」。游戏更新后可能需要匹配的新启动器；正版的版本检查未通过时无法启动。" />
+                <TextView style="@style/BppHelpTitle" android:text="列表里没有想要的游戏？" />
+                <TextView style="@style/BppCaption" android:text="32 位、Mono、没有桌面图标或系统自带的应用不会出现。正版大巴扎始终在列表第一项，即使尚未安装也可以选回默认。若游戏已安装却未出现，请确认系统允许本启动器查看已安装应用。" />
                 <TextView style="@style/BppHelpTitle" android:text="授权后仍无法初始化？" />
-                <TextView style="@style/BppCaption" android:text="确认已为 BazaarPlusPlus 启动器授权，并检查设备可用空间。返回首页重试；如仍失败，先退出游戏，再从「更多：修复与许可」进入「修复运行环境」。修复前会再次确认，保留游戏登录、持久数据和用户配置。" />
+                <TextView style="@style/BppCaption" android:text="确认已为 BazaarPlusPlus 启动器授权，并检查设备可用空间。返回首页重试；如仍失败，先退出游戏，再从「更多：修复与许可」进入「修复运行环境」。修复针对当前启动目标，正版与自选游戏的目录彼此独立。修复前会再次确认，保留该目标的游戏登录、持久数据和用户配置。" />
                 <TextView style="@style/BppHelpTitle" android:text="进入游戏却看不到插件入口？" />
                 <TextView style="@style/BppCaption" android:text="请确认从 BazaarPlusPlus 首页启动，并等待游戏及语言加载完成。直接打开原版游戏不会经过此启动器的插件加载流程。仍无入口时退出游戏，返回首页重试或修复环境。" />
+                <TextView style="@style/BppHelpTitle" android:text="遇到问题如何把日志发给维护者？" />
+                <TextView style="@style/BppCaption" android:text="先退出游戏回到首页。打开「更多：修复与许可」，选择「导出诊断日志」，再选一个保存位置。文件包含启动器版本、准备步骤和本机记录的运行情况，不包含游戏日志、账号或登录数据。保存后用系统分享把该文件发给维护者。启动器不会自动上传。" />
                 <TextView style="@style/BppHelpTitle" android:text="切到后台后如何回到游戏？" />
                 <TextView style="@style/BppCaption" android:text="再次点击桌面的启动器图标会返回正在运行的游戏。需要重新准备或修复时，请先退出当前游戏。" />
                 <TextView style="@style/BppHelpTitle" android:text="是否支持桌面版所有功能？" />

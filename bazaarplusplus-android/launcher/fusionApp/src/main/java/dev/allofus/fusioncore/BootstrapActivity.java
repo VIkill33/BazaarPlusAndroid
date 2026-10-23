@@ -55,6 +55,7 @@ public class BootstrapActivity extends AppCompatActivity {
         android.widget.Button cancel = new android.widget.Button(this);
         cancel.setText("取消准备");
         cancel.setOnClickListener(v -> {
+            LauncherLog.note(getFilesDir(), "用户取消准备");
             LauncherPreparation.CANCEL.set(true);
             cancel.setEnabled(false);
             cancel.setText("等待当前安全步骤结束…");
@@ -208,6 +209,7 @@ public class BootstrapActivity extends AppCompatActivity {
     }
 
     private void failAndFinish(String message, Throwable error) {
+        LauncherLog.note(getApplicationContext().getFilesDir(), message);
         LauncherPreparation.BUSY.set(false);
         LauncherPreparation.activeSession = null;
         getSharedPreferences("launcher", 0).edit().remove("session").commit();
@@ -266,7 +268,7 @@ public class BootstrapActivity extends AppCompatActivity {
                                        ComponentName launcherComponent,
                                        String targetPackage) throws Exception {
 
-        LauncherRelease.check(appContext, LauncherRelease.manifest(appContext));
+        LauncherRelease.check(appContext, LauncherRelease.manifest(appContext), targetPackage);
         String gameLibDir = gameContext.getApplicationInfo().nativeLibraryDir;
         String appLibDir = appContext.getApplicationInfo().nativeLibraryDir;
 
@@ -281,7 +283,10 @@ public class BootstrapActivity extends AppCompatActivity {
         File Assets = new File(dataOnSdCard, "Assets");
         setPhaseStatus("核对游戏安装包，首次准备可能需要一分钟…");
         File resourceStamp = new File(appContext.getFilesDir(), "launcher-resource-key");
-        StringBuilder key = new StringBuilder(LauncherRelease.game(appContext).versionName)
+        android.content.pm.PackageInfo targetInfo = LauncherRelease.game(appContext, targetPackage);
+        StringBuilder key = new StringBuilder(LauncherRelease.GAME.equals(targetPackage)
+                ? targetInfo.versionName
+                : targetPackage + "\n" + (targetInfo.versionName == null ? "" : targetInfo.versionName))
                 .append(LauncherRelease.manifest(appContext).getJSONObject("framework").getString("sha256"));
         java.util.List<String> apks = new java.util.ArrayList<>();
         apks.add(gameContext.getApplicationInfo().sourceDir);
@@ -320,7 +325,7 @@ public class BootstrapActivity extends AppCompatActivity {
         String version = UnityUtils.TryGetVersion(copiedData);
         if (version == null) throw new IOException("无法识别游戏 Unity 版本");
         LauncherFiles.write(resourceStamp, LauncherRelease.bytes(resourceKey));
-        LauncherPreparation.prepare(appContext, codeCacheScoped, version, this::setPhaseStatus);
+        LauncherPreparation.prepare(appContext, targetPackage, codeCacheScoped, version, this::setPhaseStatus);
         File dotnetDir = new File(getRuntimeDir(appContext), "dotnet");
 
         Map<String, String> il2cppMap = resolveIl2CppApiMap(new File(gameLibDir), codeCacheScoped);
