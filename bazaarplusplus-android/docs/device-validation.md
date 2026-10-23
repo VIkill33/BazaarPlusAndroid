@@ -671,3 +671,31 @@ ADB 按当次截图定位，分别在标准和高级模式长按壶铃、公文�
 APK、签名报告、发行清单及对应源码包仍在 `artifacts/launcher/`。
 无游戏安装、未知版本、撤销授权、空间不足、实际修复、超大字体、平板及第二设备未做本轮故障注入，
 不能将正常路径结果扩展为这些场景通过。
+
+## 启动器帮助页与首次安装引导（2026-10-23）
+
+参考启动器 ADR-0001、`LauncherActivity`、`BootstrapActivity` 的准备与授权流程，
+以及 https://playthebazaar.com 的深棕、暖金、衬线品牌和分隔装饰。
+`LauncherHelpActivity` 与 `activity_launcher_help.xml` 提供原生离线帮助页：
+首次安装五步、图鉴／长按预览／构筑说明、授权与初始化等常见问题。
+首页独立「帮助」直接打开页面；原菜单移至「更多：修复与许可」，修复仍经原有确认流程。
+顶部、底部和系统返回均结束帮助 Activity 回到首页，不自动请求授权或启动游戏。
+
+本次设备 `OBJVWSPNSCFQU48L`（22041216C / Redmi Note 11T Pro）、Android 14，
+游戏 `1.0.12825-production-android-d9601ded`（12825）。验证前为已有皮格对局界面；
+使用原签名覆盖安装新 APK 后仅验证启动器，没有推进对局、购买、选择遭遇或清除数据。
+Android CLI 截图成功，布局服务因无法安装 instrumentation APK 失败，故回退 ADB 的
+UI Automator XML 与实时截图定位；点击坐标由当次控件边界计算。
+
+Python 9 项离线测试、签名 release 构建、APK 签名及内置输入校验通过。
+页面导航、五步与常见问题内容、横屏滚动、130% 字体及原菜单的设备检查结果保存在
+被忽略的 `artifacts/launcher-help/validation.json`；截图另作人工复核，不视为自动视觉断言。
+旋转与字体设置在测试后恢复原值。代码自查与 `git diff --check` 通过。
+
+证据在被忽略的 `artifacts/launcher-help/`：`build.log`、`offline-tests.log`、
+`verify_ui.py`、`continue_ui.py`、`validation.json`、`portrait-top.png`、
+`portrait-guide-*.png`／XML、`landscape-*.png`／XML、`large-font-*.png`／XML，
+以及 `ui-test.log` 和 `ui-continuation.log`。首次脚本因滚动跳过部分文字、
+以及底部按钮仅露出边缘时过早点击而失败，修正扫描与可见高度判断后继续验证。
+本轮未重新验收实际授权、初始化、登录、修复或插件加载；全新安装、第二设备、
+平板与更大字号仍待验证，帮助内容不等于这些流程本次均已通过。

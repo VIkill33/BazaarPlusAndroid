@@ -44,6 +44,8 @@
         <action android:name="android.intent.action.MAIN" />
       </intent-filter>
     </activity>
+    <activity android:name="dev.allofus.fusioncore.LauncherHelpActivity"
+        android:theme="@style/BppLauncherTheme" android:exported="false" />
     <activity
         android:name="dev.allofus.fusioncore.BootstrapActivity"
         android:theme="@style/BppLauncherTheme"

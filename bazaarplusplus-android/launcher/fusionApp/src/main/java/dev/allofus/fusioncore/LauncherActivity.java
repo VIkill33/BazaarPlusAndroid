@@ -72,6 +72,7 @@ public final class LauncherActivity extends AppCompatActivity {
             primary.setEnabled(false);
             refresh();
         });
+        findViewById(R.id.launcher_help).setOnClickListener(v -> startActivity(new Intent(this, LauncherHelpActivity.class)));
         findViewById(R.id.launcher_more).setOnClickListener(v -> help());
         ((TextView) findViewById(R.id.launcher_version)).setText("启动器 " + BuildConfig.VERSION_NAME);
     }
