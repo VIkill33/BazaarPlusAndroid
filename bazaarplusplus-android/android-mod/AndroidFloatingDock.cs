@@ -9,6 +9,7 @@ namespace BazaarPlusPlus.Android;
 
 public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
 {
+    private static readonly Vector2 CollapsedSize = new(60, 132);
     private static AndroidFloatingDock? _instance;
     private RectTransform? _group;
     private RectTransform? _buttons;
@@ -179,14 +180,16 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     {
         _screen = new Vector2(Screen.width, Screen.height);
         _safe = Screen.safeArea;
-        _group!.sizeDelta = _collapsed ? new Vector2(160, 108) : new Vector2(270, _autoHide ? 450 : 375);
+        _group!.sizeDelta = _collapsed ? CollapsedSize : new Vector2(270, _autoHide ? 450 : 375);
         _buttons!.gameObject.SetActive(!_collapsed);
         _handle!.gameObject.SetActive(_collapsed || _autoHide);
         var handle = _handle.GetComponent<RectTransform>();
         handle.pivot = Vector2.zero;
-        handle.sizeDelta = _collapsed ? new Vector2(160, 108) : new Vector2(270, 70);
+        handle.sizeDelta = _collapsed ? CollapsedSize : new Vector2(270, 70);
         handle.anchoredPosition = Vector2.zero;
-        _handle.GetComponentInChildren<TextMeshProUGUI>().text = _collapsed ? "BPP" : NativeUi.Text("Collapse", "收起");
+        var label = _handle.GetComponentInChildren<TextMeshProUGUI>();
+        label.text = _collapsed ? "B\nP\nP" : NativeUi.Text("Collapse", "收起");
+        label.fontSize = _collapsed ? 28 : 30;
         var area = Bounds();
         var travel = new Vector2(Math.Max(0, area.width - _group.sizeDelta.x), Math.Max(0, area.height - _group.sizeDelta.y));
         _group.anchoredPosition = _edge switch
