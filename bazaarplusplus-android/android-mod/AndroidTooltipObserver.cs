@@ -63,7 +63,14 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     public void Update()
     {
         var holdPreview = AndroidHoldPreview.Active;
-        if ((_wasHoldPreview && !holdPreview) || _holdRevision != AndroidHoldPreview.Revision) Hide();
+        // Monster galleries have their own backdrop/close controls and outlive
+        // the native tooltip. A new hold target still retires the old gallery.
+        if (_holdRevision != AndroidHoldPreview.Revision) Hide();
+        else if (_wasHoldPreview && !holdPreview)
+        {
+            if (!_monsterPinned) Hide();
+            else Plugin.PluginLog?.LogInfo("[BPP][Android] event=android.monster_preview.retained_after_hold");
+        }
         _holdRevision = AndroidHoldPreview.Revision;
         _wasHoldPreview = holdPreview;
         _monsterGallery?.Tick();

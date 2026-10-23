@@ -1005,3 +1005,35 @@ EnchantPolicy、HoldPreview 手势与聚焦几何覆盖检查通过；几何检�
 启动预览，不计通过；右边拖动复测仍待验证。当前保留高级模式与左侧自动收起入口。
 多设备、界面放大、事件新视觉、系统边缘手势与场景恢复仍待扩大验证。
 证据均位于被忽略的 `artifacts/hold-preview/edge-*`；截图为人工复核，没有自动视觉内容断言。
+
+
+## 按住预览松手保留野怪面板（2026-10-24）
+
+参考 Android README、功能清单、既有按住预览验证记录及桌面预览／输入架构文档，
+核对 `AndroidHoldPreview` 的原生提示归属清理、`AndroidTooltipObserver` 的
+`_monsterPinned` 生命周期和 `AndroidMonsterCardGallery` 的卡图／说明交互。
+原统一松手清理调用 `Hide`，覆盖了野怪面板本身已有的保留逻辑。
+本次在按住预览结束时保留已打开的野怪面板，仍清理物品和事件附加预览；
+换目标、进入战斗和切换场景沿用现有清理，空白与 × 仍负责关闭野怪面板。
+共享桌面规则及原生提示接口未修改。
+
+离线：Python 9 项检查、HoldPreview 手势／聚焦几何、BuildCorpus、EnchantPolicy
+全部通过；使用固定框架与 Android 生成代理构建插件，零警告／错误。
+`verify_hold_preview.py --expect-monster-retained` 新增松手保留日志断言，
+`released.png` 仍须人工复核，不能将日志事件等同于完整视觉验收。
+
+初次检查时，设备 `OBJVWSPNSCFQU48L`（22041216C）停留启动器「正在准备运行环境」，
+用户要求先完成代码与离线检查，因此当时未部署或操作设备。随后用户明确要求安装并自行验证。
+本次重新构建插件及签名 APK，覆盖安装启动器 `0.1.0-test.10` 成功，并从首页启动游戏；
+`verify_launcher.py --expect-loaded --not-before-ms` 的 12 项检查全部通过，确认新会话、
+本次磁盘 DLL、APK 内置 DLL 与插件握手摘要一致。插件 SHA-256：
+`015758a570a7303114ba3933b1ea95c4a73d6d16b86bf45f21153195ac401906`。
+APK SHA-256：`2bf05a650fe49d8a177c2434586c1eb33ec0b2446bbfa793045fd5f2afbbac61`。
+签名 v2 校验通过，证书为 `CN=BazaarPlusPlus Android Test`。代理仅检查加载，未操作对局。
+用户安装本次构建后明确反馈「验证通过」，确认本次松开按住预览后保留野怪面板功能通过真实触屏验收。
+该验收来自用户确认，没有本轮代理采集的功能操作截图／日志，不作为自动视觉断言。
+两种松手顺序、物品／技能说明、空白和 × 关闭、连续换目标、跨场景清理及
+物品／事件关闭与标准模式禁用未逐项报告，保留为扩大验证边界。
+安装构建日志、初始／安装截图和本次加载证据保存在被忽略的
+`artifacts/monster-hold-retention/`（`install-build.log`、`installed.png`、`loaded/verification.json`）；
+APK 构建日志为 `artifacts/launcher-apk-build.log`。

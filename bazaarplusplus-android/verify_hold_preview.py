@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--next-target", type=int, nargs=2, metavar=("X", "Y"), help="Inspect a second target during the same hold")
     parser.add_argument("--expand-dock", type=int, nargs=2, metavar=("X", "Y"), help="Tap the BPP handle just before injection, after tool preparation")
     parser.add_argument("--holder-first", action="store_true", help="Release the mode button while the inspecting finger remains down")
+    parser.add_argument("--expect-monster-retained", action="store_true", help="Assert the monster gallery survives releasing the hold; review released.png for visual confirmation")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.next_target and args.holder_first:
@@ -100,6 +101,8 @@ def main():
     }
     if args.next_target:
         assertions["both_targets_shown"] = added.count("event=android.hold_preview.shown") == 2
+    if args.expect_monster_retained:
+        assertions["monster_retained_after_hold"] = "event=android.monster_preview.retained_after_hold" in added
     (output / "validation.json").write_text(json.dumps(assertions, indent=2) + "\n")
     print(json.dumps(assertions, indent=2))
     if not all(assertions.values()):
