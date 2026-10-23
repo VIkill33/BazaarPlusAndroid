@@ -1,0 +1,49 @@
+<resources>
+    <style name="BppLauncherTheme" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/bpp_accent</item>
+        <item name="colorOnPrimary">@color/bpp_background</item>
+        <item name="colorSurface">@color/bpp_surface</item>
+        <item name="colorOnSurface">@color/bpp_text</item>
+        <item name="android:colorBackground">@color/bpp_background</item>
+        <item name="android:windowBackground">@color/bpp_background</item>
+        <item name="android:statusBarColor">@color/bpp_background</item>
+        <item name="android:navigationBarColor">@color/bpp_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+    <style name="BppText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/bpp_text</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+    <style name="BppCaption" parent="BppText">
+        <item name="android:textColor">@color/bpp_muted</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:lineSpacingExtra">4dp</item>
+    </style>
+    <style name="BppButton" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/bpp_text</item>
+        <item name="strokeColor">@color/bpp_border</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:insetTop">4dp</item>
+        <item name="android:insetBottom">4dp</item>
+    </style>
+    <style name="BppPrimaryButton" parent="Widget.AppCompat.Button">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">64dp</item>
+        <item name="android:background">@drawable/bpp_primary</item>
+        <item name="android:textColor">#2A170E</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">14dp</item>
+    </style>
+</resources>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">集市增强启动器</string>
+    <string name="app_name">BazaarPlusPlus</string>
     <string name="selector_title">Select a game</string>
     <string name="selector_subtitle">Supported packages are listed below.</string>
     <string name="selector_action_settings">Settings</string>

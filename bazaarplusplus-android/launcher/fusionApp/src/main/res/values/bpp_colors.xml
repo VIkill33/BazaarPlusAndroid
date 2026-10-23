@@ -1,1 +1,10 @@
-<resources><color name="bpp_icon_background">#100719</color></resources>
+<resources>
+    <color name="bpp_icon_background">#100719</color>
+    <color name="bpp_background">#1B1214</color>
+    <color name="bpp_surface">#281C24</color>
+    <color name="bpp_border">#B67A42</color>
+    <color name="bpp_text">#F7E7C8</color>
+    <color name="bpp_muted">#C5B5AA</color>
+    <color name="bpp_accent">#FFBD67</color>
+    <color name="bpp_success">#70D6AC</color>
+</resources>

@@ -604,3 +604,40 @@ ADB 按当次截图定位，分别在标准和高级模式长按壶铃、公文�
 `advanced-*-holding.png`／`released.png`、`standard-*.json`／截图、
 `standard-scrolled.png`、`standard-dismissed.png`、`restored-mode.png`、`final.log` 和 `final-logcat.txt`。
 本轮确认空引用故障修复及双模式展示；实际升级后的数值对照、所有光环组合和其他设备仍待验证。
+
+## 启动器暮紫琥珀 UI（2026-10-23）
+
+参考最近提交的 `docs/design/launcher-concept-c.png`、启动器 ADR-0001、
+`LauncherActivity` 的任务恢复保护与 `LauncherPreparation.loadStatus` 的会话语义。
+首页改为 `activity_launcher.xml` 原生布局：独立集市插画、英文 BazaarPlusPlus 品牌、
+启动前状态、琥珀主按钮与并排的重新检查／帮助；普通界面隐藏诊断和日志入口。
+帮助提供安装、授权、修复、许可与退出确认；许可独立读取 NOTICE、MIT 与 GPL 正文，
+不依赖诊断报告。「可以启动」仅代表启动前检查，初始化及游戏加载仍走原有校验链。
+启动异常另有持久到用户关闭的弹窗，避免原因被周期刷新覆盖。
+
+本次设备 `OBJVWSPNSCFQU48L`（22041216C / Redmi Note 11T Pro）、Android 14，
+游戏 `1.0.12825-production-android-d9601ded`，竖屏 1080×2460、横屏 2460×1080。
+测试前设备在系统桌面，已安装游戏且文件授权已开启。使用原签名覆盖安装本次 APK，
+未修改游戏数据、未进入对局、未切换游戏输入模式或执行购买／遭遇选择。
+启动器独立于游戏输入模式，本轮未重新验收游戏内 UI。
+
+- Python 9 项离线检查、签名 release 构建及 APK 签名／内置输入校验通过。
+- `artifacts/launcher-ui/verify_ui.py` 的 16 项 UI XML 断言通过：品牌与主操作、
+  无旧中文品牌及诊断入口、刷新恢复、安装／授权／修复取消／许可弹窗、许可不含诊断 JSON、
+  横屏滚动与帮助、大字体操作可达。横屏与 130% 字体的截图另经人工复核，
+  不是自动视觉断言。字体变化由系统重建首页，旋转继续使用同一份自适应布局。
+- `artifacts/launcher-ui/verify_launch.py` 的 3 项断言通过：现有文件授权设置页返回就绪、
+  退出有确认并可取消、主按钮进入游戏 Activity；没有撤销授权或执行实际修复。
+- `verify_launcher.py --expect-loaded --not-before-ms …` 的 12 项断言通过，
+  核对当前 APK、清单、插件 SHA-256 与本次会话握手；不代表游戏登录或插件功能已验收。
+- `verify_launcher_resume.py` 三轮的 9 项断言通过，ActivityRecord、完整任务栈和 PID 均保持。
+  测试结束关闭测试启动的游戏并重新打开首页，系统恢复原来的自动旋转及 100% 字体设置。
+
+证据在被忽略的 `artifacts/launcher-ui/`：`build.log`、`offline-tests.log`、
+`validation.json`、`launch-ui-validation.json`、`loaded/`、`resume/`、
+`portrait.png`、`landscape-bottom.png`、`large-font-top.png`、`large-font-bottom.png`、
+`permission-return.png`、`licenses.png`、`final.png` 及 `logcat.txt`；
+本地重复操作脚本为同目录的 `verify_ui.py` 与 `verify_launch.py`。
+APK、签名报告、发行清单及对应源码包仍在 `artifacts/launcher/`。
+无游戏安装、未知版本、撤销授权、空间不足、实际修复、超大字体、平板及第二设备未做本轮故障注入，
+不能将正常路径结果扩展为这些场景通过。

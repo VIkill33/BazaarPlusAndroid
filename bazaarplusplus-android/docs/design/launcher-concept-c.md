@@ -22,3 +22,12 @@
 生成时使用官网截图作为风格参考；完整提示词保存在
 [launcher-concept-c.prompt.txt](launcher-concept-c.prompt.txt)。
 背景与控件尚未拆分为可直接用于实现的素材，交互与不同屏幕适配仍须在实现阶段验证。
+
+## 原生实现素材（2026-10-23）
+
+`LauncherActivity` 与 `activity_launcher.xml` 使用此方案实现原生首页。
+集市背景以本图为编辑参考，使用内置 imagegen 去除全部文字与控件生成，
+[提示词](launcher-background.prompt.txt)保留生成约束；项目素材为
+`launcher/fusionApp/src/main/res/drawable-nodpi/bpp_market_background.jpg`。
+品牌、状态、分隔线与按钮均由 Android 控件和 drawable 渲染，不嵌入背景，
+可随字体与可用屏宽调整并滚动。实际验证范围见[真机记录](../device-validation.md)。

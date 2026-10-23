@@ -36,8 +36,8 @@
     <meta-data android:name="com.google.android.gms.version" android:value="12451000" />
     <activity
         android:name="dev.allofus.fusioncore.LauncherActivity"
-        android:theme="@style/Theme.Material3.Dark.NoActionBar" android:exported="true"
-        android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
+        android:theme="@style/BppLauncherTheme" android:exported="true"
+        android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|layoutDirection|density"
         >
       <intent-filter>
         <category android:name="android.intent.category.LAUNCHER" />
@@ -46,7 +46,7 @@
     </activity>
     <activity
         android:name="dev.allofus.fusioncore.BootstrapActivity"
-        android:theme="@style/Theme.Material3.Dark.NoActionBar"
+        android:theme="@style/BppLauncherTheme"
         android:screenOrientation="locked"
         android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
         android:launchMode="singleTask"
