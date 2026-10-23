@@ -105,6 +105,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _previewModeButton = NativeUi.Button(_canvas.transform, font, PreviewModeLabel,
                 new Vector2(0, .5f), new Vector2(0, .5f), TogglePreviewMode,
                 new Vector2(30, -240), new Vector2(300, -150));
+            AndroidFloatingDock.Register(_entry, font, 1);
+            AndroidFloatingDock.Register(_previewModeButton, font, 2);
             _panel = NativeUi.Rect("BPP.BuildPanel", _canvas.transform, Vector2.zero, Vector2.one);
             var background = _panel.gameObject.AddComponent<Image>();
             background.color = new Color(.025f, .04f, .065f, .995f);

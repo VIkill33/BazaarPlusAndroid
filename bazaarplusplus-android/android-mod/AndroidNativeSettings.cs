@@ -78,20 +78,27 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
         staging.SetActive(false);
         GameObject? modeRoot = null;
         GameObject? positionRoot = null;
+        GameObject? dockRoot = null;
         try
         {
             var mode = CloneRow(source, staging.transform, "BPP.LongPressSetting", out modeRoot, out var modeLabel);
             var position = CloneRow(source, staging.transform, "BPP.PreviewPositionSetting", out positionRoot, out var positionLabel);
-            var rows = new Rows(window, modeRoot, positionRoot, mode, position, modeLabel, positionLabel);
+            var dock = CloneRow(source, staging.transform, "BPP.DockSetting", out dockRoot, out var dockLabel);
+            var rows = new Rows(window, modeRoot, positionRoot, dockRoot, mode, position, dock, modeLabel, positionLabel, dockLabel);
             mode.onValueChanged.AddListener(DelegateSupport.ConvertDelegate<UnityAction<int>>((int value) =>
                 Select(rows, "long_press", () => AndroidLongPressPreviewSettings.Mode = (AndroidLongPressPreviewMode)value)));
             position.onValueChanged.AddListener(DelegateSupport.ConvertDelegate<UnityAction<int>>((int value) =>
                 Select(rows, "panel_position", () => AndroidPreviewPanelSettings.SetLeftEdge(value == 1))));
+            dock.onValueChanged.AddListener(DelegateSupport.ConvertDelegate<UnityAction<int>>((int value) =>
+                Select(rows, "dock_auto_hide", () => AndroidFloatingDock.AutoHide = value == 1)));
             Refresh(rows);
             modeRoot.transform.SetParent(source.parent, false);
             positionRoot.transform.SetParent(source.parent, false);
+            dockRoot.transform.SetParent(source.parent, false);
             modeRoot.transform.SetSiblingIndex(source.GetSiblingIndex() + 1);
             positionRoot.transform.SetSiblingIndex(modeRoot.transform.GetSiblingIndex() + 1);
+            dockRoot.transform.SetSiblingIndex(positionRoot.transform.GetSiblingIndex() + 1);
+            dockRoot.SetActive(true);
             modeRoot.SetActive(true);
             positionRoot.SetActive(true);
             LayoutRebuilder.ForceRebuildLayoutImmediate(section);
@@ -104,6 +111,7 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
         {
             if (modeRoot != null) Destroy(modeRoot);
             if (positionRoot != null) Destroy(positionRoot);
+            if (dockRoot != null) Destroy(dockRoot);
             throw;
         }
         finally { Destroy(staging); }
@@ -150,15 +158,18 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
     {
         var modeLabel = NativeUi.Text("BPP: Long press preview", "BPP：长按预览");
         var positionLabel = NativeUi.Text("BPP: Preview panel position", "BPP：预览面板位置");
-        if (rows.ModeLabel.text != modeLabel || rows.PositionLabel.text != positionLabel || rows.Mode.options.Count != 3)
+        if (rows.ModeLabel.text != modeLabel || rows.PositionLabel.text != positionLabel || rows.Mode.options.Count != 3 || rows.Dock.options.Count != 2)
         {
             rows.ModeLabel.text = modeLabel;
             rows.PositionLabel.text = positionLabel;
+            rows.DockLabel.text = NativeUi.Text("BPP: Auto-hide buttons", "BPP：按钮自动收起");
+            SetOptions(rows.Dock, NativeUi.Text("Off", "关闭"), NativeUi.Text("After 5 seconds", "闲置5秒后收起"));
             SetOptions(rows.Mode, NativeUi.Text("Enchants", "附魔"), NativeUi.Text("Upgrade", "升级"), NativeUi.Text("None", "无"));
             SetOptions(rows.Position, NativeUi.Text("Default", "默认位置"), NativeUi.Text("Left edge", "靠屏幕左侧边缘"));
         }
         rows.Mode.SetValueWithoutNotify((int)AndroidLongPressPreviewSettings.Mode);
         rows.Position.SetValueWithoutNotify(AndroidPreviewPanelSettings.LeftEdge ? 1 : 0);
+        rows.Dock.SetValueWithoutNotify(AndroidFloatingDock.AutoHide ? 1 : 0);
     }
 
     private static void SetOptions(TMP_Dropdown dropdown, params string[] options)
@@ -174,10 +185,11 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
         {
             if (rows.ModeRoot != null) Destroy(rows.ModeRoot);
             if (rows.PositionRoot != null) Destroy(rows.PositionRoot);
+            if (rows.DockRoot != null) Destroy(rows.DockRoot);
         }
         _windows.Clear();
     }
 
-    private sealed record Rows(OptionsDialogController Window, GameObject ModeRoot, GameObject PositionRoot, TMP_Dropdown Mode, TMP_Dropdown Position,
-        TextMeshProUGUI ModeLabel, TextMeshProUGUI PositionLabel);
+    private sealed record Rows(OptionsDialogController Window, GameObject ModeRoot, GameObject PositionRoot, GameObject DockRoot, TMP_Dropdown Mode, TMP_Dropdown Position, TMP_Dropdown Dock,
+        TextMeshProUGUI ModeLabel, TextMeshProUGUI PositionLabel, TextMeshProUGUI DockLabel);
 }

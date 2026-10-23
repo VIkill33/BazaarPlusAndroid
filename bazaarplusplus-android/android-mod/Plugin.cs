@@ -18,6 +18,7 @@ public sealed class Plugin : BasePlugin
         PluginLog = Log;
         L.Install(() => PlayerPreferences.Data?.LanguageCode ?? "en", () => BppChineseLocaleMode.Mainland);
         AddComponent<AndroidLocalizedText>();
+        Il2CppInterop.Runtime.Injection.ClassInjector.RegisterTypeInIl2Cpp<AndroidFloatingDock>();
         AddComponent<AndroidNativeSettings>();
         AddComponent<NativePreviewCleanup>();
         AddComponent<CollectionController>();
