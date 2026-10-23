@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../android-mod/AndroidPreviewGestureState.cs" />
+    <Compile Include="../../android-mod/AndroidPreviewFocusLayout.cs" />
   </ItemGroup>
 </Project>

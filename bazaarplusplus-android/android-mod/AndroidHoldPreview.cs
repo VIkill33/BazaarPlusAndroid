@@ -19,7 +19,7 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
 {
     private static AndroidHoldPreview? _instance;
     private GameObject? _overlay;
-    private Image? _shade;
+    private AndroidHoldPreviewVisuals? _visuals;
     private Button? _button;
     private readonly AndroidPreviewGestureState _gesture = new();
     private int _scene;
@@ -52,8 +52,8 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
             _seenTouches.Clear();
             _holderTouchId = data.TryCast<ExtendedPointerEventData>()?.touchId;
             foreach (var touch in PressedTouches()) _seenTouches.Add(touch.Id);
-            _shade!.color = new Color(1, 1, 0, .05f);
             _overlay!.SetActive(true);
+            _visuals!.Show();
             Plugin.PluginLog?.LogInfo("[BPP][Android] event=android.hold_preview.started");
         });
         Bind(_button.gameObject, EventTriggerType.PointerUp, data =>
@@ -68,13 +68,15 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
         canvas.sortingOrder = short.MaxValue;
         _overlay.AddComponent<GraphicRaycaster>();
         var surface = NativeUi.Rect("BPP.PreviewInputShield", _overlay.transform, Vector2.zero, Vector2.one);
-        _shade = surface.gameObject.AddComponent<Image>();
-        _shade.raycastTarget = true;
+        var shield = surface.gameObject.AddComponent<Image>();
+        shield.color = Color.clear;
+        shield.raycastTarget = true;
         Bind(surface.gameObject, EventTriggerType.PointerDown, data =>
         {
             if (_gesture.ContactDown(data.pointerId) && Touchscreen.current == null) Preview(data);
         });
         Bind(surface.gameObject, EventTriggerType.PointerUp, data => _gesture.ContactUp(data.pointerId));
+        _visuals = new AndroidHoldPreviewVisuals(_overlay.transform, font);
         _overlay.SetActive(false);
     }
 
@@ -121,6 +123,7 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
                 parent.ShowCardTooltipController(card != null ? card.transform : preview!.transform,
                     card != null ? card.TooltipOffset : preview!._tooltipWorldSpaceOffset,
                     data.Cast<ITooltipData>(), card == null);
+                _visuals?.Select(card, preview);
                 Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.hold_preview.shown card={data.CardInstance?.TemplateId}");
                 return;
             }
@@ -166,6 +169,7 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
             Preview(new PointerEventData(EventSystem.current) { pointerId = touch.Id, position = touch.Position });
         }
         _seenTouches.IntersectWith(pressed);
+        _visuals?.Refresh();
     }
 
     private static IEnumerable<(int Id, Vector2 Position)> PressedTouches(bool includeBegan = false)
@@ -205,7 +209,7 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
     {
         if (!_gesture.Active) return;
         _gesture.Stop();
-        if (_shade != null) _shade.color = Color.clear;
+        _visuals?.Hide();
         HideOwned();
         Plugin.PluginLog?.LogInfo("[BPP][Android] event=android.hold_preview.stopped");
     }

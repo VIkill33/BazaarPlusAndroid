@@ -12,6 +12,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private static AndroidFloatingDock? _instance;
     private RectTransform? _group;
     private RectTransform? _buttons;
+    private CanvasGroup? _opacity;
     private Button? _handle;
     private Canvas? _canvas;
     private AndroidHoldPreview? _holdPreview;
@@ -65,6 +66,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         scaler.matchWidthOrHeight = 1;
         gameObject.AddComponent<GraphicRaycaster>();
         _group = NativeUi.Rect("BPP.Dock", transform, Vector2.zero, Vector2.zero);
+        _opacity = _group.gameObject.AddComponent<CanvasGroup>();
         _group.pivot = Vector2.zero;
         _buttons = NativeUi.Rect("BPP.DockButtons", _group, Vector2.zero, Vector2.one);
         _handle = NativeUi.Button(_group, font, "BPP", Vector2.zero, Vector2.zero, () =>
@@ -127,6 +129,9 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     public void LateUpdate()
     {
         if (_group == null) return;
+        // Keep the held button alive for pointer ownership, but let the native
+        // details use either screen edge without being covered by the dock.
+        _opacity!.alpha = AndroidHoldPreview.Active ? 0 : 1;
         if (AndroidHoldPreview.Active) _lastInteraction = Time.realtimeSinceStartup;
         var visible = !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen;
         _group.gameObject.SetActive(visible);

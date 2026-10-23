@@ -18,6 +18,7 @@ namespace BazaarPlusPlus.Android;
 
 public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(pointer)
 {
+    internal static RectTransform? FocusPanel { get; private set; }
     // Native item details include a cooldown clock protruding to the left of
     // their frame. Reserve that space while keeping the preview 370 units wide.
     private const float PreviewRightInset = 640;
@@ -229,6 +230,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _questButton.interactable = _mode != PreviewMode.Quest;
         }
         _panel.gameObject.SetActive(true);
+        FocusPanel = _panel;
         return true;
     }
 
@@ -318,6 +320,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
 
     private void Hide()
     {
+        FocusPanel = null;
         if (_panel != null) _panel.gameObject.SetActive(false);
         _monsterGallery?.Hide();
         _monsterBackdrop?.SetActive(false);
@@ -367,6 +370,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
 
     public void OnDestroy()
     {
+        FocusPanel = null;
         if (_canvasRoot != null) UnityEngine.Object.Destroy(_canvasRoot);
     }
 }

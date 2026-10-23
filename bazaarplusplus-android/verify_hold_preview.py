@@ -20,9 +20,13 @@ def main():
     parser.add_argument("--d8", type=Path, required=True)
     parser.add_argument("--hold", type=int, nargs=2, required=True, metavar=("X", "Y"))
     parser.add_argument("--target", type=int, nargs=2, required=True, metavar=("X", "Y"))
+    parser.add_argument("--next-target", type=int, nargs=2, metavar=("X", "Y"), help="Inspect a second target during the same hold")
+    parser.add_argument("--expand-dock", type=int, nargs=2, metavar=("X", "Y"), help="Tap the BPP handle just before injection, after tool preparation")
     parser.add_argument("--holder-first", action="store_true", help="Release the mode button while the inspecting finger remains down")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.next_target and args.holder_first:
+        parser.error("--next-target and --holder-first are separate test paths")
     root = Path(__file__).resolve().parent
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -39,33 +43,46 @@ def main():
         return struct.unpack(">II", png[16:24])
 
     width, height = screenshot("before.png")
-    for x, y in (args.hold, args.target):
+    coordinates = [args.hold, args.target] + ([args.next_target] if args.next_target else [])
+    if args.expand_dock:
+        coordinates.append(args.expand_dock)
+    for x, y in coordinates:
         if not (0 <= x < width and 0 <= y < height):
             parser.error("Coordinates lie outside the current screen")
     release = json.loads((root / "artifacts/launcher/release.json").read_text())
     log_path = f"/sdcard/{release['storageRoot']}/{release['game']['package']}/BepInEx/LogOutput.log"
-    before = run("shell", "cat", log_path)
-    (output / "before.log").write_bytes(before)
     subprocess.run(["javac", "--release", "8", "-Xlint:-options", "-classpath", str(args.android_jar.resolve()),
                     "-d", str(output), str(root / "tests/device/HoldGesture.java")], check=True)
     subprocess.run([str(args.d8.resolve()), "--output", str(output), str(output / "HoldGesture.class")], check=True)
     remote = "/data/local/tmp/bpp-hold-gesture.dex"
     run("shell", "rm", "-f", remote)
     run("push", str(output / "classes.dex"), remote)
+    if args.expand_dock:
+        run("shell", "input", "tap", *(str(n) for n in args.expand_dock))
+    before = run("shell", "cat", log_path)
+    (output / "before.log").write_bytes(before)
+    crash_before = run("logcat", "-d", "-b", "crash")
     command = f"CLASSPATH={remote} app_process /data/local/tmp HoldGesture " + " ".join(
         str(n) for n in (*args.hold, *args.target))
     if args.holder_first:
         command += " holder-first"
+    if args.next_target:
+        command += " " + " ".join(str(n) for n in args.next_target)
     process = subprocess.Popen(adb + ["shell", command])
     try:
         time.sleep(3)
         screenshot("during.png")
+        if args.next_target:
+            time.sleep(3)
+            screenshot("next.png")
     finally:
         process.wait(timeout=20)
     time.sleep(.5)
     screenshot("released.png")
     after = run("shell", "cat", log_path)
     (output / "after.log").write_bytes(after)
+    crash_after = run("logcat", "-d", "-b", "crash")
+    (output / "crash.log").write_bytes(crash_after)
     same_session = after.startswith(before)
     added = after[len(before):].decode(errors="replace") if same_session else ""
     assertions = {
@@ -79,7 +96,10 @@ def main():
         "no_game_command": "Command completed:" not in added,
         "no_state_transition": "State changed from" not in added,
         "no_errors": "[Error" not in added and "Exception" not in added,
+        "crash_buffer_unchanged": crash_before == crash_after,
     }
+    if args.next_target:
+        assertions["both_targets_shown"] = added.count("event=android.hold_preview.shown") == 2
     (output / "validation.json").write_text(json.dumps(assertions, indent=2) + "\n")
     print(json.dumps(assertions, indent=2))
     if not all(assertions.values()):
