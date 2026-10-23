@@ -1037,3 +1037,38 @@ APK SHA-256：`2bf05a650fe49d8a177c2434586c1eb33ec0b2446bbfa793045fd5f2afbbac61`
 安装构建日志、初始／安装截图和本次加载证据保存在被忽略的
 `artifacts/monster-hold-retention/`（`install-build.log`、`installed.png`、`loaded/verification.json`）；
 APK 构建日志为 `artifacts/launcher-apk-build.log`。
+
+
+## 帮助页内容精简（2026-10-24，用户确认真机通过）
+
+参考 Android README、功能清单、启动器 ADR-0001、BUILDING、桌面设置架构与
+`LauncherActivity`、`LauncherGames`、`LauncherSettingsActivity` 当前实现，
+在 `activity_launcher_help.xml` 将首次安装五步合并为三步，合并重复的客户端选择与故障说明；
+补齐高级模式双指按住预览、松手保留野怪面板、按钮组拖动及自动收起，
+将游戏内面板位置说明修正为后续预览生效。保留原生 ScrollView、宽度约束、视觉资源和返回交互，
+未改插件规则或启动链。布局由 XML 与 Activity 核对，设备 UI 由用户自行验证。
+
+本次检查：
+
+- JDK 24 下执行 `:fusionApp:processDebugResources --console=plain` 成功，资源编译与链接通过。
+- `python3 -m unittest discover -s bazaarplusplus-android/tests -v`：9 项通过。
+- XML 解析、内容与入口文案核对、`git diff --check` 通过。
+- ADB 检测到已授权设备 `OBJVWSPNSCFQU48L`（22041216C）。工作区已有其他未提交的启动链与
+  原生加载修改，初轮仅检查资源；后续按用户要求构建安装，结果见下节。
+
+后续专项覆盖：从首页打开帮助，检查竖屏、横屏和放大字体下滚动到底部，
+顶部／底部按钮与系统返回均回到首页，全文无截断。该页面独立于游戏输入模式，
+本次未重新验收文案描述的插件功能。后续安装与用户验收结果见下节。
+
+
+### 帮助页验证包覆盖安装（2026-10-24）
+
+用户随后明确要求安装并自行验证。按导出 skill 使用 JDK 24 与原签名完成当前工作区构建，
+APK 为 `0.1.0-test.10`，签名验证 `Verifies`，v2 为 true。
+覆盖安装至 `OBJVWSPNSCFQU48L` 成功，并打开启动器首页供用户检查；没有启动游戏。
+`verify_launcher.py` 的内置输入、插件摘要和已安装版本 3 项断言通过，
+证据位于 `artifacts/help-update-installed/`，构建日志为 `artifacts/launcher-apk-build.log`。
+APK SHA-256：`1fb0364b7b870186001ed3dac808520721fa22460be6c00421c743c3bb15864d`。
+该包包含当前工作区既有启动链修改。用户自行验证后反馈「完美，提交并推送」，
+确认本次帮助页真机验收通过；未逐项提供横屏、放大字体及三种返回路径的操作结果，
+这些专项覆盖不据此推断为全部完成。本次提交仅包含帮助页及对应文档。
