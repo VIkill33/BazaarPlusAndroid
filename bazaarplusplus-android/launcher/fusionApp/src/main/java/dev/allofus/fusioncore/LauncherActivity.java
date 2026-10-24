@@ -81,6 +81,14 @@ public final class LauncherActivity extends AppCompatActivity {
             refresh();
         });
         findViewById(R.id.launcher_donate).setOnClickListener(v -> donate());
+        findViewById(R.id.launcher_github).setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/VIkill33/BazaarPlusPlusForAndroid")));
+            } catch (ActivityNotFoundException error) {
+                Toast.makeText(this, "无法打开链接", Toast.LENGTH_SHORT).show();
+            }
+        });
         findViewById(R.id.launcher_settings).setOnClickListener(v -> startActivity(new Intent(this, LauncherSettingsActivity.class)));
         findViewById(R.id.launcher_help).setOnClickListener(v -> startActivity(new Intent(this, LauncherHelpActivity.class)));
         findViewById(R.id.launcher_more).setOnClickListener(v -> help());

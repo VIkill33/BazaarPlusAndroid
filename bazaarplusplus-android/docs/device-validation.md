@@ -1,5 +1,38 @@
 # Android 真机验证
 
+## 首页 Github 按钮（2026-10-24）
+
+参考 Android README、功能清单、本验证记录、启动器 ADR／构建说明、桌面插件
+AGENTS／MEMORY／架构索引及 `docs/design.md`，核对现有
+`LauncherActivity` 与 `activity_launcher.xml`。改动仅涉及原生启动器：首页
+「打赏作者」与「Github」等宽并排，后者以系统 ACTION_VIEW 打开
+`https://github.com/VIkill33/BazaarPlusPlusForAndroid`，无法处理时显示提示。
+
+离线执行 `python3 -m unittest discover -s bazaarplusplus-android/tests -v`，9 项通过；
+当前 worktree 的插件重新构建成功（零警告、零错误），签名 APK 构建及内置依赖校验通过，
+Lint 通过，签名报告确认 v2 与 `CN=BazaarPlusPlus Android Test`。
+原工作区的插件产物包含尚未提交的 History 源码，准备校验拒绝后改用本 worktree 新产物，
+没有引入该并行功能。
+
+设备 `OBJVWSPNSCFQU48L`、22041216C、Android 14，测试前为现有启动器首页。
+现有应用版本号 12，高于本分支基线 10，覆盖安装被系统拒绝；保留原应用和数据，
+临时使用独立应用 ID `com.bazaarplusplus.android.launcher.githubtest`，其余首页实现相同。
+测试包通过 USB 安装确认后启动；未授权文件访问、未启动游戏、未操作账号或对局。
+原版游戏安装可识别；本次不涉及游戏版本兼容性及标准／高级输入模式。
+
+Android CLI 按控件 ID 自动操作，布局树断言两按钮文字、同一纵向范围、等宽（误差
+不超过 1 像素）和左右分离；点击 Github 后通过 MIUI 外部应用确认进入 Edge，
+Activity Intent 断言完整仓库 URL，浏览器页面标题确认目标仓库已加载。
+随后返回首页，点击打赏按钮，断言「关闭」控件存在并执行关闭。
+共 8 项设备断言通过；人工复核 `home.png` 与 `donate.png`，按钮完整并排，赞赏码弹窗正常。
+测试使用竖屏默认字体；横屏、放大字体、无浏览器异常分支及正式应用身份覆盖安装未验证。
+独立测试应用在验收后移除，返回原启动器首页。
+
+证据：`artifacts/github-button/` 的首页／浏览器／打赏截图、布局树、
+`browser-activity.txt`、`assertions.json`、测试构建及签名记录；
+正式应用身份 APK 保存在 `artifacts/launcher/`，没有覆盖手机现有高版本应用。
+临时 Gradle 应用 ID 已恢复，不属于提交内容。
+
 ## LookingIN 客户端末尾 RX 段（2026-10-24，test.10）
 
 用户确认 test.9 原版可启动、第三方客户端失败。设备仍为 `OBJVWSPNSCFQU48L`、
