@@ -26,11 +26,19 @@ public final class HistoryAccessLock implements AutoCloseable {
     }
 
     public static synchronized HistoryAccessLock acquire(File gameRoot) throws IOException {
+        return acquireNamed(gameRoot, ".access.lock");
+    }
+
+    static synchronized HistoryAccessLock acquireSchema(File gameRoot) throws IOException {
+        return acquireNamed(gameRoot, ".schema.lock");
+    }
+
+    private static HistoryAccessLock acquireNamed(File gameRoot, String name) throws IOException {
         File directory = new File(gameRoot, DIRECTORY_NAME);
         if (!directory.isDirectory() && !directory.mkdirs()) {
             throw new IOException("Cannot create history directory");
         }
-        String identity = new File(directory, ".access.lock").getCanonicalPath();
+        String identity = new File(directory, name).getCanonicalPath();
         // POSIX locks can be released by closing ANY descriptor for the same inode in this process.
         // Reject re-entry before opening a second descriptor, including aliases of the same path.
         if (HELD.contains(identity)) throw new BusyException();

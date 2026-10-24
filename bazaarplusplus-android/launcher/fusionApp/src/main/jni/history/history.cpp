@@ -6,11 +6,14 @@
 #include <cstdint>
 
 extern "C" int bpp_history_verify(const char*, char*, int);
+extern "C" int bpp_history_write(const char*, char*, int);
 
 namespace {
 JavaVM* vm = nullptr;
 jclass environmentClass = nullptr;
 jmethodID verifyMethod = nullptr;
+jclass gatewayClass = nullptr;
+jmethodID writeMethod = nullptr;
 
 bool copy(const char* value, char* output, int capacity) {
     const size_t size = std::strlen(value);
@@ -34,6 +37,13 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* javaVm, void*) {
         environmentClass = nullptr;
         return JNI_ERR;
     }
+    local = env->FindClass("dev/allofus/fusioncore/history/HistoryGateway");
+    if (!local) return JNI_ERR;
+    gatewayClass = static_cast<jclass>(env->NewGlobalRef(local));
+    env->DeleteLocalRef(local);
+    if (!gatewayClass) return JNI_ERR;
+    writeMethod = env->GetStaticMethodID(gatewayClass, "write", "(Ljava/lang/String;)Ljava/lang/String;");
+    if (!writeMethod) return JNI_ERR;
     vm = javaVm;
     Dl_info location{};
     if (dladdr(reinterpret_cast<void*>(&copy), &location) != 0 && location.dli_fname) {
@@ -45,16 +55,20 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* javaVm, void*) {
     std::snprintf(entry, sizeof(entry), "%llx",
             static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(&bpp_history_verify)));
     setenv("BPP_HISTORY_VERIFY_ADDRESS", entry, 1);
+    std::snprintf(entry, sizeof(entry), "%llx",
+            static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(&bpp_history_write)));
+    setenv("BPP_HISTORY_WRITE_ADDRESS", entry, 1);
     setenv("BPP_HISTORY_BRIDGE_ABI", "1", 1);
     return JNI_VERSION_1_6;
 }
 
 // Bounded UTF-8 exchange. No managed caller owns a JNI object, path or Java exception.
-extern "C" __attribute__((visibility("default")))
-int bpp_history_verify(const char* request, char* output, int capacity) {
+static int exchange(const char* request, char* output, int capacity, jclass owner, jmethodID method, size_t limit) {
     if (!output || capacity <= 0) return -1;
     output[0] = '\0';
     if (!vm || !request) { copy("History JNI host unavailable", output, capacity); return -1; }
+    const size_t requestSize = strnlen(request, limit + 1);
+    if (requestSize > limit) { copy("History request too large", output, capacity); return 2; }
     JNIEnv* env = nullptr;
     bool attached = false;
     jint status = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
@@ -64,9 +78,15 @@ int bpp_history_verify(const char* request, char* output, int capacity) {
     } else if (status != JNI_OK) return -1;
     int result = -1;
     if (env->PushLocalFrame(16) == JNI_OK) {
-        jstring argument = env->NewStringUTF(request);
+        // Business JSON uses standard UTF-8, including supplementary characters and embedded escapes.
+        jclass stringType = env->FindClass("java/lang/String");
+        jmethodID constructor = stringType ? env->GetMethodID(stringType, "<init>", "([BLjava/lang/String;)V") : nullptr;
+        jbyteArray input = constructor ? env->NewByteArray(static_cast<jsize>(requestSize)) : nullptr;
+        if (input) env->SetByteArrayRegion(input, 0, static_cast<jsize>(requestSize), reinterpret_cast<const jbyte*>(request));
+        jstring charset = input && !env->ExceptionCheck() ? env->NewStringUTF("UTF-8") : nullptr;
+        jstring argument = charset ? static_cast<jstring>(env->NewObject(stringType, constructor, input, charset)) : nullptr;
         jstring response = nullptr;
-        if (argument) response = static_cast<jstring>(env->CallStaticObjectMethod(environmentClass, verifyMethod, argument));
+        if (argument && !env->ExceptionCheck()) response = static_cast<jstring>(env->CallStaticObjectMethod(owner, method, argument));
         jthrowable failure = env->ExceptionOccurred();
         if (failure) {
             env->ExceptionClear();
@@ -99,4 +119,13 @@ int bpp_history_verify(const char* request, char* output, int capacity) {
     }
     if (attached) vm->DetachCurrentThread();
     return result;
+}
+
+extern "C" __attribute__((visibility("default")))
+int bpp_history_verify(const char* request, char* output, int capacity) {
+    return exchange(request, output, capacity, environmentClass, verifyMethod, 128);
+}
+extern "C" __attribute__((visibility("default")))
+int bpp_history_write(const char* request, char* output, int capacity) {
+    return exchange(request, output, capacity, gatewayClass, writeMethod, 262144);
 }

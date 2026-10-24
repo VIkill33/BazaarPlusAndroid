@@ -1316,3 +1316,37 @@ MANAGE_GAME_MODE 权限等错误及一次登录 401，随后自动进入主菜�
 本次提交包含配置保护加载链及其必要的只读 DEX、Activity 元数据与旧版 Android 读取修复；历史存储及其他并行改动未纳入提交。
 
 提交前另对暂存区快照执行离线回归，9 项全部通过；该快照不包含工作区历史互斥测试，因此与完整工作区的 10 项计数不同。
+
+
+## 对局历史 M1 事务存储与规则（2026-10-24）
+
+目标为 `OBJVWSPNSCFQU48L`、22041216C、Android 14。沿用 M0 的 Java 系统 SQLite、
+独立 JNI 和游戏进程租约，不引入桌面 SQLite 依赖。`HistoryStore` 拥有 schema、作用域、
+Run、持久窗口、四组快照及幂等证据；`HistorySessionCore` 负责原始观察窗口和晚回调规则。
+
+`verify_history_store.py` 编译实际生产 Java 存储代码，通过独立 `app_process` 在随机 UUID 的
+`/sdcard/BppHistoryM1Check/` 下验证，与游戏数据完全分开。34 项断言通过：schema／WAL、
+四组快照原子提交、外键失败回滚与同请求重试、重复 original／结果、冲突隔离、同时间多场、
+旧序号通知、身份失效、重启待确认、同 Run 续接与新 Run 替换、账号隔离和本会话暂存归属、
+进度前移且短消息改变时禁止重新授予 partial，以及较新、未知、损坏库保留原字节。
+
+空间不足注入使用写连接的 SQLite 页上限，实际触发 `SQLITE_FULL`；原战斗及四组快照保留，
+序号不前进，恢复上限后同请求成功。早期注入首先落在 WAL 读连接，未触发预期错误；固定写连接后，
+又发现 SQLite 自行回滚导致 `endTransaction` 的后续异常掩盖原始错误。`finishTransaction` 现在
+保留原始错误，将清理错误附加为 suppressed，修复后整套断言通过。不把受控页上限等同于
+真实填满设备存储，也没有为测试填满手机。
+
+同脚本的 `--kill-transaction` 使用隔离目录，在外层未提交事务内调用实际 `HistoryStore.write`，
+打印已到达边界后对该测试 PID 执行 SIGKILL；新进程重新取得租约、打开同库，6 项断言通过：
+已提交父 Run 身份保留、未弃局、整场未提交 opening 全部丢弃、序号和 checkpoint 未消耗、
+完整性及外键通过。没有在生产代码添加暂停或故障开关。这项是 SQLite 事务边界测试，
+实际游戏强制停止的验收单独记录，不用它代替游戏结算与生命周期验证。
+
+C# 的 `HistorySession.Tests`、`HistoryBridge.Tests` 通过。后者直接链接生产 Bridge，验证单写
+顺序、容量满显式拒绝、前置失败阻断后续、显式恢复、DTO camelCase 与中文／补充字符。
+生产插件及签名 APK 构建通过；证书及 v2 校验通过。临时验证包使用已安装 test.13 的同版号，
+原安装 APK 已只读备份；该临时包不作正式发布。当前 APK、校验、详细输出均在被忽略的
+`artifacts/history-m1/`，其中 `store-device-final.json` 和 `store-sigkill.json` 是通过证据。
+
+本条仅验收事务存储、桥与纯规则。实际采集器、可见失败／重试、整局正常结算和游戏强杀恢复
+仍在独立验收，历史浏览与备份尚未提供；真实第二账号及 Android 9／第二设备仍待验证。

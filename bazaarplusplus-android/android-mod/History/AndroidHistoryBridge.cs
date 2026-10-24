@@ -8,21 +8,74 @@ namespace BazaarPlusPlus.Android;
 internal static class AndroidHistoryBridge
 {
     private const int ResponseCapacity = 8192;
-    private static readonly SemaphoreSlim Capacity = new(4, 4);
+    private static readonly SemaphoreSlim Capacity = new(HistoryLimits.QueueCapacity, HistoryLimits.QueueCapacity);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int VerifyCall([MarshalAs(UnmanagedType.LPUTF8Str)] string requestId,
         [Out] byte[] response, int capacity);
-    private static readonly Lazy<VerifyCall> Verify = new(() =>
+    private static readonly Lazy<VerifyCall> Verify = new(() => Entry("BPP_HISTORY_VERIFY_ADDRESS"));
+    private static readonly Lazy<VerifyCall> Writer = new(() => Entry("BPP_HISTORY_WRITE_ADDRESS"));
+    private static readonly object QueueGate = new();
+    private static Task _tail = Task.CompletedTask;
+    private static int _queued;
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+
+    private static VerifyCall Entry(string variable)
     {
-        var entry = Environment.GetEnvironmentVariable("BPP_HISTORY_VERIFY_ADDRESS");
+        var entry = Environment.GetEnvironmentVariable(variable);
         if (Environment.GetEnvironmentVariable("BPP_HISTORY_BRIDGE_ABI") != "1"
             || !ulong.TryParse(entry, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var address)
             || address == 0)
             throw new InvalidOperationException("History native host is unavailable");
-        // This in-process entry is published before CoreCLR starts; it is never persisted or imported.
         return Marshal.GetDelegateForFunctionPointer<VerifyCall>(new IntPtr(unchecked((long)address)));
-    });
+    }
+
+    internal static void ResumeAfterFailure()
+    {
+        lock (QueueGate)
+        {
+            if (_queued != 0) throw new InvalidOperationException("历史写入仍在完成，请稍后重试");
+            _tail = Task.CompletedTask;
+        }
+    }
+
+    // Immutable managed DTOs only. Serialization and JNI execute after the preceding write.
+    internal static Task<System.Text.Json.JsonElement> WriteAsync(object dto)
+    {
+        lock (QueueGate)
+        {
+            if (_queued >= HistoryLimits.QueueCapacity)
+                return Task.FromException<System.Text.Json.JsonElement>(new InvalidOperationException("历史写入队列已满，请重试"));
+            _queued++;
+            var preceding = _tail;
+            var accepted = System.Diagnostics.Stopwatch.StartNew();
+            var task = Task.Run(async () =>
+            {
+                try
+                {
+                    await preceding.ConfigureAwait(false); // Stop dependent writes after the first failed transaction.
+                    var payload = System.Text.Json.JsonSerializer.Serialize(dto, JsonOptions);
+                    if (Encoding.UTF8.GetByteCount(payload) > HistoryLimits.MaxPayloadBytes)
+                        throw new InvalidOperationException("历史写入数据超出限制");
+                    var timer = System.Diagnostics.Stopwatch.StartNew();
+                    var response = new byte[HistoryLimits.ResponseCapacity];
+                    var status = Writer.Value(payload, response, response.Length);
+                    var end = Array.IndexOf(response, (byte)0);
+                    if (end < 0) throw new InvalidOperationException("Invalid history bridge response");
+                    var message = Encoding.UTF8.GetString(response, 0, end);
+                    if (status != 0) throw new InvalidOperationException($"History bridge failed ({status}): {message}");
+                    if (timer.Elapsed.TotalMilliseconds > HistoryLimits.WriteTargetMs || accepted.Elapsed.TotalMilliseconds > HistoryLimits.AcceptedTargetMs)
+                        Plugin.PluginLog?.LogWarning($"[BPP][Android] event=history.write.slow writeMs={timer.Elapsed.TotalMilliseconds:F1} acceptedMs={accepted.Elapsed.TotalMilliseconds:F1}");
+                    using var document = System.Text.Json.JsonDocument.Parse(message);
+                    return document.RootElement.Clone();
+                }
+                finally { lock (QueueGate) _queued--; }
+            });
+            _tail = task;
+            return task;
+        }
+    }
 
     internal static async Task<string> VerifyEnvironmentAsync(string requestId)
     {
