@@ -32,3 +32,14 @@ python3 bazaarplusplus-android/build_launcher.py --prepare-only --upstream /path
 只修改 `compatibility.json` 的匹配规则不能证明新游戏版本兼容。新增组合须重新完成
 专用身份下的初始化、登录、代理生成、功能回归和另一台设备验收。
 本地构建不等于获准公开分发；发行前需要完成许可清单与准确的对应源码包。
+
+## GitHub Release 校验
+
+签名 APK 在本机按导出规范构建并完成实机验收后，上传到本项目 GitHub Release。
+附件命名为 `BazaarPlusPlus-Android-<tag>.apk`、同名 `.apk.sha256`、
+`BazaarPlusPlus-Android-<tag>-source.tar.gz` 和 `release.json`。
+
+`.github/workflows/release.yml` 的 Android Release 在发布 Release 后校验附件，
+也可手动传入已发布的 tag 执行。校验包括 APK SHA-256、内置清单与依赖摘要，以及
+对应源码包中的启动器版本；本机入口为 `.github/scripts/verify-android-release.py --help`。
+该流程不在云端构建或签名，不依赖桌面签名、Apple 或 Cloudflare 凭据。
