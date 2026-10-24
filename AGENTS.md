@@ -1,6 +1,8 @@
 # AGENTS.md
 
-BazaarPlusPlus monorepo. The mod and the installer ship as one Product Release; the server, analyzer, and site are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `CONTEXT.md` glossary. Work inside the project the change touches and follow its `AGENTS.md`; this file holds repo-wide rules and the Android port development workflow.
+本项目主体是 **BazaarPlusPlusForAndroid**，面向 Android 移植与独立启动器；本地主目录名为 `BazaarPlusPlus`。根目录 `README.md` 和 `README_en.md` 应以本 Android 项目为主体，章节对应，只需简要说明主目录名，不展开介绍上游桌面工程。
+
+The mod and the installer ship as one Product Release; the server, analyzer, and site are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `CONTEXT.md` glossary. Work inside the project the change touches and follow its `AGENTS.md`; this file holds repo-wide rules and the Android port development workflow.
 
 | The change touches | Project |
 |---|---|
