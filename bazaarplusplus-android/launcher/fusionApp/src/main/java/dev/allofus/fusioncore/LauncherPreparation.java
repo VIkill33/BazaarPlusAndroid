@@ -321,13 +321,18 @@ public final class LauncherPreparation {
             throw new IOException("游戏 Unity 版本与发行清单不符");
         step(context, progress, "准备匹配依赖");
         JSONArray dependencies = release.getJSONArray("dependencies");
+        String unityArchiveName = null;
         for (int i = 0; i < dependencies.length(); i++) {
             JSONObject dependency = dependencies.getJSONObject(i);
             step(context, progress, "提取内置依赖 " + dependency.getString("name"));
             File input = asset(context, dependency);
             String name = dependency.getString("name");
             File target = new File(runtime, name);
-            if (name.endsWith(".zip")) target = new File(plugins, "unity-libs/" + name);
+            if (name.endsWith(".zip")) {
+                if (unityArchiveName != null) throw new IOException("Unity 基础库配置不唯一");
+                unityArchiveName = name;
+                target = new File(plugins, "unity-libs/" + name);
+            }
             if (!LauncherFiles.valid(target, dependency.getString("sha256"), dependency.getLong("size"))) {
                 LauncherFiles.mkdir(target.getParentFile());
                 File temp = new File(target.getPath() + ".part");
@@ -335,6 +340,7 @@ public final class LauncherPreparation {
                 verify(temp, dependency); LauncherFiles.replace(temp, target);
             }
         }
+        if (unityArchiveName == null) throw new IOException("缺少内置 Unity 基础库");
         step(context, progress, "准备运行框架");
         unpack(asset(context, release.getJSONObject("framework")), plugins, true);
         unpack(asset(context, release.getJSONObject("runtime")), new File(runtime.getParentFile(), "dotnet"), false);
@@ -344,8 +350,7 @@ public final class LauncherPreparation {
         // BepInEx consumes the already verified ZIP under unity-libs. Never resolve versions online.
         File config = new File(plugins, "config/BepInEx.cfg");
         String text = LauncherRelease.read(new FileInputStream(config));
-        text = text.replaceAll("(?m)^UnityBaseLibrariesSource\\s*=.*$",
-                "UnityBaseLibrariesSource = " + release.getString("baseLibrariesUrl"));
+        text = LauncherUnityLibraries.configure(text, unityArchiveName);
         LauncherFiles.write(config, LauncherRelease.bytes(text));
         step(context, progress, "安装插件");
         JSONObject plugin = release.getJSONObject("plugin");

@@ -1190,3 +1190,129 @@ MANAGE_GAME_MODE 权限等错误及一次登录 401，随后自动进入主菜�
 本次提交包含配置保护加载链及其必要的只读 DEX、Activity 元数据与旧版 Android 读取修复；历史存储及其他并行改动未纳入提交。
 
 提交前另对暂存区快照执行离线回归，9 项全部通过；该快照不包含工作区历史互斥测试，因此与完整工作区的 10 项计数不同。
+
+
+## Android 9 配置变化空 Display 修复（2026-10-24，test.11）
+
+用户提供 `bazaarplusplus-launcher-log8.json`：小米 9、API 28、arm64、正版游戏
+`1.0.12825-production-android-d9601ded` 两次启动均越过准备与 Unity 原生接口注册，
+随后主线程在 `ActivityThread.performConfigurationChangedForActivity` 因
+`Display.getDisplayId()` 的接收对象为空退出。诊断不包含完整系统 logcat。
+
+已对照启动器 ADR-0001、BUILDING、现有初始化验证记录、`GameRuntime.prepare`、
+`CustomContextWrapper.getDisplay` 和 `FusionConfigActivity.onConfigurationChanged`。
+[Android 9 系统源码](https://android.googlesource.com/platform/frameworks/base/+/android-9.0.0_r1/core/java/android/app/ActivityThread.java)
+在配置变化流程直接调用 `activity.getDisplay().getDisplayId()`；原包装层在 API 30 以下
+返回 null，替换 Activity base context 后该返回值进入系统流程。此处早于游戏自身的
+配置回调，现有 Unity 原生接口保护无法处理这个空值。
+
+修复仅适配宿主显示对象：API 26–29 使用宿主原 Activity context 的
+`WindowManager.getDefaultDisplay`，API 30 及以上继续转发宿主 `getDisplay`。
+不使用游戏包 context 或固定 display 0，不吞掉系统异常，不修改游戏 API／插件业务。
+测试包版本升至 test.11；插件由独立 worktree 的已提交源码重新构建，未带入原目录
+尚未提交的历史桥功能。此次未改变游戏内交互。
+
+离线与构建验证：
+
+- Python 回归 10 项通过。新增测试编译并执行生产 `CustomContextWrapper`，
+  使用 JVM Android API doubles 覆盖 API 26、28、29、30、34，模拟 Activity 包装层的
+  虚调用，验证重复配置查询返回宿主显示对象，旧分支不调用 API 30 公共接口。
+  游戏与宿主使用不同的非零 display ID，防止错误转发或固定默认屏幕。
+  原实现运行同一测试失败；这是分支行为测试，不是 Android 9 系统或 MIUI 真机验证。
+- 插件使用固定框架和现有 Android 生成代理重新构建，0 警告、0 错误。
+- 使用导出 skill、JDK 24 与原测试签名打包；assembleRelease、lintVitalRelease 及
+  APK 内置依赖校验通过。签名 Verifies、v2 true，证书 CN=BazaarPlusPlus Android Test。
+  未重新运行完整 lintDebug，不代表既有工程 Lint 问题已解决。
+- APK SHA-256：`7915e7eceedd4945df1eeb9864e5ad116899c5034fb4afd6b42e0491a8afbe89`。
+  releaseId：`700a0aab6641b286d46c51064858251091e48b289b3b000afcbbe05af14352c1`。
+
+当前 Android 14 设备回归：
+
+- 设备 `OBJVWSPNSCFQU48L`、22041216C、API 34，正版游戏版本同上，横屏 2460×1080。
+  测试前在游戏主菜单；覆盖安装 test.11 成功，设备已安装 APK 摘要与本机修复包一致。
+- 通过 Android CLI 按启动按钮资源 ID 发起新会话。初次检查正确拒绝旧握手；加载完成后
+  `verify_launcher.py --expect-loaded --not-before-ms` 的 12 项断言全部通过，包括新会话、
+  插件摘要、当前会话事件和游戏代理。本次插件摘要为
+  `da7fda9b59d4f91e991af1dd84263388d560e04a7608b8d77a7e6f243f653e24`。
+- 最终截图人工确认主菜单、继续按钮与 BPP 收起入口可见，PID 32644 保持存活。
+  当前进程日志未发现 FATAL EXCEPTION、Fatal signal、NullPointerException 或 NoSuchMethodError。
+  日志仍有 Unity 辅助功能方法、MANAGE_GAME_MODE 权限、自动登录 401 及设备原有独立
+  History M0 Probe 的 native host unavailable 错误；未宣称游戏日志无错误或历史功能通过。
+- 本轮只测启动链，未切换或验收标准／高级输入模式，未点击继续或操作对局，未清除账号数据，
+  未验证完整修复与全新无缓存初始化。Android 14 结果不能替代 API 28 分支的真机验收。
+
+本次证据位于被忽略的 `artifacts/display-context-fix/`；签名构建记录在
+`artifacts/launcher-apk-build.log`，测试包及签名报告在 `artifacts/launcher/`。
+原小米 9 未连接，须使用 test.11 重试初始化及启动，确认不再出现空 Display 配置异常，
+并重新收集诊断以发现是否有下一处兼容问题。此轮原 Android 9 专项验收未完成；后续用户反馈与提交授权见 test.12 节，不将概括反馈扩展为小米 9 全部路径通过。
+
+
+## Unity 基础库 ZIP 消费文件名修复（2026-10-24，test.12，用户验证通过）
+
+用户提供 `bazaarplusplus-launcher-log (3).json`：test.11、API 37、arm64、正版游戏
+`1.0.12825-production-android-d9601ded`，已进入 BepInEx Preloader。在提取 Unity
+基础程序集时先报 `InvalidDataException: End of Central Directory record could not be found`，
+之后继续初始化 Chainloader，最终 SIGABRT，栈落在 libcoreclr.so。记录的页面大小为 4096，
+不能据此归因于 16 KB 页。诊断没有设备型号、完整 ZIP 路径、实际坏文件摘要或完整托管调用栈。
+
+参考启动器 ADR-0001、BUILDING、既有内置依赖验收、`LauncherPreparation.prepare`、
+固定框架 `BepInEx.Unity.IL2CPP.dll` 的 `Il2CppInteropManager.DownloadUnityAssemblies` IL，
+并与 [BepInExFusion 源码](https://github.com/All-Of-Us-Mods/BepInExFusion/blob/master/Runtimes/Unity/BepInEx.Unity.IL2CPP/Il2CppInteropManager.cs)
+交叉核对。IL 所用 DLL 已逐字节比对本工程固定框架 ZIP 内文件，避免仅凭可变上游源码推断。
+它从配置提取来源 URL 的 AbsolutePath，再取 GetFileName，与 unity-libs 组合、检查 Exists，
+最后 OpenRead 并交给 ZipArchive；已有同名文件不会重新下载或校验。
+
+原准备流程安装并校验 `6000.3.11.zip`，却把来源 URL 写成末尾为 `Managed.zip` 的地址。
+框架因此消费另一份 Managed.zip；缺失时尝试下载，已有损坏缓存时直接报 ZIP 中央目录错误。
+既有真机记录保留了已生成代理，不能证明首次代理生成实际消费过正确 ZIP。
+该缺陷可确定复现，并与此次首个错误吻合；脱敏日志不能确认用户实际坏文件内容，
+也不能证明后续 libcoreclr 中止没有独立原因。
+
+修复沿用现有依赖校验与原子安装，将实际 ZIP descriptor 的 name 传给
+`LauncherUnityLibraries.configure`，只在 IL2CPP 节更新 UnityBaseLibrariesSource 为本地文件名；
+缺少键或节时补齐，其他配置保留，拒绝 URL、越界路径及非 ZIP 名称。
+清单缺少或包含多个基础库 ZIP 时在准备阶段拒绝继续，不让框架选择未校验来源。
+原 Managed.zip 不再被读取，不删除它或账号、游戏持久数据；来源 URL 保留供构建及追溯。
+本包继续包含 test.11 的旧版 Android Display 修复。
+
+离线验证：
+
+- Python 回归 11 项通过，包括生产 Java 配置方法的已有 URL／坏缓存、无代理、缺少配置键／节、
+  CRLF、空配置、重复执行、其他节同名键和非法来源检查。原 URL 配置在同一夹具选择
+  损坏 Managed.zip，复现 ZIP 失败；修复后选择已安装 ZIP 并成功解压。
+- Java 夹具由 `LauncherUnityLibrariesTest` 导出，替换为 compatibility.json 固定摘要的真实 ZIP；
+  `.NET 10` 的 `UnityLibraries.Tests` 按已核对的消费者文件名规则读取，旧配置复现相同的
+  End of Central Directory 错误，新配置成功读完全部 77 个条目；未依赖已有 interop 目录。
+  这是桌面 .NET ZIP 消费边界回归，未运行 Android 上的完整 BepInEx／Cpp2IL。
+- 构建导出的对应源码包补入两次崩溃修复的 Java、Python、C# 回归测试。
+
+test.12 签名构建：
+
+- 使用导出 skill、JDK 24 与原测试签名；为避免干扰其他测试任务，使用独立 Gradle daemon
+  目录，仅复用受锁保护的依赖缓存。assembleRelease、lintVitalRelease、内置依赖核验通过。
+- 签名 Verifies、v2 true，证书 CN=BazaarPlusPlus Android Test；未执行完整 lintDebug。
+- APK SHA-256：`72103b91eb94b44c967cd5afc15ee81632983b29b9cd36b10a9c17d54cbf7a51`。
+  releaseId：`b901cd3ffcf6933c51636ba3e5e4ea1f6db77c15c08f1778a3ffd9dabd0f70f2`。
+- 测试包、清单、签名报告与对应源码包另存于 `artifacts/interop-zip-fix/test12/`，
+  旧包备份位于同级 `test11/`；下载目录另存带 test.12 名称及 .111 后缀的副本，原 test.11 副本摘要未变。
+
+用户明确要求不覆盖本机安装包，当前手机正在进行其他测试：本次未使用 ADB、Android CLI，
+未安装、停止、重启或操作手机应用。原 API 37 用户设备未连接，完整初始化、代理生成、
+插件握手、游戏主菜单及后续原生中止是否消失在此轮构建结束时仍待复测。后续用户反馈如下。
+
+证据在被忽略的 `artifacts/interop-zip-fix/`：`pinned-consumer-il.txt`、`offline-tests.log`、
+`dotnet-consumer.log`、`consumer-fixture/`；测试源码为 `tests/LauncherUnityLibrariesTest.java`、
+`tests/test_launcher_unity_libraries.py` 和 `tests/UnityLibraries.Tests/`。
+
+
+### 用户验收与提交授权（2026-10-24）
+
+用户收到下载目录的「修复测试版本2」test.12 包后，在本会话明确反馈：
+“可以了，用户验证通过，提交吧”。该副本已确认与上述 test.12 APK 的 SHA-256 一致。
+据此记录本次启动崩溃修复经用户验证通过，并执行本地提交。
+
+此前补充的两份 test.10 日志分别来自 API 36 和 API 35，均有三次基础库联网下载超时，
+随后代理生成失败及相同的 libcoreclr SIGABRT 栈，支持与 test.12 修正的基础库来源缺陷同类。
+用户本次反馈未逐台列出验证设备、步骤或新的诊断，因此不声称 API 28／35／36／37
+全部逐机验收完成，也不新增自动握手、游戏功能、全新初始化或完整修复的验证结论。
+本次验收来源为用户反馈；本机手机继续保持其他测试任务，不重新安装或操作。
