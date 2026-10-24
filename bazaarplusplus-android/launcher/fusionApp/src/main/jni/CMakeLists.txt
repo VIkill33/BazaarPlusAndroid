@@ -3,3 +3,6 @@ project(unityLibrary CXX)
 
 add_subdirectory(main)
 add_subdirectory(fusion)
+
+add_library(bpphistory SHARED history/history.cpp)
+target_compile_options(bpphistory PRIVATE -Wall -Wextra -Werror)

@@ -1118,6 +1118,132 @@ APK SHA-256：`1fb0364b7b870186001ed3dac808520721fa22460be6c00421c743c3bb15864d`
 这些专项覆盖不据此推断为全部完成。本次提交仅包含帮助页及对应文档。
 
 
+## 对局历史 M0 存储与互斥验证（2026-10-24，首轮）
+
+参考历史实施方案、桌面 `RunLogSessionManager`、`PvpBattleSnapshotCollector` 和四组快照模型，
+对照本地手机版生成代理核对 `NetMessageRunInitialized.RunId`、
+`NetMessageCombatSim.MessageId`、`CombatSimHandler.Simulate`、`Data.Run` 与
+`ClientCache.Profile`。UI 只核对现有源码及实际游戏首页；历史页面尚未实现。
+独立只读评审补充游戏存活锁、账号身份和量化采集预算，修正隔离验证的并发读时点。
+
+环境：设备 `OBJVWSPNSCFQU48L`，Redmi 22041216C，Android 14；两个客户端均为
+`1.0.12825-production-android-d9601ded`，包名分别为 `com.tempogames.thebazaar` 和
+`com.lookingin.bazaar.mod`。启动器为本轮工作区构建的 `0.1.0-test.10`，包含先前已有的
+未提交启动链修改，不将其归为历史功能改动。此次为存储与启动链验证，不依赖输入模式；
+标准／高级历史 UI、PvP／PvE 和卡牌数值均未验收。
+
+### 已验证
+
+- Python 离线回归 10 项、插件构建（零警告）、BuildCorpus 与 EnchantPolicy 测试通过。
+  签名构建通过，`apksigner` 为 `Verifies`，v2 为 true，证书为
+  `CN=BazaarPlusPlus Android Test`。具体源码和插件摘要由构建记录持有。
+- 初次临时探针经 Unity AndroidJNI 代理在 .NET 后台调用时触发原生 SIGSEGV；
+  已删除该桥实现，改用启动器独立 JNI ABI。之后按库名加载失败，按绝对路径加载得到
+  无 JVM 的独立库实例；改为启动器发布进程内已初始化入口，见 ADR-0002。
+- LookingIN 目标下两次后台 JNI 调用各自创建随机命名的隔离 SQLite 库，
+  校验提交、外键拒绝、写事务未提交期间独立读取已提交版本、回滚与关闭重开。
+  返回请求 UUID、目标包名、实际目录与能力标记均自动断言通过；Java 非法 UUID 异常
+  成功传回 C#。两次隔离存储验证耗时为 156 ms、287 ms；不是业务写入延迟或帧预算。
+  隔离文件已清理，目录只保留访问锁，未创建 `history.sqlite`。
+- 真实游戏租约持有时，从独立 Android `app_process` 尝试同一目标，退出码为 3；
+  完全停止启动器后同目录退出码为 0。另在独立测试目录启动持锁进程，竞争者退出 3，
+  杀死持锁进程后竞争者退出 0；测试目录与 DEX 已清理。JVM 测试另覆盖同进程重入、
+  同目录别名、不同目标、重入失败后原锁仍有效及 I/O 错误不误报为占用。
+  重复检查入口为 `verify_history_access.py --help` 与 `tests/device/HistoryLockDevice.java`。
+- 读取账号缓存时观察到先为全零 UUID，稍后才有有效账号；恢复现有对局可读到 Run ID。
+  全零身份不能作为已确认作用域。未执行账号切换，也未证明消息 ID 在重复投递或重连后稳定。
+- 临时战斗观察器使用加载器现有原生 hook 接口成功安装；直接使用 Harmony 时被
+  `MonoMod.Core.Platforms.Systems.AndroidSystem` 创建 `/data/.cache` 的权限错误阻断。
+  未因此改写框架、系统 HOME 或拷贝桌面程序集。安装成功只证明挂钩可建立，不证明已采集战斗。
+
+### 尚未通过的门槛
+
+两个客户端读到同一账号。正版恢复的是已有排位局，未购买、选择事件／野怪或推进战斗；
+测试客户端首页同样只有「继续」入口，未提供休闲新局入口。用户授权范围为推进休闲对局，
+因此本轮不推进或结束该排位，也不为测试弃局；用户随后选择保留排位，仅完成不推进对局的部分。
+尚缺实际 PvP／PvE 的战斗前四组快照与结果、可靠战斗身份、账号切换及采集耗时／队列预算。
+M0 整体未完成，未进入 M1–M4，自动保存、浏览、双方阵容、异常恢复、导出与导入均未实现。
+未提交为已验收功能。第二台设备及原 Android 9 设备均未测试。
+
+证据在被忽略的 `artifacts/history-m0/`：`python-tests.log`、`build.log`、
+`corpus-tests.log`、`enchant-tests.log`、`storage.json`、`final-probe.log`、
+`probe-session.json`、`device-lock-running-mod.json`、`device-lock-after-stop-mod.json`、
+`device-lock-death-recovery.json`、`crash.txt` 和截图。截图均为人工复核，
+不声称有自动视觉断言。临时采集源码只保留在此忽略目录，未装配到正式插件入口。
+
+最终构建复测：正版目标的新会话／插件／APK 摘要等 12 项 `verify_launcher` 断言全部通过。
+同一版 JNI 隔离测试再次通过，耗时 141 ms、161 ms；证据为 `final-loaded/verification.json`、
+`final-storage.json` 与 `final-official-probe.log`。本轮两目标均能确认后台 Java 调用与目录归属，
+尚未验证账号切换。停止游戏后第一次紧接重开首页的锁检查仍返回占用，按互斥规则保守拒绝；
+再次确认测试进程退出后，`final-lock-released-retry.json` 的独立进程取得锁断言通过，
+不以首页可见作为已关闭证据。
+
+临时 HistoryProbe DLL 及其设备侧输出已从两个客户端撤下，测试进程已停止，默认启动目标恢复正版。
+未清除、迁移或覆盖用户历史／游戏账号数据。最终验证包 APK SHA-256 为
+`fc1a6610c17f1eb94d7f77c7b02b2695888d84640bcbd74cacde51f437fe5643`；
+插件 SHA-256 为 `babaabcdf64d204abeb6874ed55ce3bdf146dcfc6f1173fa7696fbd3ee42bdde`。
+此包用于 M0 验证，历史功能仍不可用；不据此宣称原 Android 9 故障或整个方案已通过。
+
+### 休闲对局采集续测与定稿（2026-10-24）
+
+用户完成原排位后，明确选择普通模式，新建 `Unranked` 对局，并在重启后恢复同一
+Run ID。仅推进已授权的休闲局。临时探针对 `CombatSimHandler.Simulate` 的原生入口
+复制托管 DTO；原调用始终继续，序列化和文件写入在后台执行。
+
+第一天 PvE 的 `Data.CurrentState.StateName` 为 `Combat`，小时为 3；四组均采集成功，
+我方物品／技能数量为 2／0，对方为 4／1，合计 190 项属性，DTO 为 5,224 UTF-8 字节。
+胜者为 `Player`，原模拟消息处理成功并进入 `ReplayState`。第一天 PvP 为
+`PVPCombat`、小时为 6，数量为 3／0／5／0，合计 252 项属性，DTO 为 6,495 字节；
+胜者为 `Opponent`，处理结束后天数变为 2、胜负计数为 0／1。两场都保留品质、体型、
+实例／模板身份、位置、附魔、标签和属性；空技能组为成功采集的空数组。
+
+首轮采集耗时分别为 72.9503 ms、26.264 ms，尚未达到可交付性能结论；增加逐卡预热后
+仍须复测战斗采集。原生卡牌 `Name` 实测为空，需要从模板本地化标题保存名称回退；
+PvE 对方英雄为 `Common`，必须另外保存怪物模板身份，不能以该英雄字段代替怪物名称。
+
+PvE 可取得 `CurrentEncounterId`，PvP 对应字段为空。点击原生重放会再次进入
+`Simulate`，消息 ID 与刚结束的 PvP 相同，但当前天数／小时已变为 2／0；因此不能
+用采集时的天数／小时识别新战斗。正式观察器必须在 `ReplayState` 排除回放，且原始
+战斗身份不能依赖尚未证明跨重连稳定的短消息 ID。该身份策略仍须补齐并验证。
+
+临时桥压力验证同时发起 16 个请求：容量 4，接受 4、明确拒绝 12；已接受调用结束后
+再次调用成功。该结果证明有界桥的拒绝和恢复，不代表尚未实现的业务单写队列已经通过。
+证据为忽略目录中的 `casual-battles.jsonl`、`casual-observations.jsonl`、
+`casual-first-verification.json` 及 PvE／PvP 截图。自动断言覆盖同一休闲 Run、四组状态、
+PvP 胜负计数和重放消息关系；卡面截图为人工复核，不是自动视觉识别。
+
+增强探针重启期间另一任务覆盖安装不含历史桥的 test.11，当前输出出现 native host
+unavailable；未把该次会话计为历史验证通过。用户随后授权本任务独占手机。
+依导出 skill 构建临时 `0.1.0-test.11-history-m0`（code 11），避免降级或清除数据；
+该版本号仅用于本次忽略目录验证产物，源文件版本已恢复。本次新会话加载 12 项断言通过，
+探针 SHA-256 与设备一致，JNI 和原生钩子均重新确认生效。
+
+增强采集第二天 PvE：数量 3／0／5／1、252 项属性、6,887 字节，快照 14.8132 ms；
+第二天 PvP：数量 4／0／5／1、280 项属性、7,658 字节，快照 14.1516 ms。
+后者完整入口（含回放判断、元数据、任务投递）为 27.2342 ms，不能把仅快照计时写成
+完整入口。两场结果均由原模拟 Task 的 `RanToCompletion` 和窗口绑定消息再次确认；
+所有已采集卡牌名称非空，包括中文名称。PvE 沙尘暴教学会暂停模拟，点击教学后正常
+结束；因此不能把展示耗时视为数据库或采集延迟。重放实测记录 `replay_skipped`，
+不新增采集行。预热首卡 40–45 ms、后续 1–8 ms；性能预算及边界由 ADR-0002 定稿。
+
+另核对 PvE `CurrentEncounterId` 等于该怪物 `BoardManager` 日志中的 TemplateId；
+战斗开始时 `GetCurrentEncounter()` 可返回空，模板身份应保留原始字段，不能依赖当时
+仍有原生 encounter 实例。独立评审通过本地窗口 UUID、持久序号、completed 去重证据及
+跨进程身份歧义隔离规则；这些是 M1 实现要求，不是业务恢复已经通过的证明。
+第二账号不可用，真实切换移入 M4 保留待验证，不退出或替换用户登录。
+
+自动断言验证增强 PvE／PvP 四组、中文回退非空、Task 结果、压力拒绝与恢复、回放排除。
+证据追加 `casual-results.jsonl`、`casual-pressure.json`、`casual-final-log.txt`、
+`pve2-log.txt`、`casual-loaded/` 及 `validation-build/`。临时包 SHA-256：
+`9d4c0b00de88e938693e07f955cb230a8f02dd37170d00dd2fb2e3c6608e7a43`。
+测试结束停止游戏，删除设备临时探针和其输出，确认两目标插件目录均无该 DLL，恢复原
+test.11 APK 并自动核对设备与源 APK 摘要相同，证据为 `test11-restored.json`。
+没有清除账号、游戏进度或历史目录。
+
+至此 M0 采集／存储基线和设计定稿闭环，进入 M1；自动记录、浏览、阵容、恢复和文件
+交换仍未实现。原 Android 9、第二设备、真实账号切换、大阵容及业务故障恢复均未验收。
+
+
 ## Android 9 初始化读取兼容修复（2026-10-24，待原设备验收）
 
 用户提供的 test.10 诊断中，小米 9、Android API 28、arm64、正版客户端
