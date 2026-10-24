@@ -16,6 +16,8 @@ import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -25,12 +27,17 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import dalvik.system.PathClassLoader;
+import dev.allofus.fusioncore.LauncherLog;
+import dev.allofus.fusioncore.LauncherFiles;
 import dev.allofus.fusioncore.tools.NativeLibraryManager;
 import dev.allofus.fusioncore.R;
 import dev.allofus.fusioncore.tools.CustomContextWrapper;
 
 public final class GameRuntime {
+    private static final String UNITY_ACTIVITY = "com.unity3d.player.UnityPlayerActivity";
+    private static final String CONFIG_ACTIVITY = "com.unity3d.player.FusionConfigActivity";
     private static android.app.Application gameApplication;
+    private static File launcherFiles;
     private GameRuntime() {}
 
     public static android.app.Application getGameApplication() { return gameApplication; }
@@ -49,17 +56,38 @@ public final class GameRuntime {
         Log.i("GameRuntime", "Initialized application " + className);
     }
 
-    public static Context prepareGameContext(Context gameContext, ClassLoader fusionLoader)
+    public static Context prepareGameContext(Context host, Context gameContext, ClassLoader fusionLoader)
             throws ReflectiveOperationException {
+        Context app = host.getApplicationContext();
+        launcherFiles = app.getFilesDir();
         android.content.pm.ApplicationInfo info = gameContext.getApplicationInfo();
         ArrayList<String> apks = new ArrayList<>();
         apks.add(info.sourceDir);
         if (info.splitSourceDirs != null) Collections.addAll(apks, info.splitSourceDirs);
+        String configDex = copyConfigActivity(app);
+        if (configDex != null) apks.add(configDex);
         ClassLoader gameLoader = new GameClassLoader(String.join(File.pathSeparator, apks),
                 info.nativeLibraryDir, fusionLoader);
         return new ContextWrapper(gameContext) {
             @Override public ClassLoader getClassLoader() { return gameLoader; }
         };
+    }
+
+    /** The guard dex is rebuilt from fusion-config-activity/ and loaded with the game classes. */
+    private static String copyConfigActivity(Context app) {
+        File dex = new File(app.getCodeCacheDir(), "fusion-config-activity.dex");
+        try (InputStream in = app.getAssets().open("fusion-config-activity.dex")) {
+            LauncherFiles.writeReadOnly(dex, LauncherFiles.readFully(in));
+            return dex.getAbsolutePath();
+        } catch (IOException e) {
+            Log.e("GameRuntime", "Cannot install configuration guard", e);
+            note("未能安装配置变更保护");
+            return null;
+        }
+    }
+
+    private static void note(String message) {
+        if (launcherFiles != null) LauncherLog.note(launcherFiles, message);
     }
 
     private static final class GameClassLoader extends PathClassLoader {
@@ -111,10 +139,40 @@ public final class GameRuntime {
         private final Context gameContext;
         private final Map<Activity, Intent> pendingIntents = Collections.synchronizedMap(new WeakHashMap<>());
         private final java.util.Set<Activity> gameActivities = Collections.newSetFromMap(new WeakHashMap<>());
+        private boolean unityPreloaded;
 
         GameInstrumentation(Instrumentation original, Context gameContext) {
             this.original = original;
             this.gameContext = gameContext;
+        }
+
+        private String activityClass(String className) {
+            if (!UNITY_ACTIVITY.equals(className)) return className;
+            try {
+                gameContext.getClassLoader().loadClass(CONFIG_ACTIVITY);
+                return CONFIG_ACTIVITY;
+            } catch (ClassNotFoundException e) {
+                return className;
+            }
+        }
+
+        /** System.load must run on the game loader, before Unity's own dlopen calls JNI_OnLoad again. */
+        private void preloadUnity() {
+            if (unityPreloaded) return;
+            String path = NativeLibraryManager.findLibrary("unity");
+            if (path == null) return;
+            unityPreloaded = true;
+            try {
+                Class<?> bridge = gameContext.getClassLoader().loadClass(CONFIG_ACTIVITY);
+                bridge.getDeclaredMethod("loadUnity", String.class).invoke(null, path);
+                note("已提前注册 Unity 原生接口");
+            } catch (InvocationTargetException e) {
+                Log.e("GameRuntime", "Unable to register Unity natives early", e.getCause());
+                note("未能提前注册 Unity 原生接口");
+            } catch (ReflectiveOperationException e) {
+                Log.e("GameRuntime", "Unable to register Unity natives early", e);
+                note("未能提前注册 Unity 原生接口");
+            }
         }
 
         @Override public Activity newActivity(ClassLoader loader, String name, Intent intent)
@@ -137,7 +195,7 @@ public final class GameRuntime {
                                 ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED));
             }
             Activity activity = original.newActivity(gameContext.getClassLoader(),
-                    target.getComponent().getClassName(), target);
+                    activityClass(target.getComponent().getClassName()), target);
             pendingIntents.put(activity, target);
             gameActivities.add(activity);
             return activity;
@@ -160,8 +218,10 @@ public final class GameRuntime {
                 Field resources = ContextThemeWrapper.class.getDeclaredField("mResources");
                 resources.setAccessible(true);
                 resources.set(activity, null);
+                // Metadata belongs to the installed game, including when a host intent or guard class is used.
                 ActivityInfo info = gameContext.getPackageManager().getActivityInfo(
-                        new android.content.ComponentName(gameContext.getPackageName(), activity.getClass().getName()), 0);
+                        new android.content.ComponentName(gameContext.getPackageName(),
+                                target.getComponent().getClassName()), 0);
                 android.content.res.Resources.Theme theme = activity.getResources().newTheme();
                 theme.applyStyle(info.getThemeResource() != 0 ? info.getThemeResource()
                         : android.R.style.Theme_Black_NoTitleBar, true);
@@ -172,7 +232,6 @@ public final class GameRuntime {
                     oldTheme.setAccessible(true);
                     oldTheme.set(activity, theme);
                 }
-                InstrumentationHooks.applyTargetOrientation(activity);
                 if (target.hasExtra(InstrumentationHooks.EXTRA_FUSION_CONFIG)) {
                     ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
                     Context loadingTheme = new ContextThemeWrapper(fusionBase, androidx.appcompat.R.style.Theme_AppCompat);
@@ -184,12 +243,16 @@ public final class GameRuntime {
         }
 
         @Override public void callActivityOnCreate(Activity activity, Bundle state) {
+            preloadUnity();
             prepare(activity);
             original.callActivityOnCreate(activity, state);
+            if (gameActivities.contains(activity)) InstrumentationHooks.applyTargetOrientation(activity);
         }
         @Override public void callActivityOnCreate(Activity activity, Bundle state, PersistableBundle persistentState) {
+            preloadUnity();
             prepare(activity);
             original.callActivityOnCreate(activity, state, persistentState);
+            if (gameActivities.contains(activity)) InstrumentationHooks.applyTargetOrientation(activity);
         }
         @Override public void callActivityOnResume(Activity activity) {
             if (gameActivities.contains(activity)) InstrumentationHooks.applyTargetOrientation(activity);

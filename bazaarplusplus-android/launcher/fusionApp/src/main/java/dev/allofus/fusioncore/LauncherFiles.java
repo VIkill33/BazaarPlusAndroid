@@ -27,6 +27,15 @@ public final class LauncherFiles {
         return file.isFile() && (size < 0 || file.length() == size) && sha256(file).equals(hash);
     }
 
+    /** Reads asset streams on every supported Android version without API 33 stream methods. */
+    public static byte[] readFully(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int count;
+        while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+        return out.toByteArray();
+    }
+
     public static void write(File file, byte[] data) throws IOException {
         mkdir(file.getParentFile());
         File temp = new File(file.getPath() + ".tmp");
@@ -41,6 +50,22 @@ public final class LauncherFiles {
         mkdir(target.getParentFile());
         Files.move(source.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    /** Android 14 requires dynamically loaded code to be read-only before writing its contents. */
+    public static void writeReadOnly(File file, byte[] data) throws IOException {
+        mkdir(file.getParentFile());
+        File temp = File.createTempFile("readonly-", ".tmp", file.getParentFile());
+        try {
+            try (FileOutputStream out = new FileOutputStream(temp)) {
+                if (!temp.setReadOnly()) throw new IOException("无法将运行代码设为只读");
+                out.write(data);
+                out.getFD().sync();
+            }
+            replace(temp, file);
+        } finally {
+            Files.deleteIfExists(temp.toPath());
+        }
     }
 
     public static void mkdir(File dir) throws IOException {

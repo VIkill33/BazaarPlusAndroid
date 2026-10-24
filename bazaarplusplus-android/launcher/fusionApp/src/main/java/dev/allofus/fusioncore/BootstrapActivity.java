@@ -102,7 +102,7 @@ public class BootstrapActivity extends AppCompatActivity {
         }
 
         try {
-            gameContext = GameRuntime.prepareGameContext(gameContext, getClassLoader());
+            gameContext = GameRuntime.prepareGameContext(this, gameContext, getClassLoader());
         } catch (Exception e) {
             failAndFinish("Failed to configure classes.", e);
             return;
@@ -173,7 +173,7 @@ public class BootstrapActivity extends AppCompatActivity {
                     GameRuntime.initializeApplication(preparedGameContext, getApplicationContext());
                     LauncherPreparation.watchCrashes(getApplicationContext());
                     setPhaseStatus("正在打开游戏界面…");
-                    var intent = new Intent(this, launcherClass);
+                    var intent = new Intent().setComponent(new ComponentName(targetPackage, className));
 
                     // Using the stub activity intent here avoids one extra layer of hooks running.
                     // Its not necessary but could be more performant.

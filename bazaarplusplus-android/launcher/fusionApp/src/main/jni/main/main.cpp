@@ -1,6 +1,8 @@
 #include <jni.h>
 #include <dlfcn.h>
+#include <link.h>
 #include <string>
+#include <cstring>
 #include <cstdlib>
 #include <android/log.h>
 
@@ -161,7 +163,29 @@ static bool resolve_fusion_symbols(FusionBootstrapFromLibMain_t *bootstrap)
     return true;
 }
 
-jboolean internal_load(JNIEnv *env, const char *libraryPath, void **libHandle)
+struct MappedLibrarySearch {
+    const char *needle;
+    bool found;
+};
+
+static int find_mapped_library(struct dl_phdr_info *info, size_t, void *data)
+{
+    auto *search = static_cast<MappedLibrarySearch *>(data);
+    if (info->dlpi_name != nullptr && strstr(info->dlpi_name, search->needle) != nullptr) {
+        search->found = true;
+        return 1;
+    }
+    return 0;
+}
+
+static bool library_mapped(const char *needle)
+{
+    MappedLibrarySearch search{needle, false};
+    dl_iterate_phdr(find_mapped_library, &search);
+    return search.found;
+}
+
+jboolean internal_load(JNIEnv *env, const char *libraryPath, void **libHandle, bool invoke_jni)
 {
     if (!libraryPath) {
         LOGE("internal_load: libraryPath is null")
@@ -177,6 +201,13 @@ jboolean internal_load(JNIEnv *env, const char *libraryPath, void **libHandle)
         const char *err = dlerror();
         LOGE("dlopen failed for '%s': %s", libraryPath, err ? err : "(no dlerror)")
         return JNI_FALSE; // Failed to load Unity library
+    }
+
+    if (!invoke_jni) {
+        // System.load already ran JNI_OnLoad on the game class loader.
+        LOGI("internal_load: '%s' already initialized, skipping JNI_OnLoad", libraryPath)
+        *libHandle = handle;
+        return JNI_TRUE;
     }
 
     JNI_OnLoad_t jniOnLoad = reinterpret_cast<JNI_OnLoad_t>(dlsym(handle, "JNI_OnLoad"));
@@ -305,6 +336,9 @@ load(JNIEnv *env, jobject activityObject, jstring path)
         return JNI_FALSE;
     }
 
+    // try_hook dlopens libunity during bootstrap, so the preload check has to happen first.
+    bool unityAlreadyLoaded = library_mapped("libunity.so");
+
     if (!bootstrap(env))
     {
         LOGE("load: fusion_bootstrap_from_libmain failed")
@@ -313,7 +347,8 @@ load(JNIEnv *env, jobject activityObject, jstring path)
 
     const char *unityPath = override_unity_path.c_str();
     const char *il2cppPath = override_il2cpp_path.c_str();
-    LOGI("load: unityPath=%s, il2cppPath=%s", unityPath ? unityPath : "(null)", il2cppPath ? il2cppPath : "(null)")
+    LOGI("load: unityPath=%s, il2cppPath=%s, unityPreloaded=%d",
+         unityPath ? unityPath : "(null)", il2cppPath ? il2cppPath : "(null)", unityAlreadyLoaded ? 1 : 0)
 
     if (override_unity_path.empty() || override_il2cpp_path.empty())
     {
@@ -321,13 +356,13 @@ load(JNIEnv *env, jobject activityObject, jstring path)
         return JNI_FALSE; // Paths not set
     }
 
-    if (!internal_load(env, unityPath, &unityLibHandle))
+    if (!internal_load(env, unityPath, &unityLibHandle, !unityAlreadyLoaded))
     {
         LOGE("load: failed to load Unity library from %s", unityPath)
         return JNI_FALSE; // Failed to load Unity library
     }
 
-    if (!internal_load(env, il2cppPath, &il2cppLibHandle))
+    if (!internal_load(env, il2cppPath, &il2cppLibHandle, true))
     {
         // Unload previously loaded Unity library
         if (unityLibHandle)

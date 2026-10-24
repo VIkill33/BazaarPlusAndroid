@@ -18,5 +18,8 @@ class LauncherFilesTests(unittest.TestCase):
                             str(root / "launcher/fusionApp/src/main/java/dev/allofus/fusioncore/LauncherSession.java"),
                             str(root / "tests/LauncherFilesTest.java"),
                             str(root / "tests/LauncherLogTest.java")], check=True)
+            # A desktop JDK would otherwise accept InputStream.readAllBytes (Java 9 / Android 33).
+            subprocess.run([javac, "--release", "8", "-d", output,
+                            str(root / "launcher/fusionApp/src/main/java/dev/allofus/fusioncore/LauncherFiles.java")], check=True)
             subprocess.run([java, "-cp", output, "LauncherFilesTest"], check=True)
             subprocess.run([java, "-cp", output, "LauncherLogTest"], check=True)

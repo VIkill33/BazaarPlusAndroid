@@ -30,6 +30,50 @@
 
 
 
+## Activity 元数据包名修复（2026-10-24，test.9）
+
+test.8 已越过 DEX 只读限制，随后于 01:37:50 在 `GameInstrumentation.prepare`
+抛出 `NameNotFoundException`：查找的是启动器包下的 `UnityPlayerActivity`。
+`BootstrapActivity` 的原始 Intent 使用宿主 Context 构造，使组件包名成为启动器；
+配置保护适配又改为直接使用该组件查询安装元数据，从而引入回归。
+证据为 `artifacts/startup-crash/test8-failure/`。
+
+`BootstrapActivity` 现在为原始 Intent 显式设置已选游戏包名与原始入口类名；
+`GameInstrumentation.prepare` 按游戏包名和原始入口类读取元数据，避免使用宿主包或
+注入的 `FusionConfigActivity` 类名。原始游戏主题和横屏设置仍沿用既有流程。
+离线 9 项通过，签名 test.9 构建、覆盖安装通过；本轮实际点击启动，
+01:40:17 Unity／IL2CPP 原生库加载成功，随后完成 Cpp2IL 分析并进入代理生成。
+本次新会话的 12 项加载断言全部通过（含会话、插件版本、三处 DLL 摘要及生成代理）；
+当前进程日志未再出现可写 DEX、Activity 元数据查询或未绑定的配置回调崩溃。
+截图先经历黑屏过渡及游戏 Loading 100%，最终 `final-screen.png` 人工复核已进入
+现有皮格对局的事件选择画面，插件四个入口可见；进程仍为本次的 17440。
+代理仅执行一次启动及只读证据采集，未操作登录表单、选择事件、购买或推进对局，
+到达现有对局后停止设备操作。不扩展为预览功能、野怪技能或原始小米 9 故障全面通过。
+证据目录 `artifacts/startup-crash/test9-launch/`，离线日志为
+`artifacts/startup-crash/test9-offline-tests.log`。
+
+
+## Android 14 拒绝可写 DEX（2026-10-24，test.8 修复候选）
+
+用户安装 test.7 后报告启动失败。当前连接设备为 `OBJVWSPNSCFQU48L`、22041216C、
+Android 14；本轮截图及 01:33:22 的 logcat 一致显示 `SecurityException: Writable dex file ...
+fusion-config-activity.dex is not allowed`，栈在 `GameRuntime.prepareGameContext` 创建
+`GameClassLoader`，本次尚未进入 Unity。历史 crash 缓冲区的 `nativeHidePreservedContent`
+错误发生在此前启动，不作为本次异常。证据为被忽略的
+`artifacts/startup-crash/test7-failure/`。
+
+[Android 14 动态代码加载要求](https://developer.android.com/about/versions/14/behavior-changes-14#safer-dynamic-code-loading)
+要求文件在写入内容前就设为只读。`LauncherFiles.writeReadOnly` 现在在同目录创建临时文件，
+打开输出描述符后先设置只读，再写入 APK 内置字节、同步并原子替换目标；旧的可写缓存和
+已有只读版本均按同一路径替换，失败清理临时文件。`GameRuntime.copyConfigActivity` 使用该方法。
+不改变游戏持久目录、登录数据和已选游戏，不将其他启动问题标记为已解决。
+
+离线 9 项通过，新增回归执行生产文件方法，检查可写旧缓存迁移、只读文件升级、字节内容、
+最终不可写权限、替换失败时保留目标及临时文件清理；日志为
+`artifacts/startup-crash/test8-offline-tests.log`。test.8 签名构建及覆盖安装成功，内置输入、插件与已安装版本三项断言通过，证据为 `artifacts/startup-crash/test8-installed/`；已停在启动器首页供用户验证。
+游戏启动与原始小米 9 故障恢复仍待当前构建真机结果，不据离线检查宣称完整启动成功。
+
+
 ## 启动闪退诊断候选（2026-10-24，待真机验证）
 
 参考 Android README、功能清单、启动器 ADR-0001、BUILDING、桌面插件架构／MEMORY
@@ -1072,3 +1116,77 @@ APK SHA-256：`1fb0364b7b870186001ed3dac808520721fa22460be6c00421c743c3bb15864d`
 该包包含当前工作区既有启动链修改。用户自行验证后反馈「完美，提交并推送」，
 确认本次帮助页真机验收通过；未逐项提供横屏、放大字体及三种返回路径的操作结果，
 这些专项覆盖不据此推断为全部完成。本次提交仅包含帮助页及对应文档。
+
+
+## Android 9 初始化读取兼容修复（2026-10-24，待原设备验收）
+
+用户提供的 test.10 诊断中，小米 9、Android API 28、arm64、正版客户端
+`1.0.12825-production-android-d9601ded` 连续五次启动／修复均在
+`GameRuntime.copyConfigActivity` 抛出 `NoSuchMethodError: InputStream.readAllBytes`。
+该方法在 Android API 33 才提供；此路径在游戏初始化之前执行。
+更早的两次 Unity 主线程错误内容被截断，不能据此次修复宣称已解决。
+
+参考启动器 ADR-0001、BUILDING、既有初始化验证记录、
+`GameRuntime.copyConfigActivity` 与 `LauncherFiles.writeReadOnly`。
+本次新增 `LauncherFiles.readFully`，循环读取到 EOF 后交给现有只读 DEX 文件事务；
+资源读取失败仍传播 IOException，由原调用方处理，不安装部分字节。
+不改游戏 API、原生钩子、插件规则或界面交互。工作区原有启动链和历史 M0 改动保留，
+不将其归为本次修复。
+
+验证范围：
+
+- Python 离线回归 10 项通过，新增空流、跨缓冲区短读、available 返回 0、
+  禁止调用 InputStream.readAllBytes 以及中途 IOException 的检查。
+- 生产 `LauncherFiles` 额外以 Java 8 API 编译，约束本读取工具不引用 Java 9 流方法；
+  该检查不是完整 Android API 兼容性证明。
+- `:fusionApp:compileDebugJavaWithJavac` 通过。完整 `:fusionApp:lintDebug` 未通过：
+  报告工程其他位置 32 个错误、197 个警告，涉及返回手势、API 等级、AppCompat tint 和翻译。
+  本次修复的读取方法及调用点没有 Lint 错误；没有关闭 Lint 或加入忽略基线。
+  本次未打包签名 APK；完整工程检查仍未通过。
+- 当前连接设备 `OBJVWSPNSCFQU48L`（22041216C，API 34／Android 14）在独立
+  app_process 中运行本次生产文件类及 LauncherFilesTest，通过读取及既有文件事务断言。
+  D8 min-api 26，测试目录为独立的 /data/local/tmp/bpp-android9-init-fix，运行后已删除。
+  日志为被忽略的 `artifacts/android9-init-fix/device-file-tests.log`。
+  未安装混合 APK，未重启游戏或操作账号、对局；本轮文件测试与游戏输入模式无关。
+
+原小米 9 当前未连接，未验证 Android 9 完整初始化、修复、游戏加载和插件握手。
+后续须在原设备覆盖安装对应修复包，分别重试启动与修复，确认不再出现该方法缺失，
+并收集完整原因链或 logcat 判断是否仍存在更早的 Unity 主线程崩溃。
+本项的原 Android 9 设备验收仍待完成；后续 Android 14 结果见下节。
+
+
+### 当前 Android 14 手机启动回归（2026-10-24）
+
+用户随后要求在当前手机验证。按 APK 导出 skill 使用 JDK 24 与原测试签名构建
+`0.1.0-test.10`；Release assemble、内置输入校验和 lintVitalRelease 通过，
+签名报告 Verifies、v2 true、证书 CN=BazaarPlusPlus Android Test。
+这不代表上节完整 lintDebug 的 32 个错误已经解决。
+APK SHA-256 为 `e9dbf43f0fa94176d6f823593c24a20692838f0c166c80111671159d58838d02`，
+releaseId 为 `6d6b2d2b9896697dcc666ebdffb9b82341adb4ee7298d0f924289e381fd39dec`。
+
+设备仍为 OBJVWSPNSCFQU48L、22041216C、Android 14、2460×1080，
+目标正版游戏版本 `1.0.12825-production-android-d9601ded`。
+测试前截图为已有皮格商店界面；覆盖安装会停止旧进程，本轮未操作对局。
+安装后读取设备 base.apk 的 SHA-256，与此次本机 APK 完全一致。
+首页横屏通过 Android CLI 按资源 ID 滚动并点击启动；没有改选客户端。
+本轮只测试启动链，不切换或验收标准／高级输入模式，既有输入偏好保持。
+
+最初加载检查拒绝旧握手；本次插件加载完成后，新会话 12 项 verify_launcher 断言
+全部通过，包括新启动边界、会话一致、插件版本、APK／磁盘／握手 DLL 摘要和生成代理。
+插件 SHA-256 为 `babaabcdf64d204abeb6874ed55ce3bdf146dcfc6f1173fa7696fbd3ee42bdde`。
+最终截图人工确认游戏主菜单、继续按钮和 BPP 收起入口可见；没有点击继续。
+本次进程 PID 22868 持续存活，启动后 logcat 中没有 FATAL EXCEPTION、Fatal signal、
+NoSuchMethodError 或配置保护 DEX 安装失败。游戏日志有 Unity 辅助功能方法、
+MANAGE_GAME_MODE 权限等错误及一次登录 401，随后自动进入主菜单，
+因此只声明没有观察到启动崩溃，不声明游戏日志无错误。
+未填写登录表单、未清除用户数据、未操作对局，也未执行完整修复或全新无缓存初始化。
+原 Android 9 设备和更早 Unity 崩溃仍待专项验收。
+
+证据在被忽略的 `artifacts/android9-init-fix/current-phone/`，包括
+`installed-apk.json`、`verify-attempt.log`、`loaded/verification.json`、`final.png`、
+`final-status.json` 和 `final-process-logcat.txt`。截图为人工复核，没有自动视觉断言。
+签名构建日志为 `artifacts/launcher-apk-build.log`。
+当前安装包包含工作区原有未提交的启动链及历史桥代码；本轮验证不能视为这些功能的验收。
+本次提交包含配置保护加载链及其必要的只读 DEX、Activity 元数据与旧版 Android 读取修复；历史存储及其他并行改动未纳入提交。
+
+提交前另对暂存区快照执行离线回归，9 项全部通过；该快照不包含工作区历史互斥测试，因此与完整工作区的 10 项计数不同。
