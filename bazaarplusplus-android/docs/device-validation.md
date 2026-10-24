@@ -1,5 +1,39 @@
 # Android 真机验证
 
+## Github 按钮正式应用身份验收（2026-10-24，test.13）
+
+在 `feat/android-launcher-github` 分支将启动器版本升至 `0.1.0-test.13`（code 13），
+高于手机现有 test.12。按导出 skill 使用 JDK 24 与持久签名构建，Lint、内置依赖校验、
+v2 签名验证通过。APK SHA-256 为
+`b74d2745bc2338a00b4eb22415e013621a8d404ead841c40a0ed9eebf48fb276`。
+本次使用本分支插件产物，未混入其他 worktree 的开发内容。
+
+设备为 `OBJVWSPNSCFQU48L`、22041216C、Android 14；测试前停在 test.12
+启动器首页。`adb install -r` 成功，安装后包信息确认正式应用 ID
+`com.bazaarplusplus.android.launcher`、versionCode 13。保留数据与文件授权，首页仍显示
+「可以启动」。本次不启动游戏，不操作账号或对局，不验证游戏版本兼容性或输入模式。
+
+Android CLI 根据控件 ID 点击 Github，Activity Intent 断言
+`https://github.com/VIkill33/BazaarPlusPlusForAndroid`，Edge 在前台。
+本轮浏览器页面标题未显示仓库名称，因此只确认正确 URL 已交给浏览器，
+不计为网页加载完成。返回首页后，打赏弹窗打开并显示「关闭」，自动点击关闭成功。
+竖屏默认字体和 130% 字体均通过布局树的按钮标签、可见性、等宽（误差不超过
+1 像素）及纵向对齐断言，人工复核文字完整、没有重叠。
+
+首次横屏尝试中 Android CLI 采集恢复到竖屏，旧 `landscape.png` 不算横屏证据。
+改用 `wm user-rotation lock 1`，ADB 当前横屏截图定位后向上滚动两次，
+`landscape-adb.png` 的实际尺寸为 2460×1080；人工复核按钮区可滚动到达、
+打赏与 Github 完整并排。这是截图人工验收，不宣称自动视觉断言。
+130% 字体与旋转测试结束后，系统字体恢复 1.0、自动旋转恢复 1、user_rotation 恢复 0。
+崩溃缓冲区仅有测试前的历史记录，本次无新增崩溃。
+
+证据在 `artifacts/github-button-test13/`：`install.txt`、`portrait.json/png`、
+`font130.json/png`、`browser-activity.txt`、`donate.json/png`、
+`landscape-adb.png`、`assertions.json`、`settings-before.json` 和 `crash-buffer.txt`。
+`verify.py` 保留本轮正式应用的 CLI 验收步骤；横屏用 ADB 单独验证。
+正式 APK 为 `artifacts/launcher/BazaarPlusPlus-launcher.apk`，已保留安装在手机上。
+无浏览器异常分支、其他设备和游戏启动回归仍未验证。
+
 ## 首页 Github 按钮（2026-10-24）
 
 参考 Android README、功能清单、本验证记录、启动器 ADR／构建说明、桌面插件
