@@ -1,74 +1,74 @@
 # BazaarPlusPlusForAndroid
 
-《The Bazaar》（大巴扎）的 Android 移植项目，提供独立启动器和游戏内辅助功能，围绕触屏操作适配卡牌图鉴、附魔与升级预览、事件预览及构筑推荐。
+An Android port for *The Bazaar*, with a dedicated launcher and in-game tools adapted for touch: a card collection browser, enchant and upgrade previews, encounter previews, and build recommendations.
 
-[English](README_en.md) · [下载 APK](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) · [反馈问题](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues)
+[中文](README_zh.md) · [Download APK](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) · [Report an issue](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues)
 
-项目目前处于实验性测试阶段。不同设备、系统和游戏版本的验证范围见[真机验证记录](bazaarplusplus-android/docs/device-validation.md)，完整功能状态见[功能清单](bazaarplusplus-android/docs/feature-checklist.md)。
+The project is experimental. See the [device validation records](bazaarplusplus-android/docs/device-validation.md) for tested devices, systems, and game versions, and the [feature checklist](bazaarplusplus-android/docs/feature-checklist.md) for implementation status. These detailed documents are currently in Chinese.
 
-## 安装与使用
+## Installation and usage
 
-### 找到并下载 APK
+### Find and download the APK
 
-1. 点击本 README 顶部的「下载 APK」，或直接打开 [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases)。即使仓库主页右侧只显示「1 tag」或「Create a new release」，也可通过此链接查看发布列表。
-2. 选择要安装的 Android 版本，阅读发布说明和兼容范围；实验性测试版标记为 **Pre-release**。
-3. 滚动到该版本说明下方，点击 **Assets** 展开附件列表。
-4. 点击以 `.apk` 结尾的文件（命名格式为 `BazaarPlusPlus-Android-<版本标签>.apk`）下载安装包。`.apk.sha256` 用于校验，`-source.tar.gz` 和 **Source code** 是源码，安装时无需下载这些文件。
+1. Click **Download APK** at the top of this README, or open [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) directly. This link opens the release list even if the repository homepage sidebar only shows **1 tag** or **Create a new release**.
+2. Choose the Android version you want to install and read its release notes and compatibility information. Experimental test releases are marked **Pre-release**.
+3. Scroll below that version's release notes and click **Assets** to expand the attached files.
+4. Click the file ending in `.apk` (named `BazaarPlusPlus-Android-<version-tag>.apk`) to download the installer. The `.apk.sha256` file is for checksum verification; `-source.tar.gz` and **Source code** contain source code. These files are not required for installation.
 
-### 安装并启动
+### Install and launch
 
-1. 在手机上安装《The Bazaar》Android 客户端。
-2. 打开按上述步骤下载的 `.apk`，按系统提示允许安装。
-3. 打开启动器，按引导授予文件访问权限，等待启动前检查完成。
-4. 点击「启动游戏」，由启动器准备运行环境并加载插件。首次游戏登录和游戏资源下载需要联网。
-5. 进入游戏后，通过「卡牌图鉴」「构筑推荐」等入口使用功能；操作说明可在启动器「帮助」中查看。
+1. Install the Android client of *The Bazaar* on your phone.
+2. Open the `.apk` downloaded above and follow the system prompts to allow installation.
+3. Open the launcher, grant file access as prompted, and wait for the pre-launch checks.
+4. Tap 「启动游戏」 (Launch game). The launcher prepares the runtime and loads the plugin. Initial game login and game resource downloads require internet access.
+5. Use the in-game card collection and build recommendation buttons. Open 「帮助」 (Help) in the launcher for instructions.
 
-启动器内置框架、插件和匹配的 Unity 依赖，初始化与修复从 APK 提取校验，不需要从 GitHub 下载运行依赖。首页「可以启动」表示启动前检查通过，完整登录与游戏内功能仍以实际运行结果为准。
+The APK bundles the framework, plugin, and matching Unity dependencies. Setup and repair extract and verify these files locally without downloading runtime dependencies from GitHub. 「可以启动」 (Ready to launch) means the pre-launch checks passed; login and in-game functionality still depend on the actual game session.
 
-首页「设置」可选择符合筛选条件的本机游戏客户端；未选择时使用默认官方客户端。遇到问题可在「更多：修复与许可」中修复运行环境或导出诊断日志。诊断文件由用户选择保存位置，不会自动上传。
+Under 「设置」 (Settings), you can select an installed game client that meets the launcher's filtering requirements. The official client is the default. Under 「更多：修复与许可」 (More: repair and licenses), you can repair the runtime or export diagnostics. You choose where to save diagnostic files; they are not uploaded automatically.
 
-## 主要功能
+## Main features
 
-| 功能 | 当前能力 |
+| Feature | Current capabilities |
 | --- | --- |
-| 独立启动器 | 文件授权、兼容检查、内置运行环境准备、失败重试、修复、诊断日志和离线帮助；首页提供「打赏作者」与「Github」入口 |
-| 卡牌图鉴 | 查阅物品与技能，搜索名称和描述，按英雄、品质、体型、商人及天数筛选，查看原生卡面与详情 |
-| 附魔与升级预览 | 长按查看附加信息，可切换附魔、升级或关闭附加预览，并设置预览面板位置 |
-| 商店与事件预览 | 展示可解析的品质概率、条件、奖励信息及后续遭遇；具体事件覆盖范围见功能清单 |
-| 构筑推荐 | 根据场上、仓库和商店物品选择候选，查看内置构筑快照的匹配结果 |
-| 触屏入口 | 按钮组拖动、贴边、位置保存和可选自动收起；高级输入模式支持「按住预览」双指操作 |
+| Dedicated launcher | File permissions, compatibility checks, bundled runtime setup, retries, repair, diagnostics, and offline help; donation and Github buttons on the home screen |
+| Card collection | Browse items and skills, search names and descriptions, filter by hero, tier, size, merchant, and day, and inspect native card art and details |
+| Enchant and upgrade previews | Long-press for additional information, select enchant previews, upgrade previews, or no additional preview, and configure panel position |
+| Shop and encounter previews | Show resolvable tier probabilities, conditions, rewards, and follow-up encounters; coverage is listed in the feature checklist |
+| Build recommendations | Select candidates from the board, stash, and shop, and view matches against bundled build snapshots |
+| Touch controls | Drag the button group, snap it to an edge, save its position, and optionally collapse it automatically; advanced input mode supports two-finger hold-to-preview |
 
-各功能的实现范围与验收范围并不相同，部分数值、事件和设备仍待验证。对局历史、战斗回放、视频录制、上传和自动更新尚未在当前 Android 版本提供。
+Implementation and validation coverage differ. Some values, encounters, and devices still require testing. Run history, combat replay, video recording, uploads, and automatic updates are not available in the current Android version.
 
-## 兼容范围
+## Compatibility
 
-当前面向 arm64 Android IL2CPP 客户端。具体游戏版本、Unity 依赖与校验值以[兼容配置](bazaarplusplus-android/launcher/compatibility.json)为准，工具链与框架来源以[工具链配置](bazaarplusplus-android/toolchain.json)为准。
+The current target is arm64 Android IL2CPP clients. The [compatibility configuration](bazaarplusplus-android/launcher/compatibility.json) defines game versions, Unity dependencies, and checksums. The [toolchain configuration](bazaarplusplus-android/toolchain.json) defines the toolchain and framework sources.
 
-现有主要真机验证设备运行 Android 14；Android 9 的完整启动流程和其他设备仍需进一步验证。升级游戏或更换客户端后，请先查看对应版本的发布说明与验证记录。
+Most existing device validation uses Android 14. The complete Android 9 startup flow and other devices still require further testing. Check release notes and validation records before updating the game or switching clients.
 
-启动器使用独立运行目录，不自动迁移原有加载器的数据。更新启动器时使用同一签名的 APK 覆盖安装，保留现有应用数据。
+The launcher uses a separate runtime directory and does not automatically migrate data from other loaders. To update the launcher while retaining application data, install an APK signed with the same key over the existing installation.
 
-## 源码与开发
+## Source and development
 
-项目名称为 **BazaarPlusPlusForAndroid**，本地主目录名为 **`BazaarPlusPlus`**。主要开发代码位于 `bazaarplusplus-android/`。
+The project is named **BazaarPlusPlusForAndroid**; its local root directory is named **`BazaarPlusPlus`**. The main development code is in `bazaarplusplus-android/`.
 
 ```sh
 git clone https://github.com/VIkill33/BazaarPlusPlusForAndroid.git BazaarPlusPlus
 cd BazaarPlusPlus
 ```
 
-| 路径 | 用途 |
+| Path | Purpose |
 | --- | --- |
-| `bazaarplusplus-android/launcher/` | Android 启动器 Java／JNI、界面资源与 Gradle 工程 |
-| `bazaarplusplus-android/android-mod/` | Android IL2CPP 游戏内插件与触屏适配 |
-| `bazaarplusplus-android/tests/` | 离线测试与设备测试辅助代码 |
-| `bazaarplusplus-android/docs/` | 功能状态、真机验证与架构说明 |
-| `bazaarplusplus-android/build_probe.py` | 插件及加载探针构建入口 |
-| `bazaarplusplus-android/build_launcher.py` | 启动器依赖准备与签名 APK 构建入口 |
+| `bazaarplusplus-android/launcher/` | Android launcher Java/JNI code, UI resources, and Gradle project |
+| `bazaarplusplus-android/android-mod/` | Android IL2CPP in-game plugin and touch adaptations |
+| `bazaarplusplus-android/tests/` | Offline tests and device testing helpers |
+| `bazaarplusplus-android/docs/` | Feature status, device validation, and architecture documentation |
+| `bazaarplusplus-android/build_probe.py` | Build entry point for the plugin and loading probes |
+| `bazaarplusplus-android/build_launcher.py` | Launcher dependency preparation and signed APK build entry point |
 
-开发前阅读根目录 [AGENTS.md](AGENTS.md) 和 [Android 开发说明](bazaarplusplus-android/README.md)。启动器构建步骤见[构建说明](bazaarplusplus-android/launcher/BUILDING.md)，签名 APK 导出约定见[导出规范](.cursor/skills/export-launcher-apk/SKILL.md)。
+Before making changes, read the root [AGENTS.md](AGENTS.md) and the [Android development notes](bazaarplusplus-android/README.md). See the [build guide](bazaarplusplus-android/launcher/BUILDING.md) for launcher builds and the [export instructions](.cursor/skills/export-launcher-apk/SKILL.md) for signed APKs.
 
-可从以下命令查看构建参数并执行 Python 离线检查：
+Use these commands to inspect build options and run the Python offline checks:
 
 ```sh
 python3 bazaarplusplus-android/build_probe.py --help
@@ -76,16 +76,16 @@ python3 bazaarplusplus-android/build_launcher.py --help
 python3 -m unittest discover -s bazaarplusplus-android/tests -v
 ```
 
-完整构建需要对应工具链、固定框架输入、匹配的 Android 游戏互操作程序集，以及本机签名材料。游戏文件、APK、设备日志和签名私钥不提交到仓库；本地产物放在被忽略的 `bazaarplusplus-android/artifacts/` 中。编译通过不能替代当前构建的实机验收。
+A full build requires the matching toolchain, pinned framework inputs, Android game interop assemblies, and local signing material. Do not commit game files, APKs, device logs, or private signing keys. Local outputs belong in the ignored `bazaarplusplus-android/artifacts/` directory. A successful compilation does not replace device validation of the current build.
 
-## 反馈与支持
+## Feedback and support
 
-请通过 [GitHub Issues](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues) 反馈问题，附上启动器版本、手机型号、Android 版本、游戏客户端版本和复现步骤。需要时可附启动器导出的诊断文件，提交前检查并移除个人信息。
+Report problems through [GitHub Issues](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues), including the launcher version, phone model, Android version, game client version, and reproduction steps. Attach exported launcher diagnostics when needed, after checking for and removing personal information.
 
-支持作者可使用启动器首页的「打赏作者」按钮；「Github」按钮可直接打开本项目仓库。
+Use 「打赏作者」 (Support the author) on the launcher home screen to support maintenance. The 「Github」 button opens this project's repository.
 
-## 致谢与许可
+## Acknowledgements and license
 
-感谢 [BazaarPlusPlus](https://github.com/BazaarPlusPlus/BazaarPlusPlus)、[FusionCore](https://github.com/All-Of-Us-Mods/FusionCore)、[BepInEx](https://github.com/BepInEx/BepInEx) 及相关开源项目提供基础代码与运行能力。
+Thanks to [BazaarPlusPlus](https://github.com/BazaarPlusPlus/BazaarPlusPlus), [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore), [BepInEx](https://github.com/BepInEx/BepInEx), and the other open-source projects providing source code and runtime components.
 
-仓库代码采用 [MIT License](LICENSE)。打包依赖保留各自许可，启动器内可查看开源许可。本项目是独立社区工具，与游戏官方无隶属关系。
+Repository code is licensed under the [MIT License](LICENSE). Bundled dependencies retain their own licenses, available in the launcher. This is an independent community tool with no official affiliation with the game.
