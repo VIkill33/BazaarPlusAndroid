@@ -8,8 +8,17 @@
 
 ## 安装与使用
 
+### 找到并下载 APK
+
+1. 点击本 README 顶部的「下载 APK」，或直接打开 [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases)。即使仓库主页右侧只显示「1 tag」或「Create a new release」，也可通过此链接查看发布列表。
+2. 选择要安装的 Android 版本，阅读发布说明和兼容范围；实验性测试版标记为 **Pre-release**。
+3. 滚动到该版本说明下方，点击 **Assets** 展开附件列表。
+4. 点击以 `.apk` 结尾的文件（命名格式为 `BazaarPlusPlus-Android-<版本标签>.apk`）下载安装包。`.apk.sha256` 用于校验，`-source.tar.gz` 和 **Source code** 是源码，安装时无需下载这些文件。
+
+### 安装并启动
+
 1. 在手机上安装《The Bazaar》Android 客户端。
-2. 从本项目的 [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) 下载并安装 `.apk`，按系统提示允许安装。
+2. 打开按上述步骤下载的 `.apk`，按系统提示允许安装。
 3. 打开启动器，按引导授予文件访问权限，等待启动前检查完成。
 4. 点击「启动游戏」，由启动器准备运行环境并加载插件。首次游戏登录和游戏资源下载需要联网。
 5. 进入游戏后，通过「卡牌图鉴」「构筑推荐」等入口使用功能；操作说明可在启动器「帮助」中查看。

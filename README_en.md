@@ -8,8 +8,17 @@ The project is experimental. See the [device validation records](bazaarplusplus-
 
 ## Installation and usage
 
+### Find and download the APK
+
+1. Click **Download APK** at the top of this README, or open [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) directly. This link opens the release list even if the repository homepage sidebar only shows **1 tag** or **Create a new release**.
+2. Choose the Android version you want to install and read its release notes and compatibility information. Experimental test releases are marked **Pre-release**.
+3. Scroll below that version's release notes and click **Assets** to expand the attached files.
+4. Click the file ending in `.apk` (named `BazaarPlusPlus-Android-<version-tag>.apk`) to download the installer. The `.apk.sha256` file is for checksum verification; `-source.tar.gz` and **Source code** contain source code. These files are not required for installation.
+
+### Install and launch
+
 1. Install the Android client of *The Bazaar* on your phone.
-2. Download the `.apk` from this project's [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) and follow the system prompts to install it.
+2. Open the `.apk` downloaded above and follow the system prompts to allow installation.
 3. Open the launcher, grant file access as prompted, and wait for the pre-launch checks.
 4. Tap 「启动游戏」 (Launch game). The launcher prepares the runtime and loads the plugin. Initial game login and game resource downloads require internet access.
 5. Use the in-game card collection and build recommendation buttons. Open 「帮助」 (Help) in the launcher for instructions.
