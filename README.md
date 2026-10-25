@@ -1,129 +1,91 @@
-<div align="center">
+# BazaarPlusPlusForAndroid
 
-<img src="bazaarplusplus-installer/src-tauri/icons/icon.png" alt="BazaarPlusPlus" width="128" height="128" />
+An Android port for *The Bazaar*, with a dedicated launcher and in-game tools adapted for touch: a card collection browser, enchant and upgrade previews, encounter previews, and build recommendations.
 
-# BazaarPlusPlus
+[中文](README_zh.md) · [Download APK](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) · [Report an issue](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues)
 
-**因热爱而生** · 为 [《The Bazaar》](https://www.playthebazaar.com) 打造的 BepInEx 模组与桌面安装器
+The project is experimental. See the [device validation records](bazaarplusplus-android/docs/device-validation.md) for tested devices, systems, and game versions, and the [feature checklist](bazaarplusplus-android/docs/feature-checklist.md) for implementation status. These detailed documents are currently in Chinese.
 
-[English](README_en.md) · [官网](https://bazaarplusplus.com) · [下载](https://bazaarplusplus.com/download) · [使用教程](https://bazaarplusplus.com/tutorial) · [Release Notes](https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
+## Installation and usage
 
-[![Version](https://img.shields.io/badge/version-6.0.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
-[![License](https://img.shields.io/badge/license-MIT-e8c87a?style=flat-square)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-c1875a?style=flat-square)](https://bazaarplusplus.com/download)
-[![BepInEx](https://img.shields.io/badge/BepInEx-5.x-8a6d3b?style=flat-square)](https://github.com/BepInEx/BepInEx)
-[![.NET](https://img.shields.io/badge/.NET-Standard%202.1-512bd4?style=flat-square)](https://learn.microsoft.com/dotnet/standard/net-standard)
-[![Tauri](https://img.shields.io/badge/Tauri-2.x-24c8d8?style=flat-square)](https://tauri.app)
-[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square)](https://react.dev)
+### Find and download the APK
 
-</div>
+1. Click **Download APK** at the top of this README, or open [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) directly. This link opens the release list even if the repository homepage sidebar only shows **1 tag** or **Create a new release**.
+2. Choose the Android version you want to install and read its release notes and compatibility information. Experimental test releases are marked **Pre-release**.
+3. Scroll below that version's release notes and click **Assets** to expand the attached files.
+4. Click the file ending in `.apk` (named `BazaarPlusPlus-Android-<version-tag>.apk`) to download the installer. The `.apk.sha256` file is for checksum verification; `-source.tar.gz` and **Source code** contain source code. These files are not required for installation.
 
----
+### Install and launch
 
-BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 BepInEx 模组提供卡牌图鉴、对局历史与战斗回放，还有 Tooltip 预览、匿名模式和中文术语等功能；桌面安装器负责下载、安装与修复，也管自动更新和直播叠层；同仓库里还有上传后端、指标分析器和官网。
+1. Install the Android client of *The Bazaar* on your phone.
+2. Open the `.apk` downloaded above and follow the system prompts to allow installation.
+3. Open the launcher, grant file access as prompted, and wait for the pre-launch checks.
+4. Tap 「启动游戏」 (Launch game). The launcher prepares the runtime and loads the plugin. Initial game login and game resource downloads require internet access.
+5. Use the in-game card collection and build recommendation buttons. Open 「帮助」 (Help) in the launcher for instructions.
 
-普通玩家建议直接使用 [下载页](https://bazaarplusplus.com/download) 的安装器；本仓库面向想了解实现、提交改动或自行构建的开发者。
+The APK bundles the framework, plugin, and matching Unity dependencies. Setup and repair extract and verify these files locally without downloading runtime dependencies from GitHub. 「可以启动」 (Ready to launch) means the pre-launch checks passed; login and in-game functionality still depend on the actual game session.
 
-> [!NOTE]
-> 项目代码主要由 [Codex](https://openai.com/codex) 主导，并由 [Claude Code](https://claude.com/product/claude-code) 协作完成。
+Under 「设置」 (Settings), you can select an installed game client that meets the launcher's filtering requirements. The official client is the default. Under 「更多：修复与许可」 (More: repair and licenses), you can repair the runtime or export diagnostics. You choose where to save diagnostic files; they are not uploaded automatically.
 
-## 快速开始
+## Main features
 
-1. 打开 [bazaarplusplus.com/download](https://bazaarplusplus.com/download)，选择 Windows `.exe` 或 macOS `.dmg`。
-2. 关闭游戏后运行安装器；更新时建议先卸载旧版本，再安装新版本。
-3. 安装完成后启动《The Bazaar》一次，让 BazaarPlusPlus 完成初始化。
-4. 在主菜单确认「卡牌图鉴」按钮出现，且底部版本信息显示 `BPP version` 字样。
+| Feature | Current capabilities |
+| --- | --- |
+| Dedicated launcher | File permissions, compatibility checks, bundled runtime setup, retries, repair, diagnostics, and offline help; donation and Github buttons on the home screen |
+| Card collection | Browse items and skills, search names and descriptions, filter by hero, tier, size, merchant, and day, and inspect native card art and details |
+| Enchant and upgrade previews | Long-press for additional information, select enchant previews, upgrade previews, or no additional preview, and configure panel position |
+| Shop and encounter previews | Show resolvable tier probabilities, conditions, rewards, and follow-up encounters; coverage is listed in the feature checklist |
+| Build recommendations | Select candidates from the board, stash, and shop, and view matches against bundled build snapshots |
+| Touch controls | Drag the button group, snap it to an edge, save its position, and optionally collapse it automatically; advanced input mode supports two-finger hold-to-preview |
 
-详细教程、快捷键和功能说明见 [bazaarplusplus.com/tutorial](https://bazaarplusplus.com/tutorial)。
+Implementation and validation coverage differ. Some values, encounters, and devices still require testing. Run history, combat replay, video recording, uploads, and automatic updates are not available in the current Android version.
 
-## 功能概览
+## Compatibility
 
-### 游戏内模组
+The current target is arm64 Android IL2CPP clients. The [compatibility configuration](bazaarplusplus-android/launcher/compatibility.json) defines game versions, Unity dependencies, and checksums. The [toolchain configuration](bazaarplusplus-android/toolchain.json) defines the toolchain and framework sources.
 
-| 功能                   | 说明                                                                                               |
-| ---------------------- | -------------------------------------------------------------------------------------------------- |
-| **卡牌图鉴**           | 在游戏中查阅物品和技能，按英雄、品质、体型、商人等维度过滤，还能跟随当前游戏天数查看可获取的内容。 |
-| **BazaarDB 自动上传**  | 社区数据共建功能，在结算后于后台上传通关截图与阵容数据；默认关闭，需手动开启。                     |
-| **对局历史与战斗回放** | 通过 `F8` 打开历史面板，浏览本地对局与关键战斗，观看战斗回放和幽灵对战。                           |
-| **战斗状态栏**         | 显示战斗时间与暂停状态，并提供速度控制，适合复盘、录制和直播。                                     |
-| **匿名模式**           | 在截图、录制或直播时隐藏本地玩家名称。                                                             |
-| **传奇名次显示**       | 提供「无人知晓」（隐藏名次）、「战力爆表」、名次与分数双显等显示模式。                             |
-| **附魔与升级预览**     | 在物品 Tooltip 中直接预览附魔或升级后的效果。                                                      |
-| **中文术语模式**       | 支持简体中文、台湾繁体、香港繁体三种术语风格。                                                     |
+Most existing device validation uses Android 14. The complete Android 9 startup flow and other devices still require further testing. Check release notes and validation records before updating the game or switching clients.
 
-### 桌面安装器
+The launcher uses a separate runtime directory and does not automatically migrate data from other loaders. To update the launcher while retaining application data, install an APK signed with the same key over the existing installation.
 
-| 功能                           | 说明                                                    |
-| ------------------------------ | ------------------------------------------------------- |
-| **跨平台安装**                 | Windows 与 macOS，自动定位 Steam 版《The Bazaar》目录。 |
-| **修复 / 卸载 / 重置本地数据** | 处理安装异常、回放数据损坏，或一键恢复到干净状态。      |
-| **对局历史管理**               | 查看、定位和清理本地保存的历史记录与回放视频。          |
-| **直播模式**                   | 启动本机浏览器源服务，给 OBS 等工具显示对局信息。       |
-| **自动更新**                   | 通过 Tauri Updater 检查并提示新版本。                   |
+## Source and development
 
-## 仓库结构
+The project is named **BazaarPlusPlusForAndroid**; its local root directory is named **`BazaarPlusPlus`**. The main development code is in `bazaarplusplus-android/`.
 
-| 目录                                 | 内容                                        |
-| ------------------------------------ | ------------------------------------------- |
-| `bazaarplusplus-mod/`                | BepInEx 模组                                |
-| `bazaarplusplus-android/`            | Android 实验性移植：IL2CPP 游戏内图鉴、运行时检查与加载探针 |
-| `bazaarplusplus-installer/`          | 桌面安装器（Tauri 2 + React）               |
-| `bazaarplusplus-server/`             | Cloudflare Worker：Bundle 上传与 Ghost 发现 |
-| `bazaarplusplus-analyzer/`           | 把 Bundle 汇总成英雄与阵容快照              |
-| `bazaarplusplus-site/`               | bazaarplusplus.com                          |
-| `VERSION`、`release.mjs`、`release/` | 产品版本与发布流程                          |
-
-每个项目保留自己的工具链，并有各自的 `README.md` 与 `AGENTS.md`；根目录 [`AGENTS.md`](AGENTS.md) 记录跨项目约定和契约归属。
-
-## 从源码构建
-
-按[开发命令](docs/development.md)装好工具链（just、.NET、Node、Rust、Python/uv），然后：
-
-```bash
-just setup                  # Shared local config, locked dependencies, Git hooks
-just doctor                 # What is still missing on this machine
-just mod::fetch macos online  # Game assemblies for the mod (Windows: windows)
-just                        # Every command, grouped by project
+```sh
+git clone https://github.com/VIkill33/BazaarPlusPlusForAndroid.git BazaarPlusPlus
+cd BazaarPlusPlus
 ```
 
-mod 对照快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 指向的游戏程序集编译：`mod::fetch` 接受版本一致的本机 Steam 版《The Bazaar》，否则从私有存储取包，细节见[开发命令](docs/development.md#游戏程序集)。单个项目用 `just <project>::check` 和 `just <project>::test` 验证，`just fmt` 格式化全部项目。`just mod::build` 只编译；把开发版 DLL 部署进游戏要显式运行 `just mod::build --deploy`。
+| Path | Purpose |
+| --- | --- |
+| `bazaarplusplus-android/launcher/` | Android launcher Java/JNI code, UI resources, and Gradle project |
+| `bazaarplusplus-android/android-mod/` | Android IL2CPP in-game plugin and touch adaptations |
+| `bazaarplusplus-android/tests/` | Offline tests and device testing helpers |
+| `bazaarplusplus-android/docs/` | Feature status, device validation, and architecture documentation |
+| `bazaarplusplus-android/build_probe.py` | Build entry point for the plugin and loading probes |
+| `bazaarplusplus-android/build_launcher.py` | Launcher dependency preparation and signed APK build entry point |
 
-正式包由 GitHub Actions 的 `release.yml` 在托管 runner 上构建、签名并上传，签名、公证和 R2 凭据只存在于 GitHub secrets 和维护者本机配置，不在公开仓库中；游戏程序集快照、游戏反编译输出、`.env`、`.dev.vars` 同样不在此树中。版本发布流程见[产品发布](docs/release.md)。
+Before making changes, read the root [AGENTS.md](AGENTS.md) and the [Android development notes](bazaarplusplus-android/README.md). See the [build guide](bazaarplusplus-android/launcher/BUILDING.md) for launcher builds and the [export instructions](.cursor/skills/export-launcher-apk/SKILL.md) for signed APKs.
 
-## 二次开发须知
+Use these commands to inspect build options and run the Python offline checks:
 
-> [!IMPORTANT]
-> 如果你计划基于本项目或本模组进行二次开发，请务必遵循《The Bazaar》官方 [Mod Policy](https://www.playthebazaar.com/mod-policy)。
+```sh
+python3 bazaarplusplus-android/build_probe.py --help
+python3 bazaarplusplus-android/build_launcher.py --help
+python3 -m unittest discover -s bazaarplusplus-android/tests -v
+```
 
-## 致谢
+A full build requires the matching toolchain, pinned framework inputs, Android game interop assemblies, and local signing material. Do not commit game files, APKs, device logs, or private signing keys. Local outputs belong in the ignored `bazaarplusplus-android/artifacts/` directory. A successful compilation does not replace device validation of the current build.
 
-|              |                                                                                                                                                                                                                                                              |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **灵感来源** | [BazaarHelper](https://github.com/Duangi/BazaarHelper) · [BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)                                                                                                                                   |
-| **数据来源** | [bazaardb.gg](https://bazaardb.gg)                                                                                                                                                                                                                           |
-| **运行依赖** | [BepInEx](https://github.com/BepInEx/BepInEx) · [Harmony](https://github.com/pardeike/Harmony) · [Tauri](https://tauri.app) · [React](https://react.dev) · [Vite](https://vite.dev) · [Tailwind CSS](https://tailwindcss.com) · [FFmpeg](https://ffmpeg.org) |
-| **共创**     | [Codex](https://openai.com/codex) · [Claude Code](https://claude.com/product/claude-code)                                                                                                                                                                    |
+## Feedback and support
 
-## 支持者
+Report problems through [GitHub Issues](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues), including the launcher version, phone model, Android version, game client version, and reproduction steps. Attach exported launcher diagnostics when needed, after checking for and removing personal information.
 
-感谢所有支持 BazaarPlusPlus 的朋友。完整支持者名单见 [bazaarplusplus.com/support](https://bazaarplusplus.com/support)。
+Use 「打赏作者」 (Support the author) on the launcher home screen to support maintenance. The 「Github」 button opens this project's repository.
 
-如果你愿意支持项目持续维护，可以前往 [Ko-fi](https://ko-fi.com/cauyxy) 或在安装器内查看赞助方式。
+## Acknowledgements and license
 
-## License
+Thanks to [BazaarPlusPlus](https://github.com/BazaarPlusPlus/BazaarPlusPlus), [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore), [BepInEx](https://github.com/BepInEx/BepInEx), and the other open-source projects providing source code and runtime components.
 
-本项目使用 [MIT License](LICENSE)。
-
----
-
-<div align="center">
-
-<img src="bazaarplusplus-installer/src-tauri/icons/icon.png" alt="" width="48" height="48" />
-
-**BazaarPlusPlus** · 因热爱而生
-
-[官网](https://bazaarplusplus.com) · [下载](https://bazaarplusplus.com/download) · [使用教程](https://bazaarplusplus.com/tutorial) · [Ko-fi](https://ko-fi.com/cauyxy)
-
-<sub>历史归档：[mod](https://github.com/BazaarPlusPlus/bazaarplusplus-mod) · [installer](https://github.com/BazaarPlusPlus/bazaarplusplus-installer) · [server](https://github.com/BazaarPlusPlus/bazaarplusplus-server) · [analyzer](https://github.com/BazaarPlusPlus/bazaarplusplus-analyzer) · [site](https://github.com/BazaarPlusPlus/bazaarplusplus-site)</sub>
-
-</div>
+Repository code is licensed under the [MIT License](LICENSE). Bundled dependencies retain their own licenses, available in the launcher. This is an independent community tool with no official affiliation with the game.

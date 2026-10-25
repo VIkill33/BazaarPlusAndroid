@@ -1,6 +1,8 @@
 # AGENTS.md
 
-BazaarPlusPlus monorepo. The mod and the installer ship as one Product Release; the server, analyzer, and site are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `CONTEXT.md` glossary. Work inside the project the change touches and follow its `AGENTS.md`; this file holds repo-wide rules and the Android port development workflow.
+本项目主体是 **BazaarPlusPlusForAndroid**，面向 Android 移植与独立启动器；本地主目录名为 `BazaarPlusPlus`。根目录英文 `README.md` 和中文 `README_zh.md` 应以本 Android 项目为主体，章节对应，只需简要说明主目录名，不展开介绍上游桌面工程。
+
+The mod and the installer ship as one Product Release; the server, analyzer, and site are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `CONTEXT.md` glossary. Work inside the project the change touches and follow its `AGENTS.md`; this file holds repo-wide rules and the Android port development workflow.
 
 | The change touches | Project |
 |---|---|
@@ -56,7 +58,7 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 - Name domain concepts with the glossary's terms; a real naming gap gets a `CONTEXT.md` entry in the same change. When your output contradicts an ADR, name the ADR and say why it is worth reopening.
 - In committed docs and comments, cite code by path plus symbol name; line numbers drift. `file:line` is fine in session evidence and reviews.
 - ADRs are numbered `NNNN-slug.md` per project, in sequence. A number is never reused or renumbered. A replaced ADR gets a `superseded-by:` frontmatter pointer; a retired one is deleted and lives on in git history.
-- Root `README.md`, `docs/development.md`, and `docs/release.md` are in Chinese. `README_en.md` mirrors `README.md` section for section; edit both in one change.
+- Root `README.md` is in English and is the default GitHub README. `README_zh.md` is its Chinese translation; keep both aligned section for section and edit both in one change. `docs/development.md` and `docs/release.md` are in Chinese.
 
 ## Instructions
 
