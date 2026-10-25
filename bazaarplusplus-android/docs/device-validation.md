@@ -1600,3 +1600,15 @@ APK SHA-256 为 `ae8218d0331533e0d2fd1083f543ee2e01e8a1a859e2c1ba2c1bd5610993914
 覆盖安装至 Redmi 22041216C（`OBJVWSPNSCFQU48L`）返回 Success。代理未执行界面操作。
 用户在高级模式真机测试后确认通过；野怪浮层下方目标与连续多次穿透切换未单独报告，不扩大为全部覆盖。
 构建日志：忽略目录 `artifacts/hold-preview-passthrough-build.log`、`artifacts/launcher-apk-build.log`。
+
+## 2026-10-26：入口按钮独立显示／隐藏与启动器同步（用户真机确认通过）
+
+`AndroidLauncherSettings`（取代 `AndroidPreviewPanelSettings`）在 `bpp-launcher-settings.json` 中新增
+`hiddenDockButtons`（collection、builds、previewMode、holdPreview、history），缺省或空数组即全部显示；
+插件与启动器 `LauncherSettingsActivity`／`LauncherPreparation` 均读取已有对象后合并写入，保留未知字段。
+游戏原生设置以五行「BPP：…按钮」（显示／隐藏）取代原历史按钮行，启动器设置页新增「游戏内按钮」五个开关；
+原 `dock.json` 的 `showHistory` 移除，旧值不迁移。帮助页补充按钮显示、样式与对局历史说明，删除“尚无历史”的过时表述。
+
+插件编译通过；`LauncherSettings.Tests`（原 `PreviewPanelSettings.Tests`）、DockSettings、HoldPreview、
+LongPressSettings 与 10 项 Python 回归通过。签名包 apksigner 校验通过，覆盖安装到 Redmi 22041216C 后用户确认验证通过；
+未逐项报告的双输入模式、启动器与游戏内交替修改等组合不扩大为全部覆盖。

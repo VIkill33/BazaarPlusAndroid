@@ -145,8 +145,9 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
     public void Update()
     {
         var advanced = PlayerPreferences.Data?.AlternativeInput == true;
-        if (_button != null && _button.gameObject.activeSelf != advanced)
-            _button.gameObject.SetActive(advanced);
+        var shown = advanced && AndroidLauncherSettings.Shown(AndroidDockButton.HoldPreview);
+        if (_button != null && _button.gameObject.activeSelf != shown)
+            _button.gameObject.SetActive(shown);
         if (Active && (!advanced || !_available || Data.IsInCombat
             || SceneManager.GetActiveScene().handle != _scene)) Stop();
         if (Active) return;

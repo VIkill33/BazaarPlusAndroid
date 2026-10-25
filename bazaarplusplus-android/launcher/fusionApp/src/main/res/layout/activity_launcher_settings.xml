@@ -33,7 +33,26 @@
                 android:layout_height="wrap_content" android:minHeight="56dp" android:text="靠屏幕左侧边缘"
                 android:textColor="@color/bpp_text" />
         </RadioGroup>
-        <TextView style="@style/BppCaption" android:text="选择后自动保存，下次启动当前目标游戏时生效。"
+        <TextView style="@style/BppText" android:text="游戏内按钮" android:textSize="20sp"
+            android:layout_marginTop="32dp" android:accessibilityHeading="true" />
+        <TextView style="@style/BppCaption" android:text="选择游戏画面左侧要显示的按钮。关闭的按钮会隐藏，其余按钮自动补位。"
+            android:layout_marginTop="8dp" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_collection"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:layout_marginTop="16dp" android:text="卡牌图鉴" android:textColor="@color/bpp_text" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_builds"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:text="构筑推荐" android:textColor="@color/bpp_text" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_preview_mode"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:text="长按预览模式（附魔／升级／无）" android:textColor="@color/bpp_text" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_hold_preview"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:text="按住预览（仅高级输入模式）" android:textColor="@color/bpp_text" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_history"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:text="对局历史" android:textColor="@color/bpp_text" />
+        <TextView style="@style/BppCaption" android:text="以上设置自动保存，下次启动当前目标游戏时生效；游戏内「设置」中也能修改，两边保持同步。"
             android:layout_marginTop="16dp" />
     </LinearLayout>
 </ScrollView>

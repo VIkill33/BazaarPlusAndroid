@@ -3,7 +3,7 @@ using BepInEx;
 
 namespace BazaarPlusPlus.Android;
 
-internal sealed record AndroidDockPreferences(bool AutoHide = false, int Edge = 0, int Along = 3500, bool ShowHistory = true, bool TextButtons = false);
+internal sealed record AndroidDockPreferences(bool AutoHide = false, int Edge = 0, int Along = 3500, bool TextButtons = false);
 
 internal static class AndroidDockSettings
 {
@@ -21,8 +21,7 @@ internal static class AndroidDockSettings
             File.WriteAllText(temporary, JsonSerializer.Serialize(new
             {
                 schema = 1, autoHide = value.AutoHide, edge = Math.Clamp(value.Edge, 0, 3),
-                along = Math.Clamp(value.Along, 0, 10000), showHistory = value.ShowHistory,
-                textButtons = value.TextButtons,
+                along = Math.Clamp(value.Along, 0, 10000), textButtons = value.TextButtons,
             }));
             File.Move(temporary, path, overwrite: true);
             Current = value;
@@ -54,10 +53,8 @@ internal static class AndroidDockSettings
                 && e.TryGetInt32(out var index) && index is >= 0 and <= 3 ? index : 0;
             var along = root.TryGetProperty("along", out var a) && a.ValueKind == JsonValueKind.Number
                 && a.TryGetInt32(out var fraction) && fraction is >= 0 and <= 10000 ? fraction : 3500;
-            // Files written before the history toggle existed keep the button visible.
-            var showHistory = !(root.TryGetProperty("showHistory", out var history) && history.ValueKind == JsonValueKind.False);
             var textButtons = root.TryGetProperty("textButtons", out var text) && text.ValueKind == JsonValueKind.True;
-            return new(autoHide, edge, along, showHistory, textButtons);
+            return new(autoHide, edge, along, textButtons);
         }
         catch (JsonException) { return new(); }
     }

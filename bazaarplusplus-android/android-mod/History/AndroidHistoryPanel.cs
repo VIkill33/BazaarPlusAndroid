@@ -74,7 +74,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
             if (_open && (_scope != ScopeKey || Combat || (_scene != -1 && _scene != scene))) SetOpen(false);
             _scene = scene;
             if (_entry != null) _entry.gameObject.SetActive(!_open && !Combat && !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen
-                && AndroidDockSettings.Current.ShowHistory);
+                && AndroidLauncherSettings.Shown(AndroidDockButton.History));
             if (_entry != null) _entry.interactable = Scope != null;
             if (!_open) return;
             if (Keyboard.current?.escapeKey.wasPressedThisFrame == true) Back();

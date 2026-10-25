@@ -182,7 +182,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 preview = NativeUi.Text("No enchantment preview for this item.", "此物品暂无附魔预览。");
             else return false;
         }
-        var leftEdge = _currentItem != null && AndroidPreviewPanelSettings.LeftEdge;
+        var leftEdge = _currentItem != null && AndroidLauncherSettings.LeftEdge;
         var nativeCanvas = _currentController.GetComponentInParent<Canvas>();
         var overlayCanvas = _canvasRoot?.GetComponent<Canvas>();
         if (nativeCanvas != null && overlayCanvas != null)

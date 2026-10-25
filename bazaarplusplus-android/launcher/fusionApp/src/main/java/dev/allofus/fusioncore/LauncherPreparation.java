@@ -366,10 +366,7 @@ public final class LauncherPreparation {
             LauncherFiles.replace(temp, target);
         }
         verify(target, plugin);
-        String position = LauncherSettingsActivity.readPosition(context, packageName);
-        JSONObject settings = new JSONObject().put("schema", 1)
-                .put("previewPanelPosition", "left".equals(position) ? "left" : "default");
-        LauncherFiles.write(new File(plugins, "bpp-launcher-settings.json"), LauncherRelease.bytes(settings.toString()));
+        LauncherSettingsActivity.sync(context, packageName);
         JSONObject session = new JSONObject().put("session", UUID.randomUUID().toString())
                 .put("pluginVersion", plugin.getString("version")).put("sha256", plugin.getString("sha256"))
                 .put("startedAt", System.currentTimeMillis());

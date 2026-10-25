@@ -445,9 +445,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private void UpdateEntryVisibility()
     {
         var visible = !_open && !CollectionController.AnyOpen && !AndroidHistoryPanel.AnyOpen && Data.Run?.Player != null;
-        if (_entry != null) _entry.gameObject.SetActive(visible);
+        if (_entry != null) _entry.gameObject.SetActive(visible && AndroidLauncherSettings.Shown(AndroidDockButton.Builds));
         if (_previewModeButton == null) return;
-        _previewModeButton.gameObject.SetActive(visible);
+        _previewModeButton.gameObject.SetActive(visible && AndroidLauncherSettings.Shown(AndroidDockButton.PreviewMode));
         // The mode can also change from the native settings dropdown.
         if (_shownPreviewMode == AndroidLongPressPreviewSettings.Mode) return;
         _shownPreviewMode = AndroidLongPressPreviewSettings.Mode;

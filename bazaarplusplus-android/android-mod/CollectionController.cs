@@ -109,7 +109,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             var scene = SceneManager.GetActiveScene().handle;
             if (_scene != -1 && scene != _scene) SetOpen(false);
             _scene = scene;
-            if (_entry != null) _entry.gameObject.SetActive(!_open && !AndroidBuildPanelController.AnyOpen && !AndroidHistoryPanel.AnyOpen);
+            if (_entry != null) _entry.gameObject.SetActive(EntryVisible);
             if (_open && !_catalog.Ready && _catalog.Error == null && Data.IsManagerCreated())
                 _catalog.Start(Data.GetStatic());
             if (_catalog.Tick())
@@ -609,13 +609,16 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (_description != null) _description.text = string.Empty;
     }
 
+    private bool EntryVisible => !_open && !AndroidBuildPanelController.AnyOpen && !AndroidHistoryPanel.AnyOpen
+        && AndroidLauncherSettings.Shown(AndroidDockButton.Collection);
+
     private void SetOpen(bool open)
     {
         if (open && (AndroidBuildPanelController.AnyOpen || AndroidHistoryPanel.AnyOpen)) return;
         _open = open;
         AnyOpen = open;
         _panel?.gameObject.SetActive(open);
-        _entry?.gameObject.SetActive(!open && !AndroidBuildPanelController.AnyOpen && !AndroidHistoryPanel.AnyOpen);
+        _entry?.gameObject.SetActive(EntryVisible);
         _choices?.Close();
         if (!open) { ClearPreview(); _thumbnails.Hide(); }
         else

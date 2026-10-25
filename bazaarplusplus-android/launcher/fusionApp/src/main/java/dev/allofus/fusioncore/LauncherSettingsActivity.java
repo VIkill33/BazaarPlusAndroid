@@ -5,36 +5,83 @@ import android.content.Context;
 import android.content.Intent;
 import android.view.View;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import org.json.JSONArray;
 import org.json.JSONObject;
+import android.widget.CompoundButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import dev.allofus.fusioncore.tools.Utilities;
 
-/** Position is shared with the in-game native settings rows. */
+/** Position and dock button visibility are shared with the in-game native settings rows. */
 public final class LauncherSettingsActivity extends AppCompatActivity {
     static final String PREFERENCES = "bpp_settings";
     static final String POSITION = "previewPanelPosition";
-    private boolean bindingPosition;
+    static final String HIDDEN = "hiddenDockButtons";
+    // Keys must match AndroidLauncherSettings in the plugin.
+    static final String[] BUTTONS = { "collection", "builds", "previewMode", "holdPreview", "history" };
+    private static final int[] SWITCHES = { R.id.dock_collection, R.id.dock_builds, R.id.dock_preview_mode,
+            R.id.dock_hold_preview, R.id.dock_history };
+    private boolean binding;
+
+    private static File file(String packageName) {
+        return new File(LauncherPreparation.bep(packageName), "bpp-launcher-settings.json");
+    }
+
+    private static JSONObject readFile(String packageName) {
+        try {
+            File file = file(packageName);
+            if (!file.isFile()) return null;
+            JSONObject settings = new JSONObject(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
+            return settings.optInt("schema") == 1 ? settings : null;
+        } catch (Exception ignored) { return null; } // Before storage authorization, keep the saved launcher value.
+    }
 
     static String readPosition(Context context) {
         return readPosition(context, LauncherGames.selected(context));
     }
 
     static String readPosition(Context context, String packageName) {
-        try {
-            File file = new File(LauncherPreparation.bep(packageName), "bpp-launcher-settings.json");
-            if (file.isFile()) {
-                JSONObject settings = new JSONObject(new String(Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8));
-                if (settings.optInt("schema") == 1) {
-                    String position = settings.optString(POSITION);
-                    if ("left".equals(position) || "default".equals(position)) return position;
-                }
-            }
-        } catch (Exception ignored) { /* Before storage authorization, keep the saved launcher value. */ }
+        JSONObject settings = readFile(packageName);
+        String position = settings == null ? "" : settings.optString(POSITION);
+        if ("left".equals(position) || "default".equals(position)) return position;
         return context.getSharedPreferences(PREFERENCES, 0).getString(POSITION, "default");
+    }
+
+    static Set<String> readHidden(Context context, String packageName) {
+        JSONObject settings = readFile(packageName);
+        JSONArray array = settings == null ? null : settings.optJSONArray(HIDDEN);
+        Set<String> hidden = new HashSet<>();
+        if (array == null) {
+            hidden.addAll(context.getSharedPreferences(PREFERENCES, 0).getStringSet(HIDDEN, Collections.emptySet()));
+        } else {
+            for (int i = 0; i < array.length(); i++) hidden.add(array.optString(i));
+        }
+        hidden.retainAll(Arrays.asList(BUTTONS));
+        return hidden;
+    }
+
+    /** Merge into the shared file so keys written by newer plugins survive. */
+    static void write(Context context, String packageName, String position, Set<String> hidden) throws Exception {
+        JSONObject settings = readFile(packageName);
+        if (settings == null) settings = new JSONObject();
+        JSONArray array = new JSONArray();
+        for (String button : BUTTONS) if (hidden.contains(button)) array.put(button);
+        settings.put("schema", 1).put(POSITION, "left".equals(position) ? "left" : "default").put(HIDDEN, array);
+        LauncherFiles.write(file(packageName), LauncherRelease.bytes(settings.toString()));
+        context.getSharedPreferences(PREFERENCES, 0).edit().putString(POSITION, position)
+                .putStringSet(HIDDEN, new HashSet<>(hidden)).commit();
+    }
+
+    static void sync(Context context, String packageName) throws Exception {
+        write(context, packageName, readPosition(context, packageName), readHidden(context, packageName));
     }
 
     @Override protected void onCreate(Bundle state) {
@@ -47,38 +94,47 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         findViewById(R.id.target_reset).setOnClickListener(v -> {
             LauncherGames.select(this, LauncherRelease.GAME);
             showTarget();
-            showPosition();
+            showSettings();
             Toast.makeText(this, "已恢复正版大巴扎。回到首页后点「启动游戏」。", Toast.LENGTH_LONG).show();
         });
+        showSettings();
         RadioGroup position = findViewById(R.id.preview_position);
-        showPosition();
-        position.setOnCheckedChangeListener((group, id) -> {
-            if (bindingPosition) return;
-            String value = id == R.id.preview_position_left ? "left" : "default";
-            try {
-                JSONObject settings = new JSONObject().put("schema", 1).put(POSITION, value);
-                LauncherFiles.write(new File(LauncherPreparation.bep(LauncherGames.selected(this)), "bpp-launcher-settings.json"),
-                        LauncherRelease.bytes(settings.toString()));
-                getSharedPreferences(PREFERENCES, 0).edit().putString(POSITION, value).commit();
-            } catch (Exception error) {
-                Toast.makeText(this, "保存失败，请重试", Toast.LENGTH_LONG).show();
-                recreate();
-            }
-        });
+        position.setOnCheckedChangeListener((group, id) -> save());
+        for (int id : SWITCHES)
+            ((CompoundButton) findViewById(id)).setOnCheckedChangeListener((button, checked) -> save());
+    }
+
+    private void save() {
+        if (binding) return;
+        String target = LauncherGames.selected(this);
+        String position = ((RadioGroup) findViewById(R.id.preview_position)).getCheckedRadioButtonId()
+                == R.id.preview_position_left ? "left" : "default";
+        Set<String> hidden = new HashSet<>();
+        for (int i = 0; i < BUTTONS.length; i++)
+            if (!((CompoundButton) findViewById(SWITCHES[i])).isChecked()) hidden.add(BUTTONS[i]);
+        try {
+            write(this, target, position, hidden);
+        } catch (Exception error) {
+            Toast.makeText(this, "保存失败，请重试", Toast.LENGTH_LONG).show();
+            recreate();
+        }
     }
 
     @Override protected void onResume() {
         super.onResume();
         showTarget();
-        showPosition();
+        showSettings();
     }
 
-    private void showPosition() {
-        RadioGroup position = findViewById(R.id.preview_position);
-        bindingPosition = true;
-        position.check("left".equals(readPosition(this))
+    private void showSettings() {
+        String target = LauncherGames.selected(this);
+        Set<String> hidden = readHidden(this, target);
+        binding = true;
+        ((RadioGroup) findViewById(R.id.preview_position)).check("left".equals(readPosition(this, target))
                 ? R.id.preview_position_left : R.id.preview_position_default);
-        bindingPosition = false;
+        for (int i = 0; i < BUTTONS.length; i++)
+            ((CompoundButton) findViewById(SWITCHES[i])).setChecked(!hidden.contains(BUTTONS[i]));
+        binding = false;
     }
 
     private void showTarget() {
