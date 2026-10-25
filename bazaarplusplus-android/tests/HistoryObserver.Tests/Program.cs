@@ -35,7 +35,7 @@ opening=Take("beginBattle"); var window=opening.Request.GetProperty("windowId").
 opening.Completion.SetException(new IOException("dependency blocked")); await Pump();
 combatObservation.Completion.SetException(new IOException("dependency blocked")); await Pump();
 checkpoint.Completion.SetException(new IOException("injected checkpoint failure")); await Pump();
-NativeUi.Click!();
+observer.Retry();
 var retriedCheckpoint=Take("observeRun");
 Expect(retriedCheckpoint.Request.GetProperty("phase").GetString()=="choice", "Retry sorts by original submission, never failure notification order");
 Bound(retriedCheckpoint,local);

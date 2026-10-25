@@ -1,9 +1,6 @@
 using System.Text.Json;
 using TheBazaar;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
-using Il2CppInterop.Runtime;
 
 namespace BazaarPlusPlus.Android;
 
@@ -23,9 +20,6 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
     private HistoryScope? _boundScope;
     private float _next;
     private bool _installed;
-    private bool _captureLoss;
-    private string _status = "历史：等待对局";
-    private TextMeshProUGUI? _label;
 
     private sealed record Observation(HistoryScope Scope, HistoryPhase Phase, string? Checkpoint,
         uint Day, uint Hour, uint Victories, uint Losses, string? Hero, string? Mode, bool ProgressAvailable);
@@ -51,9 +45,8 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
         try { AndroidHistoryNativeCapture.Tick(); } catch (Exception error) { Failure(error); }
         if (Time.realtimeSinceStartup < _next) return;
         _next = Time.realtimeSinceStartup + .5f;
-        try { Observe(); AndroidBattleCapture.WarmOne(); BuildStatus(); }
+        try { Observe(); AndroidBattleCapture.WarmOne(); }
         catch (Exception error) { Failure(error); }
-        if (_label != null) _label.text = _status;
     }
 
     internal static HistoryPhase CurrentPhase() => AppState.CurrentState?.GetIl2CppType().Name switch
@@ -96,11 +89,7 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
         {
             if (Session.Scope != scope || sequence != _sequence) return;
             var state = response.GetProperty("state").GetString();
-            if (state != "bound")
-            {
-                _status = state == "identity_pending" ? "历史：身份待确认" : "历史：等待对局";
-                return;
-            }
+            if (state != "bound") return;
             _localRun = response.GetProperty("runId").GetString();
             if (_boundScope != scope)
             {
@@ -111,10 +100,8 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
                 Session.RestoreEvidence(evidence);
                 if (!Session.ConfirmBinding(scope, response.GetProperty("allowFirstPartial").GetBoolean())) return;
                 _boundScope = scope;
-                _status = "历史：正在记录";
                 Observe(); // Persist the newly allocated explicit checkpoint before any opening request.
             }
-            if (phase is HistoryPhase.Victory or HistoryPhase.Defeat) _status = "历史：本局已结束";
         });
     }
 
@@ -126,7 +113,6 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
             return decision.Window != null && _tickets.TryGetValue(decision.Window.Id, out var existing) ? existing : null;
         if (decision.Window == null || _localRun == null || _boundScope != decision.Window.Scope)
         {
-            _captureLoss = true; _status = "历史：本场身份未确认";
             if (Session.Scope is { Confirmed: true } scope && _localRun != null && _boundScope == scope)
             {
                 var diagnostic = Request("quarantine", scope);
@@ -136,7 +122,6 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
             }
             return null;
         }
-        if (!completeSnapshot) { _captureLoss = true; _status = "历史：阵容部分缺失"; }
         var ticket = new Ticket(decision.Window, _localRun);
         _tickets.Add(ticket.Window.Id, ticket);
         var request = Request("beginBattle", ticket.Window.Scope);
@@ -165,8 +150,6 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
                 return;
             }
             ticket.BeforeCommitted = true;
-            if (_last?.Phase is HistoryPhase.Victory or HistoryPhase.Defeat) _status = "历史：本局已结束";
-            else if (!_captureLoss) _status = ticket.Window.PartialOpening ? "历史：已保存（部分记录）" : "历史：战斗前已保存";
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=history.opening.saved window={ticket.Window.Id}");
             QueueResult(ticket);
         }, order);
@@ -196,8 +179,6 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
             if (Session.Scope != ticket.Window.Scope) return;
             if (response.GetProperty("state").GetString() != "resolved") { Failure(new InvalidOperationException("结果未保存，原记录已保留")); return; }
             Session.MarkResultCommitted(ticket.Window);
-            if (_last?.Phase is HistoryPhase.Victory or HistoryPhase.Defeat) _status = "历史：本局已结束";
-            else if (!_captureLoss) _status = "历史：战斗已保存";
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=history.result.saved window={ticket.Window.Id}");
         });
     }
@@ -227,24 +208,21 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
     private void RetainRetry(long order, Action retry)
     {
         if (_retry.ContainsKey(order) || _retry.Count < HistoryLimits.QueueCapacity) _retry[order] = retry;
-        else { _captureLoss = true; _status = "历史：部分记录未保存"; }
     }
 
     internal void Failure(Exception error)
     {
-        _captureLoss = true; _status = "历史：记录异常，点击重试";
         Plugin.PluginLog?.LogWarning($"[BPP][Android] event=history.failed exception={error}");
     }
-    private void Retry()
+    internal void Retry()
     {
         DrainWrites();
-        if (_pendingWrites.Count != 0) { _status = "历史：写入仍在完成，请稍后重试"; return; }
+        if (_pendingWrites.Count != 0) return;
         try { AndroidHistoryBridge.ResumeAfterFailure(); }
         catch (Exception error) { Failure(error); return; }
         var work = _retry.Values.ToArray(); _retry.Clear();
         foreach (var retry in work) retry();
         _last = null; Observe();
-        _status = "历史：重试中（部分记录可能缺失）";
     }
     internal static Dictionary<string, object?> Request(string operation, HistoryScope scope) => new()
     {
@@ -265,18 +243,4 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
         HistoryPhase.LevelUp => "level_up", HistoryPhase.Combat => "combat", HistoryPhase.PvpCombat => "pvp",
         HistoryPhase.Replay => "replay", HistoryPhase.Victory => "victory", HistoryPhase.Defeat => "defeat", _ => "unknown",
     };
-    private void BuildStatus()
-    {
-        if (_label != null) return;
-        var font = TheBazaar.Localization.NotoFontFallbackRuntime._loadedSansPrimary;
-        if (font == null) return;
-        var canvas = new GameObject("BPP.HistoryStatus", new Il2CppSystem.Type[] { Il2CppType.Of<RectTransform>() });
-        DontDestroyOnLoad(canvas);
-        var ui = canvas.AddComponent<Canvas>(); ui.renderMode = RenderMode.ScreenSpaceOverlay; ui.sortingOrder = 29998;
-        var scaler = canvas.AddComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920, 1080); scaler.matchWidthOrHeight = 1;
-        canvas.AddComponent<GraphicRaycaster>();
-        var button = NativeUi.Button(canvas.transform, font, _status, new Vector2(.34f, .955f), new Vector2(.66f, 1), Retry);
-        _label = button.GetComponentInChildren<TextMeshProUGUI>(); _label.fontSize = 23; _label.richText = false;
-    }
 }
