@@ -2,6 +2,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.GameInterop.Heroes;
 using TheBazaar;
 using TheBazaar.AppFramework;
+using TheBazaar.Assets.Scripts.ScriptableObjectsScripts;
 using UnityEngine;
 using UnityEngine.UI;
 using NativeTask = Il2CppSystem.Threading.Tasks.Task<UnityEngine.Sprite>;
@@ -14,6 +15,7 @@ internal sealed class AndroidUiArt
     private sealed class Load
     {
         internal NativeTask? Task;
+        internal Il2CppSystem.Threading.Tasks.Task<EncounterAssetDataSO>? Encounter;
         internal Il2CppSystem.Threading.Tasks.Task<Texture2D>? Texture;
         internal Sprite? Sprite;
         internal float RetryAt;
@@ -34,17 +36,22 @@ internal sealed class AndroidUiArt
     }
     internal static string? Hero(string hero) => TheDragonsHeroIdentity.TryResolve(hero, out var parsed)
         && parsed != EHero.Common && Enum.IsDefined(parsed) ? "hero:" + parsed : null;
+    internal static string Source(Guid templateId) => "source:" + templateId;
     internal void Tick()
     {
         if (!Services.TryGet<AssetLoader>(out var loader) || loader == null) return;
+        var started = 0;
         foreach (var binding in _bindings)
         {
             if (binding.Image == null) continue;
             if (!_loads.TryGetValue(binding.Key, out var load)) _loads.Add(binding.Key, load = new());
             try
             {
-                if (load.Sprite == null && load.Task == null && load.Texture == null && Time.realtimeSinceStartup >= load.RetryAt)
+                if (load.Sprite == null && load.Task == null && load.Texture == null && load.Encounter == null && Time.realtimeSinceStartup >= load.RetryAt)
                 {
+                    // Merchant lists can contain many entries; spread native lookups across frames.
+                    if (started >= 2) continue;
+                    started++;
                     if (binding.Key.StartsWith("state:", StringComparison.Ordinal))
                     {
                         LoadStates(); load.Sprite = _loads[binding.Key].Sprite;
@@ -55,6 +62,17 @@ internal sealed class AndroidUiArt
                         var skin = collection.GetDefaultHeroSkin(Enum.Parse<EHero>(binding.Key[5..]));
                         if (skin == null) { load.RetryAt = Time.realtimeSinceStartup + 10; continue; }
                         load.Task = loader.LoadAssetAsyncByReference<Sprite>(skin.portraitTextureReference,
+                            NativeNullableValue.Box<AssetScope>(AssetScope.Global));
+                    }
+                    else if (binding.Key.StartsWith("source:", StringComparison.Ordinal))
+                    {
+                        if (!Data.IsManagerCreated()) continue;
+                        var template = Data.GetStatic()?.GetCardById(Il2CppSystem.Guid.Parse(binding.Key[7..]))
+                            ?.TryCast<BazaarGameShared.Domain.Cards.TCardBase>();
+                        var artKey = template?.ArtKey;
+                        if (string.IsNullOrWhiteSpace(artKey) || artKey == "Invalid")
+                        { load.RetryAt = Time.realtimeSinceStartup + 10; continue; }
+                        load.Encounter = loader.LoadAssetAsyncByAddress<EncounterAssetDataSO>(artKey,
                             NativeNullableValue.Box<AssetScope>(AssetScope.Global));
                     }
                     else load.Task = loader.LoadAssetAsyncByAddress<Sprite>(binding.Key, NativeNullableValue.Box<AssetScope>(AssetScope.Global));
@@ -70,6 +88,13 @@ internal sealed class AndroidUiArt
                         if (skin != null) load.Texture = loader.LoadAssetAsyncByReference<Texture2D>(skin.storePortraitTextureReference,
                             NativeNullableValue.Box<AssetScope>(AssetScope.Global));
                     }
+                    if (load.Sprite == null) load.RetryAt = Time.realtimeSinceStartup + 10;
+                }
+                if (load.Encounter is { IsCompleted: true } encounterTask)
+                {
+                    var encounter = !encounterTask.IsFaulted && !encounterTask.IsCanceled ? encounterTask.Result : null;
+                    load.Encounter = null;
+                    load.Sprite = encounter?.portraitTextureReference;
                     if (load.Sprite == null) load.RetryAt = Time.realtimeSinceStartup + 10;
                 }
                 if (load.Texture is { IsCompleted: true } textureTask)
@@ -94,7 +119,7 @@ internal sealed class AndroidUiArt
             }
             catch (Exception error)
             {
-                load.Task = null; load.Texture = null; load.RetryAt = Time.realtimeSinceStartup + 10;
+                load.Task = null; load.Texture = null; load.Encounter = null; load.RetryAt = Time.realtimeSinceStartup + 10;
                 Plugin.PluginLog?.LogWarning($"[BPP][Android] event=ui.art.failed key={binding.Key} exception={error}");
             }
         }

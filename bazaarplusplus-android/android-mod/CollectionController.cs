@@ -259,10 +259,16 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             (NativeUi.Text("Follow current shop", "跟随当前商店"), () => { _followSource = true; ReadContext(); Changed(); }),
             (NativeUi.Text("All sources", "全部来源"), () => { _followSource = false; _source = null; Changed(); }),
         };
+        var artwork = new List<string?> { null, null };
+        var selected = _followSource ? 0 : _source == null ? 1 : -1;
         var kind = _filter.ActiveType == ECardType.Item ? CollectionSourceKind.Merchant : CollectionSourceKind.Trainer;
         foreach (var source in _sources.Where(source => source.Kind == kind && source.IsVisibleForHero(SourceHero())))
+        {
+            if (!_followSource && _source?.SourceKey == source.SourceKey) selected = options.Count;
             options.Add((SourceName(source), () => { _followSource = false; _source = source; Changed(); }));
-        _choices?.Show(NativeUi.Text("Shop / Trainer", "商店／训练师"), options);
+            artwork.Add(AndroidUiArt.Source(source.PortraitTemplateId));
+        }
+        _choices?.ShowCards(NativeUi.Text("Shop / Trainer", "商店／训练师"), options, artwork, selected);
     }
 
     private void ChooseDay() => _choices?.Show(NativeUi.Text("Day filter", "天数筛选"),

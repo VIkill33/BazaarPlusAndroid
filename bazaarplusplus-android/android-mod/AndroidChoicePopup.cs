@@ -22,7 +22,9 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
         var values = new EHero?[] { null }.Concat(heroes.Distinct().Select(hero => (EHero?)hero)).ToArray();
         var options = values.Select(hero => (hero.HasValue ? HeroName(hero.Value) : NativeUi.Text("All heroes", "全部英雄"),
             (Action)(() => select(hero)))).ToArray();
-        ShowOptions(NativeUi.Text("Hero", "英雄"), options, values, selected);
+        ShowCards(NativeUi.Text("Hero", "英雄"), options,
+            values.Select(hero => hero.HasValue ? AndroidUiArt.Hero(hero.Value.ToString()) : null).ToArray(),
+            Array.IndexOf(values, selected));
     }
 
     internal void Close()
@@ -37,15 +39,19 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
     internal void Show(string title, IReadOnlyList<(string Label, Action Select)> options)
         => ShowOptions(title, options);
 
+    internal void ShowCards(string title, IReadOnlyList<(string Label, Action Select)> options,
+        IReadOnlyList<string?> artwork, int selectedIndex)
+        => ShowOptions(title, options, artwork, selectedIndex);
+
     private void ShowOptions(string title, IReadOnlyList<(string Label, Action Select)> options,
-        IReadOnlyList<EHero?>? heroes = null, EHero? selected = null)
+        IReadOnlyList<string?>? artwork = null, int selectedIndex = -1)
     {
         Close();
         _root = NativeUi.Rect("BPP.ChoicePopup", parent, Vector2.zero, Vector2.one);
         NativeUi.Button(_root, font, string.Empty, Vector2.zero, Vector2.one, Close)
             .GetComponent<Image>().color = new Color(0, 0, 0, .7f);
         var panel = NativeUi.Rect("BPP.ChoiceList", _root, new Vector2(.18f, .13f), new Vector2(.82f, .87f));
-        panel.gameObject.AddComponent<Image>().color = heroes == null
+        panel.gameObject.AddComponent<Image>().color = artwork == null
             ? new Color(.06f, .09f, .12f, 1) : new Color(.106f, .071f, .078f, 1);
         NativeUi.Label(NativeUi.Rect("BPP.ChoiceTitle", panel, new Vector2(.03f, .86f), new Vector2(.86f, .98f)), font, title, 34);
         NativeUi.Button(panel, font, "×", new Vector2(.88f, .86f), new Vector2(.98f, .98f), Close);
@@ -55,8 +61,8 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
         backdrop.color = new Color(0, 0, 0, .01f);
         var content = NativeUi.Rect("BPP.Choices", viewport, new Vector2(0, 1), Vector2.one);
         content.pivot = new Vector2(.5f, 1);
-        var columns = heroes == null ? 2 : 3;
-        var rowHeight = heroes == null ? 78 : 194;
+        var columns = artwork == null ? 2 : 3;
+        var rowHeight = artwork == null ? 78 : 194;
         var rows = (options.Count + columns - 1) / columns;
         content.sizeDelta = new Vector2(0, rows * rowHeight);
         for (var index = 0; index < options.Count; index++)
@@ -68,8 +74,8 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
                 new Vector2(column / (float)columns, 1), new Vector2((column + 1) / (float)columns, 1),
                 () => { Close(); option.Select(); },
                 new Vector2(6, -row * rowHeight - rowHeight + 6), new Vector2(-6, -row * rowHeight - 6));
-            if (heroes == null) continue;
-            var chosen = heroes[index] == selected;
+            if (artwork == null) continue;
+            var chosen = index == selectedIndex;
             button.GetComponent<Image>().color = chosen ? new Color(.38f,.25f,.15f,1) : new Color(.157f,.110f,.141f,1);
             var caption = button.GetComponentInChildren<TextMeshProUGUI>();
             caption.richText = false;
@@ -78,15 +84,14 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
             caption.rectTransform.anchorMax = new Vector2(1,.30f);
             caption.rectTransform.offsetMin = new Vector2(8,6);
             caption.rectTransform.offsetMax = new Vector2(-8,-2);
-            var portraitRoot = NativeUi.Rect("HeroPortrait", button.transform, new Vector2(.5f,.64f), new Vector2(.5f,.64f),
+            var portraitRoot = NativeUi.Rect("ChoicePortrait", button.transform, new Vector2(.5f,.64f), new Vector2(.5f,.64f),
                 new Vector2(-54,-54), new Vector2(54,54));
             var portrait = portraitRoot.gameObject.AddComponent<Image>();
             portrait.preserveAspect = true; portrait.raycastTarget = false;
             var fallback = NativeUi.Label(portraitRoot, font,
-                heroes[index].HasValue ? HeroName(heroes[index]!.Value)
-                    : NativeUi.Text("All", "全部"), 28);
+                option.Label, 24);
             fallback.richText = false;
-            _art.Bind(portrait, heroes[index].HasValue ? AndroidUiArt.Hero(heroes[index]!.Value.ToString()) : null, fallback);
+            _art.Bind(portrait, artwork[index], fallback);
             if (chosen)
             {
                 var marker = NativeUi.Label(NativeUi.Rect("Selected", button.transform, new Vector2(.66f,.80f), new Vector2(1,1)),

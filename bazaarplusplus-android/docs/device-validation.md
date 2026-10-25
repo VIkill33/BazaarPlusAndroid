@@ -1512,3 +1512,32 @@ APK 版本 `0.1.0-test.14`，SHA-256：
 证据：忽略目录 `artifacts/hero-filter-launch-evidence/`、`artifacts/hero-filter-launched.png`。
 
 覆盖安装后用户反馈“不错”，要求先提交本次修改；未逐项报告的专项覆盖保持待验证。
+
+
+## 2026-10-25：商店／训练师头像筛选卡片（2026-10-26 用户确认通过）
+
+先提交上一轮英雄与历史筛选修改：`3bd8b834`。
+本轮参考桌面 `EncounterPortraitSpriteProvider.LoadPortraitCoreAsync`，来源目录已有
+`CollectionSourceEntry.PortraitTemplateId`，通过模板 `ArtKey` 加载 `EncounterAssetDataSO`，
+读取其 `portraitTextureReference`。已检查本机 Android 生成代理，字段类型为 Unity Sprite，
+与桌面读取路径一致；这仅确认 API 签名，不证明每位商人的实际资源可用。
+
+`AndroidChoicePopup.ShowCards` 复用英雄选择的三列大卡片、名称与选中标记；
+`CollectionController.ChooseSource` 保留原有英雄可见性、来源筛选和跟随商店逻辑，
+为商人／训练师添加头像绑定。全部来源与跟随当前商店保留文字占位。
+`AndroidUiArt` 在主线程轮询遭遇资源加载，每帧最多发起两次资源读取，使用 Global 作用域；
+关闭选择框即解绑，加载失败时保留文字并按已有间隔重试。
+
+沿用用户自行验证的约定，本轮未编译、测试、打包、覆盖安装或操作游戏。
+待验证：各商人及训练师图片、全部／跟随选择状态、相同名称的不同来源、
+切换英雄后可见来源、列表滚动、快速关闭重开及两种输入模式。
+
+用户随后要求覆盖安装并启动。插件重新编译零警告／零错误，签名 APK 构建与 v2 校验通过；
+在 OBJVWSPNSCFQU48L 上覆盖安装成功，经启动器「启动游戏」启动，新会话／插件摘要等
+12 项加载检查全部通过。截图显示游戏加载至 94%；商人图片与筛选交互留给用户验证。
+APK 版本 `0.1.0-test.14`，SHA-256：
+`055b2f8ca7f485a4bee476679eb9402ea01026f05db039444485608a0e3bb5dd`。
+证据：忽略目录 `artifacts/source-filter-launch-evidence/`、`artifacts/source-filter-launched.png`。
+
+2026-10-26 用户反馈“可以了，提交代码”，本轮商人筛选改动记为用户真机验证通过；
+未逐项报告的全部商人／训练师、相同名称来源及双输入模式专项不扩大为全部覆盖。
