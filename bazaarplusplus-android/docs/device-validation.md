@@ -1450,3 +1450,12 @@ Python 10 项、BuildCorpus／EnchantPolicy 及插件编译（零警告／零错
 参考桌面 text 架构与 AndroidBuildBoard.Select／AndroidBuildPanelController.ResolveName，构筑文字标题经 NativeUi.TitleText 移除原生 TMP style 包装；名称文字及其余富文本保持原有内容，不在无对应样式表的 BPP 标签上输出游戏专用 style。范围覆盖推荐物品详情标题、推荐清单及候选名称。用户确认该修复自测通过；本次真机选中短柄斧后打开带 Obsidian 附魔的皮格健身房详情，日志记录 card_selected，截图保存在 artifacts/feedback-fixes/build-enchanted-title.png（附加预览遮住部分详情，不将此图单独视为完整文字视觉验收）。
 
 沿用本轮新构建编译、10 项 Python、BuildCorpus／EnchantPolicy 和 12 项新会话摘要校验；不修改桌面共享源码。其他语言与全部附魔名称未逐个复核。
+
+
+## 2026-10-25：移除预览顶部标签（用户自测通过）
+
+用户确认最初三项修复自测全部通过，随后要求直接删除升级、附魔和任务奖励三个标签，并覆盖安装后自行验证。AndroidTooltipObserver 不再创建标签或预留顶部空白；附魔／升级继续由现有长按偏好控制，任务奖励正文合并在当前物品预览之后，避免删除入口时丢失奖励信息。事件和等级奖励弹窗按正文高度收紧，长内容仍滚动，野怪布局保留原规则。参考桌面 previews 架构和现有 AndroidQuestRewardPreview；未更改游戏 API 或共享桌面代码。
+
+最终无标签构建的离线结果及覆盖安装证据见忽略目录 artifacts/feedback-fixes/；本轮按用户要求不继续游戏内自动操作，由用户自行验证；覆盖安装后用户确认“可以了，提交代码”。未逐项提供双输入模式、全部奖励正文或数值对照结果，不据此扩大专项验收范围。较早 final-loaded 的 12 项通过对应尚保留任务奖励按钮的中间构建，不能冒充最终构建真机验收。原有启动链工作区修改不属于本次修复验收范围。
+
+最终构建插件零警告／零错误、10 项 Python 回归及签名校验通过。已在设备 OBJVWSPNSCFQU48L 覆盖安装 0.1.0-test.14，安装包内置依赖、插件摘要及安装版本三项校验通过；设备 base.apk SHA-256 与本地一致：`26b24765e766b4b9cf7958866c787ecd3c8c8a0744340f4ef7b6ba3f9bb1eda4`。安装证据为 artifacts/feedback-fixes/no-tabs-installed/。代理未启动最终版本进入游戏；覆盖安装后用户确认自测通过。
