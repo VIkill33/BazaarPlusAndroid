@@ -1350,3 +1350,51 @@ C# 的 `HistorySession.Tests`、`HistoryBridge.Tests` 通过。后者直接链�
 
 本条仅验收事务存储、桥与纯规则。实际采集器、可见失败／重试、整局正常结算和游戏强杀恢复
 仍在独立验收，历史浏览与备份尚未提供；真实第二账号及 Android 9／第二设备仍待验证。
+
+
+## 对局历史 M2：启动器只读浏览（2026-10-25）
+
+本条只验收启动器浏览，不代表 M1 完整对局或 M2 游戏内面板完成。设备为
+`OBJVWSPNSCFQU48L`、22041216C、Android 14；启动器原生触屏页，竖屏 1080×2460、
+横屏 2460×1080。使用实际休闲皮格对局已保存的 7 场记录，其中第 3 场因先前强杀只有
+战斗前快照，必须显示“结果未记录”；第 1 场有部分／失败组，不补写或猜测缺失数据。
+
+`HistoryReader` 仅以 OPEN_READONLY 打开既有库，不调用会创建目录的 Utilities 路径方法，
+无库、较新版本和损坏分别处理；corruption handler 保留原文件。列表分页使用时间＋ID，
+战斗使用天／小时／持久序号，列表只投影必要元数据，选中战斗才用单 SELECT 读取四组快照。
+Scope 由宿主固定：启动器显示本机档案，游戏读取预留账号或本会话 pending 限制，不能通过
+请求 ID、archive 筛选或 continuation token 越权。没有在此阶段接入游戏内读取桥。
+
+`verify_history_store.py --reader` 在随机隔离 UUID 目录运行实际生产 Reader，16 项通过：
+46 个同时间整局、43 场同小时战斗多页无重复或固定总数上限、新插入不扰动旧 continuation、
+显式首页刷新、账号／pending 会话和直接 ID 限制、四组状态与中文补充字符、写事务期间 WAL
+读已提交事实、目标不匹配拒绝，以及较新／损坏文件保持原字节。无库浏览不创建目录。
+
+`LauncherHistoryActivity` 固定进入时的目标游戏；单线程只保留一个等待查询，版本拒绝旧结果。
+翻页成功才提交 token，失败保留列表并重试原目标页。头部进入列表滚动，避免横屏说明挤空内容；
+旋转保存当前页、选择和滚动锚点，详情重新读取，不将大快照放进 Activity 保存状态。
+真机发现旧 onBackPressed 覆盖未接管当前 Android 系统返回，改用生命周期绑定的返回 dispatcher。
+
+可重复入口 `verify_history_browser.py` 从已打开的启动器历史列表开始，与
+`verify_history_store.py --inspect-game-root` 的只读事实对照；不启动游戏或修改历史。
+16 项自动断言通过：真实整局与战斗计数、卡牌 ID／品质／体型／类型及全部实例属性、长按相同卡牌、四组状态
+和所有已存卡名滚动至末尾、未知结果换选、系统返回与精确列表锚点、横竖屏重建及返回整局列表。
+首次滚动脚本速度过快跳过中间卡牌，减慢手势并保留视口重叠后重测；不把首次失败计为通过。
+截图人工复核，文本／保存值和返回路径有自动断言，不宣称自动视觉比对。
+
+首次前后比较的“最后观察时间”跨越较早游戏会话而不一致，未计为只读完整性通过。随后确认无
+游戏加载进程，重新取 before 基线、执行浏览验证、取 after，整个 summary（含最后观察时间、
+整局元数据、7 场及 28 行快照和生产 Reader 响应）相等。浏览未改变这些已保存业务字段。
+
+10 项 Python 离线回归、Java 8／Android API 编译、签名 APK 构建及启动器包的 3 项只读校验通过。
+当前验证包为临时同版号 `0.1.0-test.13-history-m1`，APK SHA-256：
+`6609c0a9134a1db6a7dab413b2c1663cff2eccdb977f577a6ba3e5aec33438ca`；设备 base.apk 摘要一致，
+签名 Verifies、v2 true、CN=BazaarPlusPlus Android Test。首页沿用已安装 test.13 的 Github 入口，
+不因新增历史而回退该按钮；没有发布或推送。本包包含工作区原有启动链修改，不把浏览验收视作
+这些修改的验收，也不以本条的 3 项包校验替代游戏启动的 12 项新会话校验。
+
+证据在被忽略的 `artifacts/history-m1/`：`reader-device.json`、`reader-controlled-before.json`、
+`reader-controlled-after.json`、`reader-final-integrity.json`、`browser-ui-controlled/` 和
+`browser-launcher-verification/`。M1 正常结束及完整一局、M2 游戏内原生卡图／互斥／两种游戏输入、
+启动器真实多页与故障 UI、空阵容 UI、切换另一目标数据、第二账号和第二设备仍待验证；
+Reader 隔离分页／故障测试不替代这些 UI 或真实账号验收。

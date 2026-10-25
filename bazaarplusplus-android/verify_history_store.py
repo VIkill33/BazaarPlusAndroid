@@ -27,12 +27,15 @@ def main():
     parser.add_argument('--d8', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--kill-transaction', action='store_true', help='SIGKILL an isolated uncommitted production-store write and verify recovery')
+    parser.add_argument('--reader', action='store_true', help='Verify read-only pagination and scope boundaries in an isolated database')
     parser.add_argument('--inspect-game-root', help='Read-only inspection of an existing confirmed target; no isolated test or cleanup')
     args = parser.parse_args()
     if args.inspect_game_root and not re.fullmatch(r'/sdcard/BazaarPlusPlusAndroid/[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+', args.inspect_game_root):
         parser.error('Invalid confirmed game root')
     if args.kill_transaction and args.inspect_game_root:
         parser.error('Transaction fault tests cannot use a game root')
+    if args.reader and (args.kill_transaction or args.inspect_game_root):
+        parser.error('Reader fixture tests must use an isolated directory')
     root = Path(__file__).resolve().parent
     javac = shutil.which('javac')
     if javac is None or not args.android_jar.is_file() or not args.d8.is_file():
@@ -43,7 +46,7 @@ def main():
     token = str(uuid.uuid4())
     remote = f'/data/local/tmp/bpp-history-store-{token}.dex'
     test_root = f'/sdcard/BppHistoryM1Check/{token}'
-    runner = 'HistoryReadDevice' if args.inspect_game_root else 'HistoryStoreDevice'
+    runner = 'HistoryReaderDevice' if args.reader else 'HistoryReadDevice' if args.inspect_game_root else 'HistoryStoreDevice'
     if args.inspect_game_root:
         test_root = args.inspect_game_root
     production = root / 'launcher/fusionApp/src/main/java/dev/allofus/fusioncore/history'
@@ -54,6 +57,7 @@ def main():
         dex.mkdir()
         subprocess.run([javac, '--release', '8', '-cp', str(args.android_jar), '-d', str(classes),
                         str(production / 'HistoryAccessLock.java'), str(production / 'HistoryStore.java'),
+                        str(production / 'HistoryReader.java'),
                         str(root / f'tests/device/{runner}.java')], check=True, timeout=30)
         subprocess.run([str(args.d8), '--min-api', '26', '--lib', str(args.android_jar), '--output', str(dex)] +
                        [str(path) for path in sorted(classes.rglob('*.class'))], check=True, timeout=30)

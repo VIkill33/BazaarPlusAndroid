@@ -28,7 +28,19 @@ public final class HistoryReadDevice {
                     records.put(row);
                 }
             }
-            System.out.println(new JSONObject().put("passed", true).put("readOnly", true).put("schema", db.getVersion()).put("records", records));
+            String target = new File(args[0]).getName();
+            HistoryReader reader = new HistoryReader(new File(args[0]), target, HistoryReader.Scope.launcher());
+            JSONObject browser = reader.read(new JSONObject().put("op", "runs"));
+            JSONObject output = new JSONObject().put("passed", true).put("readOnly", true).put("schema", db.getVersion())
+                .put("records", records).put("browserRuns", browser);
+            if (browser.optJSONArray("items") != null && browser.getJSONArray("items").length() > 0) {
+                String run = browser.getJSONArray("items").getJSONObject(0).getString("id");
+                JSONObject battles = reader.read(new JSONObject().put("op", "battles").put("runId", run));
+                output.put("browserBattles", battles);
+                if (battles.getJSONArray("items").length() > 0) output.put("browserBattle", reader.read(new JSONObject().put("op", "battle")
+                    .put("runId", run).put("battleId", battles.getJSONArray("items").getJSONObject(0).getString("id"))));
+            }
+            System.out.println(output);
         }
     }
 }
