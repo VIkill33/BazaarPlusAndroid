@@ -170,7 +170,7 @@ internal sealed class AndroidBuildBoard
         var detail = AndroidItemDescription.Build(tooltip);
         if (string.IsNullOrWhiteSpace(detail))
             detail = NativeUi.Text("No item description available.", "暂无物品描述。");
-        _onSelect($"<b>{tooltip.GetTitle()}</b>\n{detail}");
+        _onSelect($"<b>{NativeUi.TitleText(tooltip.GetTitle())}</b>\n{detail}");
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.card_selected template_id={request.Item.TemplateId}");
     }
 

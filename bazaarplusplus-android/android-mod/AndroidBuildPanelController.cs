@@ -301,7 +301,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         var template = Data.GetStatic()?.GetCardById(nativeId)?.TryCast<TCardBase>();
         var title = template?.Localization?.Title;
         return title == null ? template?.InternalName ?? id.ToString()
-            : TooltipExtensions.GetLocalizedText(title);
+            : NativeUi.TitleText(TooltipExtensions.GetLocalizedText(title));
     }
 
     private void UpdateCandidateButtons()

@@ -1443,3 +1443,10 @@ Reader 隔离分页／故障测试不替代这些 UI 或真实账号验收。
 参考桌面 panels 架构及 AndroidBuildPanelController.Refresh／SetOpen，移除首次刷新自动并入场上物品的逻辑；每次打开候选为空，刷新只剔除已不在场上／仓库／商店的选择。用户确认三个初始修复全部自测通过。本次 Redmi 22041216C／Android 14、官方游戏 1.0.12825、2460×1080 新会话 12 项加载校验通过，人工复核场上五种物品均未勾选、候选 0→1 及关闭重开归零。未购买、领奖或推进战斗，标准模式专项与其他屏幕比例未在本轮自动复测。
 
 Python 10 项、BuildCorpus／EnchantPolicy 及插件编译（零警告／零错误）通过。证据：忽略目录 artifacts/feedback-fixes/loaded/、build-default.png、build-selected.png、build-reopened.png；截图为人工复核。测试包含工作区原有启动链修改，不将本轮结果视作那些修改的全面验收。
+
+
+## 2026-10-25：推荐构筑附魔名称标签
+
+参考桌面 text 架构与 AndroidBuildBoard.Select／AndroidBuildPanelController.ResolveName，构筑文字标题经 NativeUi.TitleText 移除原生 TMP style 包装；名称文字及其余富文本保持原有内容，不在无对应样式表的 BPP 标签上输出游戏专用 style。范围覆盖推荐物品详情标题、推荐清单及候选名称。用户确认该修复自测通过；本次真机选中短柄斧后打开带 Obsidian 附魔的皮格健身房详情，日志记录 card_selected，截图保存在 artifacts/feedback-fixes/build-enchanted-title.png（附加预览遮住部分详情，不将此图单独视为完整文字视觉验收）。
+
+沿用本轮新构建编译、10 项 Python、BuildCorpus／EnchantPolicy 和 12 项新会话摘要校验；不修改桌面共享源码。其他语言与全部附魔名称未逐个复核。
