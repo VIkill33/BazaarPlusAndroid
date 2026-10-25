@@ -31,7 +31,7 @@
             <TextView style="@style/BppHelpTitle" android:text="长按预览" />
             <TextView style="@style/BppCaption" android:text="「长按预览」按钮按「附魔 → 升级 → 无」切换；选择「无」只保留物品原生详情。游戏设置中的「BPP：长按预览」也可直接选择。商店、事件与野怪可长按查看附加信息。" />
             <TextView style="@style/BppHelpTitle" android:text="双指按住预览 · 仅高级模式" />
-            <TextView style="@style/BppCaption" android:text="一指按住「按住预览」，另一指点物品、事件或野怪查看详情，松开退出。野怪面板会保留，可点卡图查看说明，点空白或 × 关闭；标准模式下此入口禁用。" />
+            <TextView style="@style/BppCaption" android:text="一指按住「按住预览」，另一指点物品、事件或野怪查看详情，松开退出。野怪面板会保留，可点卡图查看说明，点空白或 × 关闭；标准输入模式下此入口隐藏，仅高级模式显示。" />
             <TextView style="@style/BppHelpTitle" android:text="调整位置与收起" />
             <TextView style="@style/BppCaption" android:text="拖动原有的图鉴、长按预览或构筑按钮可移动整组并吸附屏幕边缘。游戏设置可开启「BPP：按钮自动收起」，闲置 5 秒收起，点 BPP 小条展开。「BPP：预览面板位置」可将物品附加预览靠左，后续预览即生效；启动器「设置」也可调整。" />
             <TextView style="@style/BppHelpHeading" android:text="切换本机客户端" />

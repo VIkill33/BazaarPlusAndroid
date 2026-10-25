@@ -1,4 +1,6 @@
 using Il2CppInterop.Runtime;
+using TheBazaar;
+using TheBazaar.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -29,6 +31,8 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private Rect _safe;
     private Vector2 _screen;
     private float _buttonHeight = 375;
+    private bool _advanced;
+    private readonly Dictionary<int, RectTransform> _entryRects = new();
 
     internal static bool AutoHide
     {
@@ -55,6 +59,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         rect.pivot = new Vector2(0, 1);
         rect.sizeDelta = new Vector2(270, 90);
         rect.anchoredPosition = new Vector2(0, -slot * 95);
+        dock._entryRects[slot] = rect;
         dock.Bind(button);
         dock.Layout();
     }
@@ -154,7 +159,8 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             _lastInteraction = Time.realtimeSinceStartup;
             Layout();
         }
-        if (_screen != new Vector2(Screen.width, Screen.height) || _safe != Screen.safeArea) Layout();
+        if (_screen != new Vector2(Screen.width, Screen.height) || _safe != Screen.safeArea
+            || _advanced != (PlayerPreferences.Data?.AlternativeInput == true)) Layout();
         if (visible && _autoHide && !_collapsed && !_pointer.HasValue && !AndroidHoldPreview.Active
             && Time.realtimeSinceStartup - _lastInteraction >= 5)
         {
@@ -183,7 +189,14 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     {
         _screen = new Vector2(Screen.width, Screen.height);
         _safe = Screen.safeArea;
-        _group!.sizeDelta = _collapsed ? CollapsedSize : new Vector2(270, _buttonHeight + (_autoHide ? 75 : 0));
+        _advanced = PlayerPreferences.Data?.AlternativeInput == true;
+        foreach (var entry in _entryRects)
+        {
+            var slot = !_advanced && entry.Key > 3 ? entry.Key - 1 : entry.Key;
+            entry.Value.anchoredPosition = new Vector2(0, -slot * 95);
+        }
+        var buttonHeight = _buttonHeight - (_advanced ? 0 : 95);
+        _group!.sizeDelta = _collapsed ? CollapsedSize : new Vector2(270, buttonHeight + (_autoHide ? 75 : 0));
         _buttons!.gameObject.SetActive(!_collapsed);
         _handle!.gameObject.SetActive(_collapsed || _autoHide);
         var handle = _handle.GetComponent<RectTransform>();
