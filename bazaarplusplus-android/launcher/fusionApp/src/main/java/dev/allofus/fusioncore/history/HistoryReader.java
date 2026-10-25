@@ -50,7 +50,7 @@ public final class HistoryReader {
         if (Looper.getMainLooper() != null && Looper.myLooper() == Looper.getMainLooper())
             throw new IllegalStateException("History I/O must run off the UI thread");
         String operation = request.getString("op");
-        if (!Arrays.asList("runs", "run", "battles", "battle").contains(operation))
+        if (!Arrays.asList("runs", "run", "battles", "battle", "artwork").contains(operation))
             throw new IllegalArgumentException("Unknown history read operation");
         if (!file.isFile()) return new JSONObject().put("state", "missing").put("items", new JSONArray());
         try (SQLiteDatabase db = SQLiteDatabase.openDatabase(file.getPath(), null,
@@ -62,11 +62,38 @@ public final class HistoryReader {
                 if (!metadata.moveToFirst() || !target.equals(metadata.getString(0)))
                     throw new IOException("历史目录与目标游戏不匹配");
             }
+            if (operation.equals("artwork")) return artwork(db, request);
             if (operation.equals("runs")) return runs(db, request);
             if (operation.equals("run")) return run(db, request);
             if (operation.equals("battles")) return battles(db, request);
             return battle(db, request);
         }
+    }
+
+    // Background artwork backfill uses the same host-owned account scope as all game reads.
+    // Parse a bounded page in Java; do not depend on SQLite JSON extensions on older Android.
+    private JSONObject artwork(SQLiteDatabase db, JSONObject request) throws Exception {
+        List<String> args = arguments();
+        args.add(Long.toString(request.has("afterRow") ? nonnegative(request, "afterRow") : 0));
+        JSONArray ids = new JSONArray();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        long last = 0; int count = 0;
+        try (Cursor rows = query(db, "SELECT x.rowid,x.payload" + RUN_FROM
+                + " JOIN battles b ON b.run_id=r.id JOIN battle_snapshots x ON x.battle_id=b.id WHERE "
+                + scope.clause + " AND b.kind='pvp' AND x.rowid>? ORDER BY x.rowid LIMIT " + PAGE_SIZE, args)) {
+            while (rows.moveToNext()) {
+                last = rows.getLong(0); count++;
+                JSONArray cards = new JSONObject(rows.getString(1)).optJSONArray("cards");
+                if (cards == null) continue;
+                for (int i = 0; i < cards.length(); i++) {
+                    JSONObject card = cards.optJSONObject(i);
+                    String id = card == null ? "" : card.optString("templateId");
+                    try { id = uuid(id); } catch (IllegalArgumentException invalid) { continue; }
+                    if (seen.add(id)) ids.put(id);
+                }
+            }
+        }
+        return state("ok").put("items", ids).put("afterRow", last).put("hasMore", count == PAGE_SIZE);
     }
 
     private JSONObject runs(SQLiteDatabase db, JSONObject request) throws Exception {

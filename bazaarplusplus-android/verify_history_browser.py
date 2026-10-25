@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--serial', required=True)
     parser.add_argument('--inspection', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--expect-artwork', action='store_true', help='Require cached hero and selected card images to decode and bind')
     args = parser.parse_args()
     expected = json.loads(args.inspection.read_text())['summary']
     run = expected['browserRuns']['items'][0]
@@ -68,7 +69,7 @@ def main():
             shell('input', 'tap', x, y)
 
     def row(items, needle):
-        return next((item for item in items if item.get('resource-id') == 'android:id/text1' and needle in item.get('text', '') and 'bounds' in item), None)
+        return next((item for item in items if (item.get('resource-id') == 'android:id/text1' and needle in item.get('text', '') or needle in item.get('content-desc', '')) and 'bounds' in item), None)
 
     def scroll(items):
         container = next(item for item in items if item.get('class') == 'android.widget.ListView' and 'bounds' in item)
@@ -98,6 +99,8 @@ def main():
     try:
         items = layout()
         check('对局历史' in texts(items), 'history list is open')
+        if args.expect_artwork:
+            check(any(item.get('content-desc', '').startswith('hero-') and '图片已加载' in item.get('content-desc', '') for item in items), 'cached hero artwork is decoded and bound in the run list')
         tap(find(run['hero']))
         items = layout()
         check('本局 PvP 交手记录' in texts(items) and f"{run['battleCount']} 场已存 PvP 交手" in texts(items), 'run identity and persisted battle count match the database')
@@ -111,7 +114,10 @@ def main():
         if cards:
             card = cards[0]
             tap(find(card['name']))
-            body = texts(layout())
+            detail_layout = layout()
+            body = texts(detail_layout)
+            if args.expect_artwork:
+                check(any(item.get('content-desc') == 'card-' + card['templateId'] + ' · 图片已加载' for item in detail_layout), 'selected saved card artwork is decoded and bound in the detail dialog')
             check(all(str(card[key]) in body for key in ['name', 'instanceId', 'templateId', 'tier', 'size', 'type']), 'card details preserve identity, quality, size and type')
             check(all(f'{key}：{value}' in body for key, value in card['attributes'].items()), 'every saved instance attribute matches the database')
             screenshot('card-fields')
@@ -157,6 +163,26 @@ def main():
         shell('input', 'keyevent', '4')
         shell('input', 'keyevent', '4')
         check('对局历史' in texts(layout()), 'back restores the run list')
+        def tap_text(label):
+            tap(next(item for item in layout() if item.get('text') == label and 'bounds' in item))
+        all_heroes = ['Vanessa', 'Pygmalien', 'Dooley', 'Mak', 'Stelle', 'Jules', 'Karnok', 'TheDragons']
+        saved_heroes = {item['hero'] for item in expected['browserRuns']['items']}
+        absent = next((hero for hero in all_heroes if hero not in saved_heroes), None) if not expected['browserRuns']['hasMore'] else None
+        if absent:
+            tap_text('全部英雄')
+            tap_text(absent)
+            check('此页没有记录。' in texts(layout()), 'hero filter shows an explicit empty result without unrelated runs')
+            tap_text('英雄：' + absent)
+        else:
+            tap_text('全部英雄')
+        tap_text(run['hero'])
+        check(f"{run['battleCount']} 场已存 PvP 交手" in texts(layout()), 'hero filter reloads matching run summaries')
+        tap(find(run['hero']))
+        shell('input', 'keyevent', '4')
+        check('英雄：' + run['hero'] in texts(layout()), 'return from run detail preserves the selected hero filter')
+        tap_text('英雄：' + run['hero'])
+        tap_text('全部英雄')
+        check('全部英雄' in texts(layout()), 'all-heroes filter is restored after verification')
     finally:
         for key, value in original.items():
             shell('settings', 'delete' if value == 'null' else 'put', 'system', key, *([] if value == 'null' else [value]))

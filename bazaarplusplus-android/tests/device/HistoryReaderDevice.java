@@ -117,6 +117,29 @@ public final class HistoryReaderDevice {
                 check("not_found".equals(new HistoryReader(root, "test.history.target", HistoryReader.Scope.account(other)).read(detailRequest).getString("state")),
                     "direct snapshot lookup cannot bypass scope");
                 check("not_found".equals(own.read(new JSONObject(detailRequest.toString()).put("runId", id())).getString("state")), "battle must belong to selected run");
+                String artId = id();
+                fixture.execSQL("UPDATE battle_snapshots SET payload=? WHERE battle_id=? AND group_name='playerHand'",
+                    new Object[] {new JSONObject().put("status","captured").put("cards",new JSONArray()
+                        .put(new JSONObject().put("templateId",artId)).put(new JSONObject().put("templateId",artId))
+                        .put(new JSONObject().put("templateId","invalid"))).toString(), selected});
+                Set<String> artIds = new HashSet<>(); long artAfter = 0; int artPages = 0;
+                do {
+                    JSONObject art = own.read(request("artwork").put("afterRow",artAfter)); artPages++;
+                    JSONArray values = art.getJSONArray("items");
+                    for (int i=0;i<values.length();i++) artIds.add(values.getString(i));
+                    if (!art.getBoolean("hasMore")) break;
+                    check(art.getLong("afterRow") > artAfter, "artwork continuation advances monotonically");
+                    artAfter = art.getLong("afterRow");
+                } while (true);
+                check(artPages > 1 && artIds.size()==1 && artIds.contains(artId), "artwork backfill paginates, deduplicates and skips invalid templates");
+                check(new HistoryReader(root,"test.history.target",HistoryReader.Scope.account(other)).read(request("artwork")).getJSONArray("items").length()==0,
+                    "artwork backfill cannot read another account's snapshots");
+                check("state-pending".equals(HistoryPresentation.trophy(new JSONObject().put("status","active").put("victories",10).put("losses",0)))
+                    && "state-pending".equals(HistoryPresentation.trophy(new JSONObject().put("status","completed"))), "unknown and unfinished progress cannot award trophies");
+                check("Trophy_Diamond_TUI".equals(HistoryPresentation.trophy(new JSONObject().put("status","completed").put("victories",10).put("losses",0)))
+                    && "state-broken".equals(HistoryPresentation.trophy(new JSONObject().put("status","completed").put("victories",3).put("losses",4))), "reliable final progress awards diamond and broken cup consistently with the game panel");
+                check(HistoryPresentation.slot("Socket_0",9)==0 && HistoryPresentation.slot("OpponentSocket_12",0)==12
+                    && HistoryPresentation.slot("invalid",3)==3, "formation slots retain zero-based positions and safe fallbacks");
                 fixture.beginTransaction();
                 try {
                     fixture.execSQL("UPDATE battles SET outcome='win' WHERE id=?", new Object[] {selected});

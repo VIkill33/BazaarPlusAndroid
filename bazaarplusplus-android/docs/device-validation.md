@@ -1,5 +1,39 @@
 # Android 真机验证
 
+## 启动器历史 UI 与本机卡图缓存（2026-10-26，test.14）
+
+参考 `android-mod/History/AndroidHistoryPanel`、`HistoryViewText`、`AndroidHistoryFormation`、
+桌面历史页面与采集契约，启动器改为英雄头像、胜场／奖杯和 PvP 对手列表；
+战斗详情保留物品槽位、体型占格及技能分组，横屏并列、竖屏上下排列，点击／长按查看图片和完整保存字段。
+游戏进程通过 `AndroidHistoryArtwork` 回填当前账号范围内的模板插画，启动器仅异步读取本机缓存。
+独立只读评审发现的暂停超时、失败重试、初始化恢复和 Sprite 图集裁切问题已修复。
+首轮真机截图发现物品材质 alpha 是着色器遮罩，直接导出 RGBA 会隐藏卡牌主体；
+最终卡图改为 RGB24，头像／奖杯保留 RGBA，并以 v2 缓存隔离旧试验图。
+
+本次设备为 `OBJVWSPNSCFQU48L`、22041216C、Android 14，正版游戏
+`1.0.12825-production-android-d9601ded`。测试前停在启动器帮助页，有两条皮格历史记录。
+按导出 skill 使用 JDK 24 和持久签名构建、覆盖安装 test.14；签名 `Verifies`、v2 为 true，
+证书为 `CN=BazaarPlusPlus Android Test`。最终 APK SHA-256：
+`db3833e76ba32ebb6dbe2371934770cae4295321c6642f1cc082d344af506762`。
+本次 `verify_launcher.py --expect-loaded` 的新会话、内置／部署 DLL 摘要及加载确认共 12 项通过，
+游戏停在主菜单，没有继续、购买、选择事件、推进战斗或新开对局。图片缓存完成后关闭游戏进程，重开启动器验证离线读取。
+
+实际检查结果：
+
+- 插件构建零警告／零错误；Python unittest 12 项、HistoryBrowse 展示规则 26 项通过。
+- `verify_history_store.py --reader` 在随机隔离目录通过 32 项，包括图片 ID 分页、去重、非法模板跳过、账号隔离及奖杯边界；不修改用户历史。
+- `verify_history_artwork.py` 按只读历史检查结果核对 112 张 PNG，覆盖物品、技能、英雄、奖杯和状态图标；来源版本哈希、尺寸和 RGB／RGBA 格式均通过。
+- 最终包 `verify_history_browser.py --expect-artwork` 21 项通过：英雄与卡图实际解码绑定、整局／交手身份、全部保存字段及属性、点击／长按、四组阵容滚动到底、返回锚点、横竖屏重建、空英雄筛选、匹配筛选及详情返回保留条件；结束恢复全部英雄和原屏幕旋转设置。
+- 人工复核最终列表、横竖屏阵容和短柄斧详情截图，英雄、裂杯／待确认图标和卡牌主体均可见，物品体型及槽位留白保持。PNG 和无障碍断言不冒充自动视觉识别。
+- 当前会话无图片加载异常、无新增原生崩溃；原框架启动钩子的既有诊断不作为本功能修复范围。
+
+证据在忽略目录 `artifacts/history-art/`：`loading/verification.json`、`reader`、
+`cache.json`、`final-browser/passed.json` 及截图、`game.log`、`crash.log`。
+重复入口为上述脚本的 `--help`；缓存校验需提供已确认的目标游戏目录及只读 inspection。
+启动器操作不依赖游戏标准／高级输入设置，本轮没有额外回归游戏内双输入模式。
+第二账号／设备、下架模板缺图、磁盘失败重试和大量历史的低内存专项仍待真机验证；
+首次升级及游戏版本变化后需进入游戏等待图片回填，当前模板插画仅供参考。
+
 ## Github 按钮正式应用身份验收（2026-10-24，test.13）
 
 在 `feat/android-launcher-github` 分支将启动器版本升至 `0.1.0-test.13`（code 13），

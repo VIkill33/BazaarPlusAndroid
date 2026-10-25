@@ -27,6 +27,7 @@ public sealed class Plugin : BasePlugin
         AddComponent<AndroidTooltipObserver>();
         AddComponent<AndroidBuildPanelController>();
         AddComponent<AndroidHistoryPanel>();
+        AddComponent<AndroidHistoryArtwork>();
         BuildRepository = new AndroidBuildRepository(
             new HttpClient { Timeout = TimeSpan.FromSeconds(10) },
             Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.Android", "builds.json"),
