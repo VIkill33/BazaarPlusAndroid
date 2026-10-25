@@ -168,7 +168,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _entry = NativeUi.Button(_canvas.transform, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"),
             new Vector2(0, .5f), new Vector2(0, .5f), () => SetOpen(true),
             new Vector2(30, -45), new Vector2(300, 45));
-        AndroidFloatingDock.Register(_entry, font, 0);
+        AndroidFloatingDock.Register(_entry, font, 0, AndroidDockIcon.Collection, () => NativeUi.Text("Cards", "图鉴"),
+            () => NativeUi.Text("Card Collection", "卡牌图鉴"));
         _panel = NativeUi.Rect("BPP.Collection", _canvas.transform, Vector2.zero, Vector2.one);
         var background = _panel.gameObject.AddComponent<Image>();
         background.color = new Color(.025f, .04f, .065f, .995f);

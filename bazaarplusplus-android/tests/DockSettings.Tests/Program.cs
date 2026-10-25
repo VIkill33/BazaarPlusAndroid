@@ -7,6 +7,13 @@ if (AndroidDockSettings.Parse("{\"schema\":1,\"autoHide\":true,\"edge\":3,\"alon
     throw new Exception("Valid settings rejected");
 if (AndroidDockSettings.Parse("{\"schema\":1,\"autoHide\":\"true\",\"edge\":9,\"along\":-1}") != new AndroidDockPreferences())
     throw new Exception("Invalid values accepted");
+if (AndroidDockSettings.Parse("{\"schema\":1,\"showHistory\":false}") != new AndroidDockPreferences(ShowHistory: false)
+    || AndroidDockSettings.Parse("{\"schema\":1,\"showHistory\":\"false\"}") != new AndroidDockPreferences())
+    throw new Exception("History visibility parsed incorrectly");
+if (AndroidDockSettings.Parse("{\"schema\":1,\"textButtons\":true}") != new AndroidDockPreferences(TextButtons: true)
+    || AndroidDockSettings.Parse("{\"schema\":1,\"textButtons\":1}") != new AndroidDockPreferences())
+    throw new Exception("Button style parsed incorrectly");
+saved = saved with { ShowHistory = false, TextButtons = true };
 var path = Path.Combine(BepInEx.Paths.ConfigPath, "BazaarPlusPlus.Android", "dock.json");
 try
 {

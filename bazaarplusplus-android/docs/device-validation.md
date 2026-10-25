@@ -1569,3 +1569,19 @@ v2 签名及内置最新插件摘要核对通过。本包含工作区已有启�
 `AndroidHoldPreview.Build`／`Update` 按当前输入模式隐藏或显示入口，标准输入模式不再显示禁用按钮；`AndroidFloatingDock.Layout` 同步收紧排列及高度，历史入口上移，切回高级模式恢复。参考现有输入／预览架构和按钮组实现，未改共享桌面预览规则。
 
 按用户要求跳过编译、离线测试、部署与真机验证。本次没有设备操作或新增验收证据，既往标准模式禁用状态的验证不代表本次隐藏行为通过。待验证：标准模式入口不可见、高级模式恢复、运行时切换、历史入口排列及自动收起／拖动吸边。
+
+
+## 2026-10-26：图标入口、按钮样式与历史入口开关（用户真机确认通过）
+
+`AndroidFloatingDock` 的入口改为 115×115 图标按钮（参考 1080 屏高），按当前可见入口重排、不留空位；
+`AndroidDockIcons` 读取嵌入的图标 PNG。长按模式按钮恢复，图标与文字随附魔／升级／无切换，
+游戏设置中修改长按预览时同步。`AndroidNativeSettings` 新增「BPP：按钮样式」（图标／纯文字旧版 270×90）
+和「BPP：对局历史按钮」（显示／隐藏），`AndroidDockSettings` 以可选字段保存，旧文件默认图标样式并显示历史。
+图标来源与 CC BY 3.0 署名见 `assets/dock-icons/SOURCE.md`，`build_launcher.py` 将署名写入启动器许可页 `NOTICE.txt`。
+
+插件经 `build_probe.py --mod` 编译零警告、零错误；DockSettings（含新字段解析与保存）、HoldPreview、
+LongPressSettings 测试通过。签名 APK `0.1.0-test.14` 的 `apksigner` 校验通过（v2，`CN=BazaarPlusPlus Android Test`），
+内置插件摘要与构建一致，`NOTICE.txt` 含图标署名；覆盖安装至 Redmi 22041216C（`OBJVWSPNSCFQU48L`）返回 Success，
+最终 APK SHA-256 为 `dc1f19c0cfafd3204d06e5b5be9ff3aa67ba1270608c804bef81fcac199e77a8`。
+代理未启动游戏或执行界面断言，`verify_floating_dock.py` 仅同步了新尺寸、未在本次运行。
+用户在设备上查看后确认通过；未逐项报告的标准／高级模式、四边吸附、自动收起、纯文字样式与历史隐藏组合不扩大为全部覆盖。

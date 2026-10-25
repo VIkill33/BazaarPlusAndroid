@@ -41,7 +41,7 @@ def rectangles(image):
         box = (min(xs), min(ys), max(xs) + 1, max(ys) + 1)
         scale = height / 1080
         w, h = (box[2] - box[0]) / scale, (box[3] - box[1]) / scale
-        if any(abs(w - ew) < 3 and abs(h - eh) < 3 for ew, eh in ((60, 132), (270, 90), (270, 70))):
+        if any(abs(w - ew) < 3 and abs(h - eh) < 3 for ew, eh in ((72, 158), (115, 115), (115, 58))):
             found.append(box)
     return sorted(found, key=lambda box: box[1])
 

@@ -73,7 +73,8 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
             var scene = SceneManager.GetActiveScene().handle;
             if (_open && (_scope != ScopeKey || Combat || (_scene != -1 && _scene != scene))) SetOpen(false);
             _scene = scene;
-            if (_entry != null) _entry.gameObject.SetActive(!_open && !Combat && !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen);
+            if (_entry != null) _entry.gameObject.SetActive(!_open && !Combat && !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen
+                && AndroidDockSettings.Current.ShowHistory);
             if (_entry != null) _entry.interactable = Scope != null;
             if (!_open) return;
             if (Keyboard.current?.escapeKey.wasPressedThisFrame == true) Back();
@@ -107,7 +108,8 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         scaler.referenceResolution = new Vector2(1920, 1080); scaler.matchWidthOrHeight = 1;
         _canvas.AddComponent<GraphicRaycaster>();
         _entry = Button(_canvas.transform, "对局历史", Vector2.zero, Vector2.zero, () => SetOpen(true));
-        AndroidFloatingDock.Register(_entry, font, 4);
+        AndroidFloatingDock.Register(_entry, font, 4, AndroidDockIcon.History, () => NativeUi.Text("History", "历史"),
+            () => NativeUi.Text("History", "对局历史"));
         _panel = NativeUi.Rect("BPP.History", _canvas.transform, Vector2.zero, Vector2.one);
         _panel.gameObject.AddComponent<Image>().color = new Color(.106f, .071f, .078f, 1);
         Button(_panel, "返回", new(.02f,.91f), new(.12f,.98f), Back);

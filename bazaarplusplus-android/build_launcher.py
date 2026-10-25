@@ -136,6 +136,10 @@ def prepare(root, upstream, plugin_dir, dependency_dir=None):
     (asset_dir / "NOTICE.txt").write_text(
         "BazaarPlusPlus Android launcher\nBazaarPlusPlus: MIT (see BPP-LICENSE.txt).\n"
         "FusionCore: GPL-3.0, copyright its contributors (see FusionCore-LICENSE.txt).\n"
+        "In-game dock icons made by Lorc (\"Anvil impact\", \"Tied scroll\", \"Magnifying glass\") "
+        "and Skoll (\"Sight disabled\"), from https://game-icons.net, "
+        "CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/); "
+        "recoloured and outlined, see bazaarplusplus-android/assets/dock-icons/SOURCE.md.\n"
         "Corresponding launcher source and build inputs: bazaarplusplus-android/launcher and build_launcher.py "
         "in https://github.com/VIkill33/BazaarPlusPlusForAndroid (supply the exact source archive with any test distribution).\n"
         "BepInEx/.NET/Dobby and bundled components retain their own licenses. "

@@ -30,6 +30,7 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
     private int? _holderTouchId;
     internal static int Revision { get; private set; }
     internal static bool Active => _instance?._gesture.Active == true;
+    internal Button? Button => _button;
 
     internal static bool SuppressRetired(CardTooltipData data) =>
         _instance != null && !Active && _instance._ownedData?.Pointer == data.Pointer;
@@ -40,10 +41,6 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
         _button = NativeUi.Button(parent, font,
             () => NativeUi.Text("Hold to preview", "按住预览"),
             Vector2.zero, Vector2.zero, () => { });
-        var rect = _button.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
-        rect.sizeDelta = new Vector2(270, 90);
-        rect.anchoredPosition = new Vector2(0, -285);
         _button.gameObject.SetActive(PlayerPreferences.Data?.AlternativeInput == true);
         Bind(_button.gameObject, EventTriggerType.PointerDown, data =>
         {
