@@ -40,7 +40,6 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private readonly HashSet<Guid> _selectedCandidates = new();
     private CandidateSource _source;
     private int _candidatePage;
-    private bool _selectionInitialized;
     private bool _open;
     private int _scene = -1;
     private float _nextRefresh;
@@ -232,12 +231,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 if (shop.Add(id)) _shopCandidates.Add((id, ResolveName(id)));
             }
         }
-        if (!_selectionInitialized)
-        {
-            _selectedCandidates.UnionWith(board);
-            _selectionInitialized = true;
-        }
-        else _selectedCandidates.IntersectWith(board.Concat(stash).Concat(shop));
+        _selectedCandidates.IntersectWith(board.Concat(stash).Concat(shop));
         UpdateCandidateButtons();
         var hero = player.Hero.ToString();
         var liveState = BuildLiveState.From(board, stash, shop);
@@ -439,7 +433,6 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         {
             _nextRefresh = 0;
             _lastDescription = null;
-            _selectionInitialized = false;
             _selectedCandidates.Clear();
             _itemDetail = null;
             _source = CandidateSource.Board;

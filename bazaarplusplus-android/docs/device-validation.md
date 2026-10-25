@@ -1436,3 +1436,10 @@ Reader 隔离分页／故障测试不替代这些 UI 或真实账号验收。
 证据均在忽略的 `artifacts/history-m1/`：`pvp-store.json`、`pvp-reader.json`、`pvp-browser-ui/`、`pvp-browser-integrity.json`、`pvp-last-loaded/`、`pvp-last-runs.png`、`pvp-last-battles.png`、`pvp-last-formation.png`、`pvp-last-bottom.png`、`pvp-last-standard-detail.png` 及输入模式相关截图。早期隔离存储测试因 fixture 名称断言仍使用旧“中文怪物”而失败，修正为 PvP fixture 名称后全套 40 项通过，不把首轮失败记为通过。
 
 边界：没有为本轮测试推进实际战斗；新版本实战对手名称、野怪跳过后连续 PvP 采集到正常结算仍待验证。旧记录缺失结果、缺名和部分阵容不会补造；原生描述依赖当前游戏模板。真实多账号／多设备、排位实战、备份交换和进一步异常恢复专项仍未完成。本地修改区分已验证的浏览／布局与待验证的新实战采集，不标记完整历史功能全部验收。
+
+
+## 2026-10-25：构筑候选默认不选
+
+参考桌面 panels 架构及 AndroidBuildPanelController.Refresh／SetOpen，移除首次刷新自动并入场上物品的逻辑；每次打开候选为空，刷新只剔除已不在场上／仓库／商店的选择。用户确认三个初始修复全部自测通过。本次 Redmi 22041216C／Android 14、官方游戏 1.0.12825、2460×1080 新会话 12 项加载校验通过，人工复核场上五种物品均未勾选、候选 0→1 及关闭重开归零。未购买、领奖或推进战斗，标准模式专项与其他屏幕比例未在本轮自动复测。
+
+Python 10 项、BuildCorpus／EnchantPolicy 及插件编译（零警告／零错误）通过。证据：忽略目录 artifacts/feedback-fixes/loaded/、build-default.png、build-selected.png、build-reopened.png；截图为人工复核。测试包含工作区原有启动链修改，不将本轮结果视作那些修改的全面验收。
