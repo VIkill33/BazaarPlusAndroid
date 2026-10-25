@@ -48,8 +48,8 @@ public final class HistoryReaderDevice {
             try (SQLiteDatabase fixture = SQLiteDatabase.openDatabase(database(root).getPath(), null, SQLiteDatabase.OPEN_READWRITE, HistoryStore.PRESERVE_CORRUPTION)) {
                 for (int i = 1; i <= 43; i++) {
                     String battle = id();
-                    fixture.execSQL("INSERT INTO battles(id,run_id,export_id,window_id,sequence,source_session,epoch,kind,day,hour,opened_at,opening_json,partial_opening) VALUES(?,?,?,?,?,?,0,'pve',1,3,2000,?,0)",
-                        new Object[] {battle, first, id(), id(), i, session, new JSONObject().put("opponentHero", "中文🐸").toString()});
+                    fixture.execSQL("INSERT INTO battles(id,run_id,export_id,window_id,sequence,source_session,epoch,kind,day,hour,opened_at,opening_json,partial_opening) VALUES(?,?,?,?,?,?,0,'pvp',1,3,2000,?,0)",
+                        new Object[] {battle, first, id(), id(), i, session, new JSONObject().put("opponentHero", "中文🐸").put("opponentName", "对手🐸").toString()});
                     for (String group : new String[] {"playerHand", "playerSkills", "opponentHand", "opponentSkills"}) {
                         String status = group.equals("opponentHand") ? "partial" : group.equals("opponentSkills") ? "failed" : "captured";
                         JSONObject payload = new JSONObject().put("status", status).put("cards", new JSONArray());
@@ -57,6 +57,13 @@ public final class HistoryReaderDevice {
                         fixture.execSQL("INSERT INTO battle_snapshots VALUES(?,?,?,?)", new Object[] {battle, group, status, payload.toString()});
                     }
                 }
+                String monster = id();
+                fixture.execSQL("INSERT INTO battles(id,run_id,export_id,window_id,sequence,source_session,epoch,kind,day,hour,opened_at,opening_json,partial_opening) VALUES(?,?,?,?,?,?,0,'pve',1,3,2000,'{}',0)",
+                    new Object[] {monster, first, id(), id(), 44, session});
+                check(all.read(request("run").put("runId", first)).getJSONObject("run").getInt("battleCount") == 43,
+                    "run summary counts PvP only despite legacy PvE rows");
+                check("not_found".equals(all.read(request("battle").put("runId", first).put("battleId", monster)).getString("state")),
+                    "legacy PvE cannot be opened by direct battle ID");
                 JSONObject page = all.read(request("runs"));
                 check(page.getJSONArray("items").length() == 20 && page.getBoolean("hasMore"), "default page contains twenty summaries");
                 Set<String> ids = new HashSet<>(); String previous = null;
@@ -86,6 +93,7 @@ public final class HistoryReaderDevice {
                 check("not_found".equals(new HistoryReader(root, "test.history.target", HistoryReader.Scope.account(other))
                     .read(request("run").put("runId", first)).getString("state")), "direct run lookup enforces account scope");
                 page = own.read(request("battles").put("runId", first));
+                check("对手🐸".equals(page.getJSONArray("items").getJSONObject(0).getString("opponentName")), "opponent name survives list projection");
                 String selected = page.getJSONArray("items").getJSONObject(0).getString("id");
                 int expected = 1;
                 while (true) {

@@ -81,7 +81,7 @@ internal sealed class AndroidHistoryFormation
         var version = HistoryViewText.Value(opening,"gameVersion");
         Text(HistoryViewText.Battle(battle) + $"\n保存版本：{version}" + (version != Application.version ? " · 与当前版本不同，卡面仅供参考" : " · 原生卡面仅供参考"),0,1,0,110);
         Text("我方：" + HistoryViewText.Value(opening,"playerHero"),0,.5f,110,42,27);
-        Text("对方：" + (HistoryViewText.Value(battle,"kind") == "pve" ? "野怪（名称未记录）" : HistoryViewText.Value(opening,"opponentHero")),.5f,1,110,42,27);
+        Text("对方：" + HistoryViewText.Value(opening,"opponentHero"),.5f,1,110,42,27);
         var snapshots = battle.GetProperty("snapshots");
         var left = Group(snapshots.GetProperty("playerHand"),"物品",0,.5f,152,false);
         left = Group(snapshots.GetProperty("playerSkills"),"技能",0,.5f,left,true);
@@ -99,7 +99,7 @@ internal sealed class AndroidHistoryFormation
         {
             var size = skills ? 1 : HistoryViewText.Value(card,"size") switch { "Medium" => 2, "Large" => 3, _ => 1 };
             var socket = HistoryViewText.Value(card,"socket");
-            var slot = !skills && int.TryParse(socket[(socket.LastIndexOf('_') + 1)..],out var stored) && stored > 0 ? Math.Min(127,stored - 1) : next;
+            var slot = skills ? next : HistoryFormationLayout.ItemSlot(socket,next);
             var row = slot / columns; var column = slot % columns;
             var x = left + (right-left) * column / columns; var end = left + (right-left) * Math.Min(columns,column+size) / columns;
             var box = Area("SavedCard",x,end,top + row * height,height - 8);
@@ -187,6 +187,12 @@ internal sealed class AndroidHistoryFormation
                     request.Ready = true; request.FitAttempts = 4; request.Placeholder.text = "";
                 }
                 if (request.Ready && request.FitAttempts-- > 0) Fit(request);
+                // Native card materials do not support RectMask2D. Keep the whole preview
+                // inside the scrolling viewport; the saved name and touch target stay masked.
+                if (request.Ready && request.NativeRoot != null)
+                    request.NativeRoot.SetActive(request.Top >= visibleTop
+                        && request.Top + request.Height - 8 <= visibleTop + _viewport.rect.height);
+
                 if (!request.Started && !started && request.Top + request.Height >= visibleTop && request.Top <= visibleTop + _viewport.rect.height)
                 { started = true; Start(request); }
             }

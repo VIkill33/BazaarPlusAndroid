@@ -20,17 +20,19 @@ internal static class HistoryViewText
         var missingFinal = Value(row, "reason") == "final_progress_unavailable";
         return $"{Value(row, "hero")} · {Mode(Value(row, "playMode"))} · {status}"
             + $"\n{Date(row, "startedAt")} · {(missingFinal ? "最后观察 " : "")}第 {Number(row, "day")} 天 · {Number(row, "victories")} 胜 / {Number(row, "losses")} 负"
-            + $" · {Number(row, "battleCount")} 场记录"
+            + $" · {Number(row, "battleCount")} 场 PvP 记录"
             + (Number(row, "startDay") > 1 ? $" · 从第 {Number(row, "startDay")} 天开始记录" : "")
             + (missingFinal ? " · 最终进度未记录" : "");
     }
     internal static string Battle(JsonElement row)
     {
         var opponent = row.TryGetProperty("opening", out var opening) ? Value(opening, "opponentHero") : Value(row, "opponentHero");
-        var kind = Value(row, "kind");
+        var metadata = row.TryGetProperty("opening", out var details) ? details : row;
+        var name = Value(metadata, "opponentName");
+        if (name == "未记录" || string.IsNullOrWhiteSpace(name)) name = "玩家名称未记录";
         var outcome = Value(row, "outcome") switch { "win" => "胜", "loss" => "负", "draw" => "平", _ => "结果未记录" };
-        return $"第 {Number(row, "day")} 天 {Number(row, "hour")} 时 · #{Number(row, "sequence")} · {kind.ToUpperInvariant()} · {outcome}"
-            + $"\n对手：{(kind == "pve" ? "野怪（名称未记录）" : opponent)}"
+        return $"第 {Number(row, "day")} 天 {Number(row, "hour")} 时 · #{Number(row, "sequence")} · PvP · {outcome}"
+            + $"\n对手：{name} · {opponent}"
             + (Number(row, "partialOpening") != 0 ? " · 开局信息不完整" : "");
     }
     internal static string Group(JsonElement group)
@@ -58,7 +60,7 @@ internal static class HistoryViewText
                 "name" => "名称", "instanceId" => "已存实例 ID", "templateId" => "模板 ID", "tier" => "品质",
                 "enchantment" => "附魔", "size" => "体型", "type" => "类型", "socket" => "位置", "section" => "所在区域",
                 "attributes" => "已保存实例属性", "tags" => "标签", "playerHero" => "我方英雄", "opponentHero" => "对方英雄",
-                "monsterTemplateId" => "野怪模板 ID", "gameVersion" => "采集时游戏版本", "pluginVersion" => "采集时插件版本", _ => property.Name,
+                "opponentName" => "对手名称", "gameVersion" => "采集时游戏版本", "pluginVersion" => "采集时插件版本", _ => property.Name,
             };
             text.Append(label).Append('：');
             if (property.Value.ValueKind == JsonValueKind.Object) text.Append('\n').Append(Fields(property.Value));

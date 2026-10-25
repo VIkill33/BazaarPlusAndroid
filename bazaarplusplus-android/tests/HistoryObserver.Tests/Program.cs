@@ -9,9 +9,11 @@ var observer=new AndroidRunObserver(IntPtr.Zero);
 observer.Update();
 var initial=Take("observeRun"); Bound(initial,local); await Pump();
 var checkpoint=Take("observeRun"); Bound(checkpoint,local); await Pump();
-var first=observer.Begin("message",HistoryPhase.Combat,new {},new {},1,3) ?? throw new Exception("Opening missing");
+Expect(observer.Begin("monster",HistoryPhase.Combat,new {},new {},1,3)==null
+    && AndroidHistoryBridge.Calls.Count==0,"PvE never submits snapshots or quarantine diagnostics");
+var first=observer.Begin("message",HistoryPhase.PvpCombat,new {},new {},1,3) ?? throw new Exception("Opening missing");
 var opening=Take("beginBattle");
-var duplicate=observer.Begin("message",HistoryPhase.Combat,new {},new {},1,3);
+var duplicate=observer.Begin("message",HistoryPhase.PvpCombat,new {},new {},1,3);
 Expect(ReferenceEquals(first,duplicate),"Duplicate original must track its successful retry task using the original ticket");
 opening.Completion.SetResult(JsonSerializer.SerializeToElement(new {state="recorded"})); await Pump();
 // Finish during the 0.5s poll interval after a native account/run switch.
@@ -27,7 +29,7 @@ initial=Take("observeRun"); Bound(initial,local); await Pump();
 checkpoint=Take("observeRun");
 AppState.CurrentState=new State("CombatState"); observer.Observe();
 var combatObservation=Take("observeRun");
-first=observer.Begin("retry-message",HistoryPhase.Combat,new {value="original"},new {},1,3) ?? throw new Exception("Retry opening missing");
+first=observer.Begin("retry-message",HistoryPhase.PvpCombat,new {value="original"},new {},1,3) ?? throw new Exception("Retry opening missing");
 opening=Take("beginBattle"); var window=opening.Request.GetProperty("windowId").GetString();
 // Deliberately deliver dependent failures before the original prerequisite failure.
 opening.Completion.SetException(new IOException("dependency blocked")); await Pump();

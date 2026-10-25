@@ -32,7 +32,7 @@ internal static class AndroidBattleCapture
         var opening = new
         {
             playerHero = run?.Player?.Hero.ToString(), opponentHero = run?.Opponent?.Hero.ToString(),
-            monsterTemplateId = Data.CurrentState?.CurrentEncounterId,
+            opponentName = Data.SimPvpOpponent?.Name,
             gameVersion = UnityEngine.Application.version, pluginVersion = Plugin.Version,
         };
         var snapshots = new Dictionary<string, Group>

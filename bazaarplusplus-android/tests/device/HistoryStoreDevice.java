@@ -30,8 +30,8 @@ public final class HistoryStoreDevice {
             groups.put(group, new JSONObject().put("status", "captured").put("cards", new JSONArray()));
         return new JSONObject().put("op", "beginBattle").put("sessionId", session).put("epoch", epoch)
             .put("runId", run).put("checkpointId", checkpoint).put("windowId", window).put("messageId", message)
-            .put("kind", "pve").put("partialOpening", partial).put("day", 1).put("hour", 3)
-            .put("observedAt", 2000L).put("opening", new JSONObject().put("name", "中文怪物"))
+            .put("kind", "pvp").put("partialOpening", partial).put("day", 1).put("hour", 3)
+            .put("observedAt", 2000L).put("opening", new JSONObject().put("opponentName", "中文玩家"))
             .put("snapshots", groups);
     }
     private static long number(SQLiteDatabase db, String sql) {
@@ -61,6 +61,15 @@ public final class HistoryStoreDevice {
             check("wal".equals(value(inspect, "PRAGMA journal_mode")), "WAL enabled");
             JSONObject bound = store.write(observation(session, 0, 0, account, nativeRun, checkpoint));
             state(bound, "bound", "confirmed binding"); localRun = bound.getString("runId");
+            JSONObject monster = begin(session, 0, localRun, checkpoint, id(), "monster", false).put("kind", "pve");
+            state(store.write(monster), "ignored", "PvE request ignored");
+            check(number(inspect, "SELECT COUNT(*) FROM battles") == 0
+                && number(inspect, "SELECT COUNT(*) FROM battle_snapshots") == 0
+                && number(inspect, "SELECT COUNT(*) FROM opening_evidence") == 0
+                && number(inspect, "SELECT COUNT(*) FROM history_diagnostics") == 0
+                && number(inspect, "SELECT next_sequence FROM runs") == 1
+                && number(inspect, "SELECT consumed FROM checkpoints") == 0,
+                "PvE persists no history payload or evidence and leaves PvP window available");
             JSONObject opening = begin(session, 0, localRun, checkpoint, id(), "message-1", false);
             inspect.execSQL("CREATE TRIGGER fail_last_group BEFORE INSERT ON battle_snapshots WHEN NEW.group_name='opponentSkills' BEGIN INSERT INTO history_diagnostics VALUES ('injected','missing-parent','s',0,'test','{}'); END");
             boolean failed = false;
@@ -77,7 +86,7 @@ public final class HistoryStoreDevice {
             check(store.write(opening).getBoolean("duplicate") && number(inspect, "SELECT COUNT(*) FROM battles") == 1, "duplicate original is idempotent");
             JSONObject conflict = new JSONObject(opening.toString()); conflict.getJSONObject("opening").put("name", "冲突");
             state(store.write(conflict), "quarantined", "conflicting original quarantined");
-            check(value(inspect, "SELECT opening_json FROM battles").contains("中文怪物"), "Unicode opening preserved");
+            check(value(inspect, "SELECT opening_json FROM battles").contains("中文玩家"), "Unicode opening preserved");
             JSONObject result = new JSONObject().put("op", "resolveBattle").put("sessionId", session).put("epoch", 0)
                 .put("runId", localRun).put("windowId", opening.getString("windowId")).put("outcome", "win")
                 .put("winner", "Player").put("loser", "Opponent").put("observedAt", 3000L)

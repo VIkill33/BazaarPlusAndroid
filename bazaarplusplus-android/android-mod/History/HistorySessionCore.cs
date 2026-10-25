@@ -2,7 +2,7 @@ namespace BazaarPlusPlus.Android;
 
 // These are observed app phases, not guesses made from day/hour or the presence of cards.
 internal enum HistoryPhase { Unknown, Choice, Encounter, Loot, LevelUp, Combat, PvpCombat, Replay, Victory, Defeat }
-internal enum HistoryCaptureDecision { Begin, Duplicate, Replay, AwaitingIdentity, AwaitingStore, Quarantine }
+internal enum HistoryCaptureDecision { Begin, Duplicate, Replay, Ignored, AwaitingIdentity, AwaitingStore, Quarantine }
 internal sealed record HistoryScope(string SessionId, long Epoch, string? AccountId, string? NativeRunId)
 {
     internal bool Confirmed => AccountId != null && NativeRunId != null;
@@ -91,7 +91,8 @@ internal sealed class HistorySessionCore
     internal HistoryBeginResult Begin(string? messageId, HistoryPhase phase, uint day, uint hour)
     {
         if (phase == HistoryPhase.Replay) return new(HistoryCaptureDecision.Replay, null);
-        if (phase is not (HistoryPhase.Combat or HistoryPhase.PvpCombat))
+        if (phase == HistoryPhase.Combat) return new(HistoryCaptureDecision.Ignored, null);
+        if (phase != HistoryPhase.PvpCombat)
             return new(HistoryCaptureDecision.Quarantine, null, "not_an_original_combat_phase");
         if (_scope?.Confirmed != true) return new(HistoryCaptureDecision.AwaitingIdentity, null);
         if (!_bound) return new(HistoryCaptureDecision.AwaitingStore, null);

@@ -21,7 +21,7 @@ public final class HistoryReader {
         + "r.start_day AS startDay,r.source_kind AS sourceKind,r.game_version AS gameVersion,r.plugin_version AS pluginVersion,"
         + "r.timezone_offset AS timezoneOffset,r.reason,r.superseded_by AS supersededBy,s.archive_id AS archiveId,"
         + "CASE WHEN s.account_key IS NULL THEN 1 ELSE 0 END AS pendingIdentity,"
-        + "(SELECT COUNT(*) FROM battles b WHERE b.run_id=r.id) AS battleCount";
+        + "(SELECT COUNT(*) FROM battles b WHERE b.run_id=r.id AND b.kind='pvp') AS battleCount";
     private static final String RUN_FROM = " FROM runs r JOIN history_scopes s ON s.id=r.scope_id";
     private static final String BATTLE_COLUMNS = "b.id,b.run_id AS runId,b.sequence,b.kind,b.day,b.hour,b.opened_at AS openedAt,"
         + "b.resolved_at AS resolvedAt,b.outcome,b.winner,b.loser,b.partial_opening AS partialOpening";
@@ -96,7 +96,7 @@ public final class HistoryReader {
 
     private JSONObject battles(SQLiteDatabase db, JSONObject request) throws Exception {
         List<String> args = arguments(); args.add(uuid(request.getString("runId")));
-        String where = scope.clause + " AND r.id=?";
+        String where = scope.clause + " AND r.id=? AND b.kind='pvp'";
         JSONObject after = request.optJSONObject("after");
         if (after != null) {
             long day = nonnegative(after, "day"), hour = nonnegative(after, "hour"), sequence = nonnegative(after, "sequence");
@@ -117,7 +117,7 @@ public final class HistoryReader {
         try (Cursor rows = query(db, "SELECT " + BATTLE_COLUMNS
                 + ",b.opening_json AS opening,x.group_name AS groupName,x.status AS snapshotStatus,x.payload AS snapshotPayload"
                 + RUN_FROM + " JOIN battles b ON b.run_id=r.id LEFT JOIN battle_snapshots x ON x.battle_id=b.id WHERE "
-                + scope.clause + " AND r.id=? AND b.id=? ORDER BY x.group_name", args)) {
+                + scope.clause + " AND r.id=? AND b.id=? AND b.kind='pvp' ORDER BY x.group_name", args)) {
             if (!rows.moveToFirst()) return state("not_found");
             JSONObject result = row(rows);
             result.remove("groupName"); result.remove("snapshotStatus"); result.remove("snapshotPayload");
@@ -144,7 +144,7 @@ public final class HistoryReader {
             JSONObject item = row(rows);
             if (!runs) {
                 JSONObject opening = new JSONObject(item.getString("openingMetadata")); item.remove("openingMetadata");
-                for (String key : new String[] {"opponentHero", "monsterTemplateId"}) item.put(key, opening.opt(key));
+                for (String key : new String[] {"opponentHero", "opponentName"}) item.put(key, opening.opt(key));
             }
             items.put(item);
         }

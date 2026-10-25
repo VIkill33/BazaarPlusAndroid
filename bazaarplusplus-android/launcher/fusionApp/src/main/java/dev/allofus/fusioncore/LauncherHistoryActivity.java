@@ -214,8 +214,8 @@ public final class LauncherHistoryActivity extends AppCompatActivity {
         if (page().data == null) load(false);
     }
     private void render() {
-        title.setText(screen.equals("runs") ? "对局历史" : screen.equals("battles") ? "整局详情" : "双方阵容");
-        summary.setText(screen.equals("runs") ? "按开始时间倒序 · 每页 " + HistoryReader.PAGE_SIZE + " 条"
+        title.setText(screen.equals("runs") ? "对局历史" : screen.equals("battles") ? "本局 PvP 交手记录" : "双方阵容");
+        summary.setText(screen.equals("runs") ? "每条记录是一整局游戏 · 点击查看 PvP 交手 · 每页 " + HistoryReader.PAGE_SIZE + " 条"
                 : run == null ? "正在读取整局信息" : runLabel(run) + "\n最后观察：" + time(run, "lastObserved")
                     + " · 结束时间：" + time(run, "endedAt") + "\n段位 / 评分：未记录");
         List<String> labels = new ArrayList<>(); shownCards.clear();
@@ -269,16 +269,19 @@ public final class LauncherHistoryActivity extends AppCompatActivity {
         String archive = value(row, "archiveId");
         return value(row, "hero") + " · " + value(row, "playMode") + " · " + state + "\n"
             + time(row, "startedAt") + " · " + (missingFinal ? "最后观察 " : "") + "第 " + row.optInt("day") + " 天 · " + row.optInt("victories") + " 胜 / " + row.optInt("losses") + " 负"
-            + "\n档案 " + archive.substring(0, Math.min(8, archive.length())) + " · " + row.optInt("battleCount") + " 场已存战斗"
+            + "\n档案 " + archive.substring(0, Math.min(8, archive.length())) + " · " + row.optInt("battleCount") + " 场已存 PvP 交手"
             + (row.optInt("startDay") > 1 ? " · 中途开始记录" : "");
     }
     private static String battleLabel(JSONObject row) {
         String outcome = value(row, "outcome");
         outcome = outcome.equals("win") ? "胜" : outcome.equals("loss") ? "负" : outcome.equals("draw") ? "平" : "结果未记录";
-        String opponent = row.has("opening") ? value(row.optJSONObject("opening"), "opponentHero") : value(row, "opponentHero");
+        JSONObject metadata = row.has("opening") ? row.optJSONObject("opening") : row;
+        String opponent = value(metadata, "opponentHero");
+        String name = value(metadata, "opponentName");
+        if (name.equals("未记录") || name.trim().isEmpty()) name = "玩家名称未记录";
         return "第 " + row.optInt("day") + " 天 " + row.optInt("hour") + " 时 · #" + row.optInt("sequence")
-            + " · " + row.optString("kind").toUpperCase(java.util.Locale.ROOT) + " · " + outcome
-            + "\n对手：" + (row.optString("kind").equals("pve") ? "野怪（名称未记录）" : opponent)
+            + " · " + "PvP" + " · " + outcome
+            + "\n对手：" + name + " · " + opponent
             + (row.optInt("partialOpening") != 0 ? "\n开局信息不完整" : "");
     }
     private static String groupState(String status, int count) {
@@ -313,7 +316,7 @@ public final class LauncherHistoryActivity extends AppCompatActivity {
             case "tags": return "标签";
             case "playerHero": return "我方英雄";
             case "opponentHero": return "对方英雄";
-            case "monsterTemplateId": return "野怪模板 ID";
+            case "opponentName": return "对手名称";
             case "gameVersion": return "采集时游戏版本";
             case "pluginVersion": return "采集时插件版本";
             default: return key;

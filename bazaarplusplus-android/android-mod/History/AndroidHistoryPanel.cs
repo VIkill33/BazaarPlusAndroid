@@ -249,8 +249,8 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     private void Render()
     {
         if (_title == null || _listRoot == null || _content == null || _scroll == null) return;
-        _title.text = _kind switch { PageKind.Runs => "对局历史", PageKind.Battles => "整局战绩", _ => "双方历史阵容" };
-        if (_summary != null) _summary.text = _kind == PageKind.Runs ? "本账号的普通 / 排位记录 · 按开始时间倒序"
+        _title.text = _kind switch { PageKind.Runs => "对局历史", PageKind.Battles => "本局 PvP 交手记录", _ => "双方历史阵容" };
+        if (_summary != null) _summary.text = _kind == PageKind.Runs ? "每条记录是一整局游戏 · 按开始时间倒序 · 点击查看 PvP 交手"
             : _run.HasValue ? HistoryViewText.Run(_run.Value) + "\n结束：" + HistoryViewText.Date(_run.Value,"endedAt") + " · 段位 / 评分：未记录" : "";
         if (_status != null) _status.text = AccountId == null ? "账号待确认，仅显示本会话暂存记录"
             : _kind == PageKind.Formation ? "保存的属性是历史事实；原生卡面使用当前模板，仅供参考。" : "";
@@ -270,7 +270,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
                 if (visible) _rows[index].GetComponentInChildren<TextMeshProUGUI>().text = _kind == PageKind.Runs ? HistoryViewText.Run(_items[index]) : HistoryViewText.Battle(_items[index]);
             }
             _content.sizeDelta = new(0, Math.Max(1, _items.Count * 108)); _scroll.verticalNormalizedPosition = CurrentPage.Scroll;
-            if (_items.Count == 0 && _status != null) _status.text = "尚无已保存的记录";
+            if (_items.Count == 0 && _status != null) _status.text = _kind == PageKind.Battles ? "本局暂无已保存的 PvP 交手记录" : "尚无已保存的整局记录";
         }
         Paging();
     }

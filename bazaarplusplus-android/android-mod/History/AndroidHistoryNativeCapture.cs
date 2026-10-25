@@ -43,7 +43,7 @@ internal static class AndroidHistoryNativeCapture
         try
         {
             var phase = AndroidRunObserver.CurrentPhase();
-            if (observer != null && phase != HistoryPhase.Replay)
+            if (observer != null && phase == HistoryPhase.PvpCombat)
             {
                 observer.Observe();
                 var data = new NetMessageCombatSim(message);

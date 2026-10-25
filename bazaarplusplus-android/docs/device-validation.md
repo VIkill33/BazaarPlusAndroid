@@ -1413,3 +1413,26 @@ Reader 隔离分页／故障测试不替代这些 UI 或真实账号验收。
 - 当前插件编译 0 警告／0 错误；正常展示 6 项纯规则断言和串行读取／待处理选择替换／Unicode 测试通过。最新包 `game-history-values-loaded/verification.json` 的 12 项新会话与摘要校验均通过。截图包含 `history-values-enchanted-formation.png`、`history-values-advanced-held.png`／`released.png`、`history-standard-fields.png`／`bottom.png`；只读事实见 `game-history-values-records.json`，正常结算见 `normal-end-*`。
 
 限制：当前未实测排位推进，不推断排位完整验收；段位／评分尚未采集；原生对象清空后的结算分支只有既有纯规则／存储证据，未在此轮强制制造。部分冷采集曾超过主线程目标预算并留下部分阵容，界面如实区分；完整性能门槛仍未通过。游戏内多页真实账号、第二设备、备份交换及异常恢复专项仍待后续完成。
+
+
+## 2026-10-25：按整局浏览 PvP 历史与原生卡图
+
+按用户选择的方案 2 继续游戏内历史，参考桌面 `HistoryPanelView`、`PvpBattleSnapshotCollector`、Android ADR-0002 及既有三层浏览。当前实现保留稳定 Run 分组及按需快照读取，每局仅展示 PvP 交手，列表、计数和直接详情查询均排除旧 PvE。新 PvP opening 增加对手名称；旧记录缺名明确显示“玩家名称未记录”，不从当前对手补写。
+
+野怪战斗未被其他核心功能依赖。`AndroidHistoryNativeCapture` 只在 PvP 原始模拟采集，`HistorySessionCore`／观察器忽略 PvE；`HistoryStore.begin` 对旧调用方的 PvE 请求直接返回 ignored，不保存快照、窗口、幂等证据或诊断载荷，也不消耗序号和检查点。整局身份、阶段、进度及结束状态仍独立观察；旧 PvE 数据不删除。没有重开 schema 或迁移旧库。
+
+设备为 `OBJVWSPNSCFQU48L`、Redmi 22041216C／Android 14，官方游戏 1.0.12825、2460×1080。从已有普通局的野怪选择阶段恢复到大厅，仅浏览既有记录和切换输入偏好，没有选择野怪、推进战斗或新开对局。使用 test.14 验证包；包内也含工作区原有启动链修改，本次历史验收不代表那些改动全部验收。
+
+实际观察与修复：
+
+- 游戏内显示两整局：当前局 6 场 PvP、上一局 5 场 PvP；正常结束、待确认续接及中途开始记录提示可见。新会话、磁盘／包内／加载摘要等 12 项校验通过，见 `artifacts/history-m1/pvp-last-loaded/verification.json`。
+- 首／末 PvP 的双方物品卡图、技能图标及保存字段已查看。发现 `Socket_0` 被当作一基槽位换算，保险箱与短柄斧、对方首件物品重叠；对照手机版生成代理 `EContainerSocketId` 后，提取 `HistoryFormationLayout.ItemSlot` 按零基位置排布，最后构建截图确认物品逐个可见且保留体型占格。
+- 原生卡牌材质没有 RectMask2D 裁切能力；滚动时只显示完整进入视口的原生卡图，名称和点击区域继续用普通遮罩。末场对方七个技能可滚动至第二行，原生图不覆盖底栏。截图为人工复核，不宣称自动视觉断言。
+- 标准模式点击打开保存字段并关闭；高级模式长按显示、松开关闭；完成后恢复高级模式。返回 PvP 列表、换选首末战斗、关闭重开保留选择已有本轮观察。真实账号多页及更多输入时序仍待专项覆盖。
+- `pvp-last-integrity.json` 对照修改前后全部 92 行战斗／快照读取结果（含原始 opening、四组 payload、结果与身份），完全一致；恢复标记属于启动生命周期，不与保存战斗内容混为只读不变断言。
+
+验证：插件编译零警告／零错误；10 项 Python 回归、HistorySession／HistoryObserver／HistoryBridge 测试及 10 项展示／槽位规则断言通过。真机隔离生产 SQLite 存储 40 项、Reader 19 项通过，覆盖 PvE 零写入、后续 PvP 窗口可用、混合旧库过滤、分页、身份隔离及文件保护。启动器现有文字浏览同步新查询语义，16 项 UI／字段断言及浏览前后全部读取字段一致通过，未增加启动器物品图片方案。
+
+证据均在忽略的 `artifacts/history-m1/`：`pvp-store.json`、`pvp-reader.json`、`pvp-browser-ui/`、`pvp-browser-integrity.json`、`pvp-last-loaded/`、`pvp-last-runs.png`、`pvp-last-battles.png`、`pvp-last-formation.png`、`pvp-last-bottom.png`、`pvp-last-standard-detail.png` 及输入模式相关截图。早期隔离存储测试因 fixture 名称断言仍使用旧“中文怪物”而失败，修正为 PvP fixture 名称后全套 40 项通过，不把首轮失败记为通过。
+
+边界：没有为本轮测试推进实际战斗；新版本实战对手名称、野怪跳过后连续 PvP 采集到正常结算仍待验证。旧记录缺失结果、缺名和部分阵容不会补造；原生描述依赖当前游戏模板。真实多账号／多设备、排位实战、备份交换和进一步异常恢复专项仍未完成。本地修改区分已验证的浏览／布局与待验证的新实战采集，不标记完整历史功能全部验收。

@@ -121,7 +121,7 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
     internal Ticket? Begin(string? messageId, HistoryPhase phase, object opening, object snapshots, uint day, uint hour, bool completeSnapshot = true)
     {
         var decision = Session.Begin(messageId, phase, day, hour);
-        if (decision.Decision == HistoryCaptureDecision.Replay) return null;
+        if (decision.Decision is HistoryCaptureDecision.Replay or HistoryCaptureDecision.Ignored) return null;
         if (decision.Decision == HistoryCaptureDecision.Duplicate)
             return decision.Window != null && _tickets.TryGetValue(decision.Window.Id, out var existing) ? existing : null;
         if (decision.Window == null || _localRun == null || _boundScope != decision.Window.Scope)
@@ -142,7 +142,7 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
         var request = Request("beginBattle", ticket.Window.Scope);
         request["runId"] = ticket.RunId; request["windowId"] = ticket.Window.Id;
         request["checkpointId"] = ticket.Window.CheckpointId; request["messageId"] = ticket.Window.MessageId;
-        request["kind"] = phase == HistoryPhase.PvpCombat ? "pvp" : "pve";
+        request["kind"] = "pvp";
         request["partialOpening"] = ticket.Window.PartialOpening;
         request["day"] = day; request["hour"] = hour; request["opening"] = opening; request["snapshots"] = snapshots;
         SaveOpening(ticket, request);

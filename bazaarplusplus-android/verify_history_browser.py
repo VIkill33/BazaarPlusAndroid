@@ -100,7 +100,7 @@ def main():
         check('对局历史' in texts(items), 'history list is open')
         tap(find(run['hero']))
         items = layout()
-        check('整局详情' in texts(items) and f"{run['battleCount']} 场已存战斗" in texts(items), 'run identity and persisted battle count match the database')
+        check('本局 PvP 交手记录' in texts(items) and f"{run['battleCount']} 场已存 PvP 交手" in texts(items), 'run identity and persisted battle count match the database')
         screenshot('battles-portrait')
         first_row = find(f"#{battles[0]['sequence']} ·")
         first_bounds = first_row['bounds']
@@ -135,7 +135,7 @@ def main():
             state = {'captured': '已完整采集', 'partial': '部分采集', 'failed': '采集失败', 'unavailable': '未采集'}[group['status']]
             check(f'{label} · {state}' in joined and all(card['name'] in joined for card in group['cards']), label + ' states and saved cards are present through the scroll end')
         shell('input', 'keyevent', '4')
-        check('整局详情' in texts(layout()), 'back returns to the battle list')
+        check('本局 PvP 交手记录' in texts(layout()), 'back returns to the battle list')
         check(find(f"#{battles[0]['sequence']} ·")['bounds'] == first_bounds, 'back preserves the battle list scroll anchor')
         pending = next((item for item in battles if item['outcome'] is None), None)
         if pending:

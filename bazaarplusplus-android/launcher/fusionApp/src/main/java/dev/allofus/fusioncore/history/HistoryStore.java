@@ -204,6 +204,8 @@ final class HistoryStore implements AutoCloseable {
     }
 
     private JSONObject begin(JSONObject request) throws Exception {
+        // Reject legacy callers before storing snapshots, evidence or diagnostics.
+        if ("pve".equals(required(request, "kind", 8))) return state("ignored");
         String window = uuid(required(request, "windowId", 36));
         String existing = text(db, "SELECT id FROM battles WHERE window_id=? AND run_id=?", new String[] {window, boundRun});
         if (existing != null) {
