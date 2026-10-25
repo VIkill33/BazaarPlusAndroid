@@ -15,6 +15,11 @@ internal static class AndroidHistoryBridge
         [Out] byte[] response, int capacity);
     private static readonly Lazy<VerifyCall> Verify = new(() => Entry("BPP_HISTORY_VERIFY_ADDRESS"));
     private static readonly Lazy<VerifyCall> Writer = new(() => Entry("BPP_HISTORY_WRITE_ADDRESS"));
+    private static readonly Lazy<VerifyCall> Reader = new(() => Entry("BPP_HISTORY_READ_ADDRESS"));
+    private sealed record ReadRequest(object Dto, TaskCompletionSource<System.Text.Json.JsonElement> Completion);
+    private static readonly object ReadGate = new();
+    private static ReadRequest? _pendingRead;
+    private static bool _reading;
     private static readonly object QueueGate = new();
     private static Task _tail = Task.CompletedTask;
     private static int _queued;
@@ -29,6 +34,47 @@ internal static class AndroidHistoryBridge
             || address == 0)
             throw new InvalidOperationException("History native host is unavailable");
         return Marshal.GetDelegateForFunctionPointer<VerifyCall>(new IntPtr(unchecked((long)address)));
+    }
+
+    // One running query and one replaceable waiting query. This queue never depends on writes.
+    internal static Task<System.Text.Json.JsonElement> ReadAsync(object dto)
+    {
+        var completion = new TaskCompletionSource<System.Text.Json.JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (ReadGate)
+        {
+            _pendingRead?.Completion.TrySetCanceled();
+            _pendingRead = new(dto, completion);
+            if (!_reading) { _reading = true; _ = Task.Run(ReadLoop); }
+        }
+        return completion.Task;
+    }
+
+    private static void ReadLoop()
+    {
+        while (true)
+        {
+            ReadRequest request;
+            lock (ReadGate)
+            {
+                if (_pendingRead == null) { _reading = false; return; }
+                request = _pendingRead; _pendingRead = null;
+            }
+            try
+            {
+                var payload = System.Text.Json.JsonSerializer.Serialize(request.Dto, JsonOptions);
+                if (Encoding.UTF8.GetByteCount(payload) > HistoryLimits.ReadRequestBytes)
+                    throw new InvalidOperationException("历史查询超出限制");
+                var response = new byte[HistoryLimits.ReadResponseCapacity];
+                var status = Reader.Value(payload, response, response.Length);
+                var end = Array.IndexOf(response, (byte)0);
+                if (end < 0) throw new InvalidOperationException("Invalid history read response");
+                var message = Encoding.UTF8.GetString(response, 0, end);
+                if (status != 0) throw new InvalidOperationException($"History reader failed ({status}): {message}");
+                using var document = System.Text.Json.JsonDocument.Parse(message);
+                request.Completion.TrySetResult(document.RootElement.Clone());
+            }
+            catch (Exception error) { request.Completion.TrySetException(error); }
+        }
     }
 
     internal static void ResumeAfterFailure()

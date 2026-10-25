@@ -7,6 +7,7 @@
 
 extern "C" int bpp_history_verify(const char*, char*, int);
 extern "C" int bpp_history_write(const char*, char*, int);
+extern "C" int bpp_history_read(const char*, char*, int);
 
 namespace {
 JavaVM* vm = nullptr;
@@ -14,6 +15,7 @@ jclass environmentClass = nullptr;
 jmethodID verifyMethod = nullptr;
 jclass gatewayClass = nullptr;
 jmethodID writeMethod = nullptr;
+jmethodID readMethod = nullptr;
 
 bool copy(const char* value, char* output, int capacity) {
     const size_t size = std::strlen(value);
@@ -44,6 +46,8 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* javaVm, void*) {
     if (!gatewayClass) return JNI_ERR;
     writeMethod = env->GetStaticMethodID(gatewayClass, "write", "(Ljava/lang/String;)Ljava/lang/String;");
     if (!writeMethod) return JNI_ERR;
+    readMethod = env->GetStaticMethodID(gatewayClass, "read", "(Ljava/lang/String;)Ljava/lang/String;");
+    if (!readMethod) return JNI_ERR;
     vm = javaVm;
     Dl_info location{};
     if (dladdr(reinterpret_cast<void*>(&copy), &location) != 0 && location.dli_fname) {
@@ -58,6 +62,9 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* javaVm, void*) {
     std::snprintf(entry, sizeof(entry), "%llx",
             static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(&bpp_history_write)));
     setenv("BPP_HISTORY_WRITE_ADDRESS", entry, 1);
+    std::snprintf(entry, sizeof(entry), "%llx",
+            static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(&bpp_history_read)));
+    setenv("BPP_HISTORY_READ_ADDRESS", entry, 1);
     setenv("BPP_HISTORY_BRIDGE_ABI", "1", 1);
     return JNI_VERSION_1_6;
 }
@@ -128,4 +135,8 @@ int bpp_history_verify(const char* request, char* output, int capacity) {
 extern "C" __attribute__((visibility("default")))
 int bpp_history_write(const char* request, char* output, int capacity) {
     return exchange(request, output, capacity, gatewayClass, writeMethod, 262144);
+}
+extern "C" __attribute__((visibility("default")))
+int bpp_history_read(const char* request, char* output, int capacity) {
+    return exchange(request, output, capacity, gatewayClass, readMethod, 8192);
 }

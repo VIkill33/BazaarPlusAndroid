@@ -57,11 +57,18 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private CardTooltipController? _currentController;
     private PreviewMode _mode;
     private static bool _reportedFailure;
+    private bool _historySuppressed;
 
     private enum PreviewMode { Enchant, Upgrade, Quest }
 
     public void Update()
     {
+        if (AndroidHistoryPanel.AnyOpen)
+        {
+            if (!_historySuppressed) Hide();
+            _historySuppressed = true; return;
+        }
+        _historySuppressed = false;
         var holdPreview = AndroidHoldPreview.Active;
         // Monster galleries have their own backdrop/close controls and outlive
         // the native tooltip. A new hold target still retires the old gallery.

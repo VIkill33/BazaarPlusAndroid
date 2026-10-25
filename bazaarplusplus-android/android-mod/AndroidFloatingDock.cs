@@ -28,6 +28,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private float _along;
     private Rect _safe;
     private Vector2 _screen;
+    private float _buttonHeight = 375;
 
     internal static bool AutoHide
     {
@@ -47,6 +48,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             _instance = instance;
         }
         var dock = _instance;
+        dock._buttonHeight = Math.Max(dock._buttonHeight, (slot + 1) * 95 - 5);
         var rect = button.GetComponent<RectTransform>();
         rect.SetParent(dock._buttons, false);
         rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
@@ -54,6 +56,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         rect.sizeDelta = new Vector2(270, 90);
         rect.anchoredPosition = new Vector2(0, -slot * 95);
         dock.Bind(button);
+        dock.Layout();
     }
 
     private void Build(TMP_FontAsset font)
@@ -134,7 +137,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         // details use either screen edge without being covered by the dock.
         _opacity!.alpha = AndroidHoldPreview.Active ? 0 : 1;
         if (AndroidHoldPreview.Active) _lastInteraction = Time.realtimeSinceStartup;
-        var visible = !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen;
+        var visible = !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen && !AndroidHistoryPanel.AnyOpen;
         _group.gameObject.SetActive(visible);
         _holdPreview?.SetAvailable(visible && !_collapsed);
         if (!visible)
@@ -180,7 +183,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     {
         _screen = new Vector2(Screen.width, Screen.height);
         _safe = Screen.safeArea;
-        _group!.sizeDelta = _collapsed ? CollapsedSize : new Vector2(270, _autoHide ? 450 : 375);
+        _group!.sizeDelta = _collapsed ? CollapsedSize : new Vector2(270, _buttonHeight + (_autoHide ? 75 : 0));
         _buttons!.gameObject.SetActive(!_collapsed);
         _handle!.gameObject.SetActive(_collapsed || _autoHide);
         var handle = _handle.GetComponent<RectTransform>();

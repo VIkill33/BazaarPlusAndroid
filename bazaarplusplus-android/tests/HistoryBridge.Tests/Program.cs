@@ -11,8 +11,9 @@ internal static class Program
     private static readonly ManualResetEventSlim Release = new();
     private static readonly ConcurrentQueue<string> Payloads = new();
     private sealed record Group(string Status, object[] Cards);
-    public static async Task Main()
+    public static async Task Main(string[] args)
     {
+        if (args.Contains("--reader")) { await ReadSelection(); return; }
         SetEntry();
         var first = AndroidHistoryBridge.WriteAsync(new { order = 1, name = "中文😀", group = new Group("captured", []) });
         if (!Entered.Wait(TimeSpan.FromSeconds(5))) throw new Exception("Native boundary not entered");
@@ -41,6 +42,36 @@ internal static class Program
             throw new Exception("DTO casing or UTF-8 contract mismatch");
         foreach (var row in rows) row.Dispose();
         Console.WriteLine("History writer ordering, capacity rejection, recovery after failure, DTO casing and Unicode passed.");
+    }
+    private static async Task ReadSelection()
+    {
+        SetReader();
+        var first=AndroidHistoryBridge.ReadAsync(new {order=1});
+        if(!Entered.Wait(TimeSpan.FromSeconds(5)))throw new Exception("Reader did not enter native boundary");
+        var replaced=AndroidHistoryBridge.ReadAsync(new {order=2});
+        var selected=AndroidHistoryBridge.ReadAsync(new {order=3});
+        if(!replaced.IsCanceled)throw new Exception("Superseded waiting selection was retained");
+        Release.Set(); await first;
+        var result=await selected;
+        if(result.GetProperty("order").GetInt32()!=3 || result.GetProperty("name").GetString()!="历史😀"
+            || !Payloads.SequenceEqual(new[]{"1","3"}))throw new Exception("Reader selection or Unicode contract mismatch");
+        Console.WriteLine("History reader serial execution, replaced pending selection and Unicode passed.");
+    }
+    private static unsafe void SetReader()
+    {
+        delegate* unmanaged[Cdecl]<byte*,byte*,int,int> pointer=&NativeReader;
+        Environment.SetEnvironmentVariable("BPP_HISTORY_BRIDGE_ABI","1");
+        Environment.SetEnvironmentVariable("BPP_HISTORY_READ_ADDRESS",((nuint)pointer).ToString("x"));
+    }
+    [UnmanagedCallersOnly(CallConvs=new[]{typeof(CallConvCdecl)})]
+    private static unsafe int NativeReader(byte* request,byte* response,int capacity)
+    {
+        using var document=JsonDocument.Parse(Marshal.PtrToStringUTF8((IntPtr)request)!);
+        var order=document.RootElement.GetProperty("order").GetInt32(); Payloads.Enqueue(order.ToString());
+        Entered.Set(); if(!Release.Wait(TimeSpan.FromSeconds(10)))return -1;
+        var bytes=JsonSerializer.SerializeToUtf8Bytes(new {state="ok",order,name="历史😀"});
+        if(bytes.Length>=capacity)return 2;
+        for(var index=0;index<bytes.Length;index++)response[index]=bytes[index];response[bytes.Length]=0;return 0;
     }
     private static unsafe void SetEntry()
     {

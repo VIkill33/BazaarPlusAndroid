@@ -5,8 +5,21 @@ import org.json.JSONObject;
 /** Called only by the bounded managed writer, through the initialized native host. */
 public final class HistoryGateway {
     private static HistoryStore writer;
-    private static String writerSession;
+    private static volatile String writerSession;
     private HistoryGateway() { }
+
+    /** Reads stay independent of the writer's transaction/failure queue. No reader can request all accounts. */
+    public static String read(String payload) throws Exception {
+        if (payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 8192)
+            throw new IllegalArgumentException("历史查询超出限制");
+        JSONObject request = new JSONObject(payload);
+        String session = request.getString("sessionId");
+        String currentSession = writerSession;
+        if (currentSession != null && !currentSession.equals(session)) throw new IllegalStateException("历史会话已改变");
+        HistoryReader.Scope scope = request.isNull("accountId") || !request.has("accountId")
+            ? HistoryReader.Scope.pending(session) : HistoryReader.Scope.account(request.getString("accountId"));
+        return new HistoryReader(HistoryRuntime.gameRoot(), HistoryRuntime.targetPackage(), scope).read(request).toString();
+    }
 
     public static synchronized String write(String payload) throws Exception {
         if (payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > HistoryStore.MAX_PAYLOAD_BYTES)

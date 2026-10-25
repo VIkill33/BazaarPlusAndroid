@@ -424,6 +424,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
 
     private void SetOpen(bool open)
     {
+        if (open && (CollectionController.AnyOpen || AndroidHistoryPanel.AnyOpen)) return;
         if (!open)
         {
             _board?.Hide();
@@ -448,7 +449,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
 
     private void UpdateEntryVisibility()
     {
-        var visible = !_open && !CollectionController.AnyOpen && Data.Run?.Player != null;
+        var visible = !_open && !CollectionController.AnyOpen && !AndroidHistoryPanel.AnyOpen && Data.Run?.Player != null;
         if (_entry != null) _entry.gameObject.SetActive(visible);
         if (_previewModeButton != null) _previewModeButton.gameObject.SetActive(visible);
     }

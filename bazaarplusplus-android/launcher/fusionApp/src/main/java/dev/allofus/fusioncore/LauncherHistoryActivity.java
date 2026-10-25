@@ -264,9 +264,11 @@ public final class LauncherHistoryActivity extends AppCompatActivity {
         if (state.equals("active")) state = row.optString("sourceKind").equals("import") ? "中断记录"
             : row.optInt("recoveryPending") != 0 || row.optInt("pendingIdentity") != 0 ? "待确认续接" : "进行中（上次观察）";
         else state = state.equals("completed") ? "已结束" : "已中断";
+        boolean missingFinal = "final_progress_unavailable".equals(row.optString("reason"));
+        if (missingFinal) state += "（最终进度未记录）";
         String archive = value(row, "archiveId");
         return value(row, "hero") + " · " + value(row, "playMode") + " · " + state + "\n"
-            + time(row, "startedAt") + " · 第 " + row.optInt("day") + " 天 · " + row.optInt("victories") + " 胜 / " + row.optInt("losses") + " 负"
+            + time(row, "startedAt") + " · " + (missingFinal ? "最后观察 " : "") + "第 " + row.optInt("day") + " 天 · " + row.optInt("victories") + " 胜 / " + row.optInt("losses") + " 负"
             + "\n档案 " + archive.substring(0, Math.min(8, archive.length())) + " · " + row.optInt("battleCount") + " 场已存战斗"
             + (row.optInt("startDay") > 1 ? " · 中途开始记录" : "");
     }

@@ -191,8 +191,11 @@ final class HistoryStore implements AutoCloseable {
             db.execSQL("UPDATE checkpoints SET valid=0 WHERE run_id=? AND session_id=? AND consumed=0", new Object[] {runId, session});
         }
         if (phase.equals("victory") || phase.equals("defeat")) {
-            db.execSQL("UPDATE runs SET status='completed',ended_at=COALESCE(ended_at,?),recovery_pending=0 WHERE id=? AND status='active'",
-                    new Object[] {now, runId});
+            boolean knownProgress = request.optBoolean("progressAvailable", true);
+            db.execSQL("UPDATE runs SET status='completed',ended_at=COALESCE(ended_at,?),recovery_pending=0,reason=? WHERE id=? AND status='active'",
+                    new Object[] {now, knownProgress ? null : "final_progress_unavailable", runId});
+            if (knownProgress) db.execSQL("UPDATE runs SET reason=NULL WHERE id=? AND status='completed' AND reason='final_progress_unavailable'",
+                    new Object[] {runId});
         }
         boolean partialAllowed = account != null && scalar(db,
                 "SELECT COUNT(*) FROM battles WHERE run_id=?", new String[] {runId}) == 0;
@@ -275,6 +278,10 @@ final class HistoryStore implements AutoCloseable {
     }
 
     private void progress(String runId, JSONObject request, long now) throws Exception {
+        if (!request.optBoolean("progressAvailable", true)) {
+            db.execSQL("UPDATE runs SET last_observed=MAX(last_observed,?) WHERE id=?", new Object[] {now, runId});
+            return;
+        }
         long day = nonnegative(request, "day"), hour = nonnegative(request, "hour");
         db.execSQL("UPDATE runs SET last_observed=MAX(last_observed,?),victories=MAX(victories,?),losses=MAX(losses,?) WHERE id=?",
                 new Object[] {now, nonnegative(request, "victories"), nonnegative(request, "losses"), runId});

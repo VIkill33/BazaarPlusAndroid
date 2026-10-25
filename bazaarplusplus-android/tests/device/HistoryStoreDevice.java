@@ -52,6 +52,7 @@ public final class HistoryStoreDevice {
         File root = new File(args[0]);
         if (args.length == 2) { transactionDeath(root, args[1]); return; }
         if (root.exists() || !root.mkdirs()) throw new IllegalStateException("Verifier directory must be new");
+        terminalProgress(new File(root, "terminal"));
         String session = id(), account = id(), nativeRun = id(), checkpoint = id();
         String localRun;
         try (HistoryAccessLock lease = HistoryAccessLock.acquire(root); HistoryStore store = store(root, session);
@@ -149,6 +150,40 @@ public final class HistoryStoreDevice {
         protect(root, "corrupt", 0, true);
         System.out.println(new JSONObject().put("passed", true).put("checks", checks).put("root", root.getPath()));
     }
+    private static void terminalProgress(File root) throws Exception {
+        String session = id(), account = id(), nativeRun = id(), checkpoint = id();
+        try (HistoryAccessLock lease = HistoryAccessLock.acquire(root); HistoryStore writer = store(root, session);
+             SQLiteDatabase inspect = SQLiteDatabase.openDatabase(database(root).getPath(), null, SQLiteDatabase.OPEN_READONLY, HistoryStore.PRESERVE_CORRUPTION)) {
+            String run = writer.write(observation(session, 0, 0, account, nativeRun, checkpoint)).getString("runId");
+            JSONObject opening = begin(session, 0, run, checkpoint, id(), "final-original", false);
+            writer.write(opening);
+            JSONObject ending = observation(session, 0, 1, account, nativeRun, null).put("phase", "defeat")
+                .put("progressAvailable", false).put("day", 999).put("victories", 999).put("losses", 999).put("observedAt", 4000);
+            writer.write(ending);
+            check("completed".equals(value(inspect, "SELECT status FROM runs"))
+                && "final_progress_unavailable".equals(value(inspect, "SELECT reason FROM runs"))
+                && number(inspect, "SELECT day FROM runs") == 1 && number(inspect, "SELECT losses FROM runs") == 0,
+                "explicit ending without native progress preserves old facts and marks final progress unknown");
+            JSONObject result = new JSONObject().put("op", "resolveBattle").put("sessionId", session).put("epoch", 0)
+                .put("runId", run).put("windowId", opening.getString("windowId")).put("outcome", "loss")
+                .put("winner", "Opponent").put("loser", "Player").put("observedAt", 5000)
+                .put("progressAvailable", false).put("day", 888).put("hour", 888).put("victories", 888).put("losses", 888);
+            writer.write(result);
+            check("loss".equals(value(inspect, "SELECT outcome FROM battles")) && "completed".equals(value(inspect, "SELECT status FROM runs"))
+                && number(inspect, "SELECT day FROM runs") == 1 && number(inspect, "SELECT losses FROM runs") == 0,
+                "late same-scope result after ending saves actual outcome without unavailable totals or reopening run");
+            writer.write(observation(session, 0, 2, account, nativeRun, null).put("phase", "defeat")
+                .put("progressAvailable", true).put("day", 2).put("hour", 6).put("victories", 1).put("losses", 2).put("observedAt", 6000));
+            check(value(inspect, "SELECT reason FROM runs") == null && number(inspect, "SELECT losses FROM runs") == 2
+                && number(inspect, "SELECT victories FROM runs") == 1 && number(inspect, "SELECT ended_at FROM runs") == 4000,
+                "later reliable terminal facts fill missing progress without replacing the first ending time");
+            writer.write(new JSONObject(ending.toString()).put("observationSequence", 3).put("observedAt", 7000));
+            check(value(inspect, "SELECT reason FROM runs") == null && number(inspect, "SELECT losses FROM runs") == 2
+                && number(inspect, "SELECT day FROM runs") == 2 && number(inspect, "SELECT ended_at FROM runs") == 4000,
+                "repeated unavailable ending cannot downgrade reliable terminal facts");
+        }
+    }
+
     private static void transactionDeath(File root, String mode) throws Exception {
         if (mode.equals("hold")) {
             if (root.exists() || !root.mkdirs()) throw new IllegalStateException("Verifier directory must be new");

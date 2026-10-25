@@ -22,9 +22,11 @@ public sealed class Plugin : BasePlugin
         Il2CppInterop.Runtime.Injection.ClassInjector.RegisterTypeInIl2Cpp<AndroidHoldPreview>();
         AddComponent<AndroidNativeSettings>();
         AddComponent<NativePreviewCleanup>();
+        AddComponent<AndroidRunObserver>();
         AddComponent<CollectionController>();
         AddComponent<AndroidTooltipObserver>();
         AddComponent<AndroidBuildPanelController>();
+        AddComponent<AndroidHistoryPanel>();
         BuildRepository = new AndroidBuildRepository(
             new HttpClient { Timeout = TimeSpan.FromSeconds(10) },
             Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.Android", "builds.json"),
