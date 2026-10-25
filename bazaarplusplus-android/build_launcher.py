@@ -205,7 +205,13 @@ def main():
                      "bazaarplusplus-android/verify_launcher.py", "bazaarplusplus-android/inspect_game.py",
                      "bazaarplusplus-android/tests/test_launcher_dependencies.py",
                      "bazaarplusplus-android/tests/LauncherFilesTest.java", "bazaarplusplus-android/tests/LauncherLogTest.java",
-                     "bazaarplusplus-android/tests/test_launcher_files.py"]
+                     "bazaarplusplus-android/tests/test_launcher_files.py",
+                     "bazaarplusplus-android/tests/LauncherContextTest.java",
+                     "bazaarplusplus-android/tests/test_launcher_context.py",
+                     "bazaarplusplus-android/tests/LauncherUnityLibrariesTest.java",
+                     "bazaarplusplus-android/tests/test_launcher_unity_libraries.py",
+                     "bazaarplusplus-android/tests/UnityLibraries.Tests/Program.cs",
+                     "bazaarplusplus-android/tests/UnityLibraries.Tests/UnityLibraries.Tests.csproj"]
     with tarfile.open(output / "launcher-source.tar.gz", "w:gz") as archive:
         for relative in sorted(set(source_paths)):
             path = root.parent / relative
