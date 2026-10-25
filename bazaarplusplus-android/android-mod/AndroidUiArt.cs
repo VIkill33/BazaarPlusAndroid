@@ -1,4 +1,5 @@
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.GameInterop.Heroes;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using UnityEngine;
@@ -8,7 +9,7 @@ using NativeTask = Il2CppSystem.Threading.Tasks.Task<UnityEngine.Sprite>;
 namespace BazaarPlusPlus.Android;
 
 // Native tasks are polled on Unity's thread. Bindings belong only to the latest render.
-internal sealed class AndroidHistoryArt
+internal sealed class AndroidUiArt
 {
     private sealed class Load
     {
@@ -31,7 +32,7 @@ internal sealed class AndroidHistoryArt
         if (key == null) return;
         _bindings.Add(new(image, fallback, key));
     }
-    internal static string? Hero(string hero) => Enum.TryParse<EHero>(hero, true, out var parsed)
+    internal static string? Hero(string hero) => TheDragonsHeroIdentity.TryResolve(hero, out var parsed)
         && parsed != EHero.Common && Enum.IsDefined(parsed) ? "hero:" + parsed : null;
     internal void Tick()
     {
@@ -88,20 +89,20 @@ internal sealed class AndroidHistoryArt
                 if (!load.Reported)
                 {
                     load.Reported = true;
-                    Plugin.PluginLog?.LogInfo($"[BPP][Android] event=history.art.ready key={binding.Key}");
+                    Plugin.PluginLog?.LogInfo($"[BPP][Android] event=ui.art.ready key={binding.Key}");
                 }
             }
             catch (Exception error)
             {
                 load.Task = null; load.Texture = null; load.RetryAt = Time.realtimeSinceStartup + 10;
-                Plugin.PluginLog?.LogWarning($"[BPP][Android] event=history.art.failed key={binding.Key} exception={error}");
+                Plugin.PluginLog?.LogWarning($"[BPP][Android] event=ui.art.failed key={binding.Key} exception={error}");
             }
         }
     }
     private void LoadStates()
     {
         if (_stateAtlas != null) return;
-        using var stream = typeof(AndroidHistoryArt).Assembly.GetManifestResourceStream("BazaarPlusPlus.Android.History.run-state-badges.png")
+        using var stream = typeof(AndroidUiArt).Assembly.GetManifestResourceStream("BazaarPlusPlus.Android.History.run-state-badges.png")
             ?? throw new InvalidOperationException("Missing history state artwork");
         using var bytes = new MemoryStream(); stream.CopyTo(bytes);
         var texture = new Texture2D(2,2,TextureFormat.RGBA32,false);

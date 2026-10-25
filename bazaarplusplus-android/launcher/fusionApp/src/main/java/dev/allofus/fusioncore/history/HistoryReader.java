@@ -75,6 +75,15 @@ public final class HistoryReader {
         if (request.has("archiveId") && !request.isNull("archiveId")) {
             where += " AND s.archive_id=?"; args.add(uuid(request.getString("archiveId")));
         }
+        if (request.has("hero") && !request.isNull("hero")) {
+            String hero = request.getString("hero").trim();
+            if (hero.isEmpty() || hero.length() > 128) throw new IllegalArgumentException("Invalid hero filter");
+            if (hero.equalsIgnoreCase("TheDragons") || hero.equalsIgnoreCase("Hero8")) {
+                where += " AND r.hero IN (?,?)"; args.add("TheDragons"); args.add("Hero8");
+            } else {
+                where += " AND r.hero=?"; args.add(hero);
+            }
+        }
         JSONObject after = request.optJSONObject("after");
         if (after != null) {
             long time = nonnegative(after, "startedAt");

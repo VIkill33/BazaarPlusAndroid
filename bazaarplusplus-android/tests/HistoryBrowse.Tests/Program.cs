@@ -41,13 +41,6 @@ Check(HistoryViewText.Tier(interrupted)=="已中断" && HistoryViewText.Trophy(i
     "An interrupted archive is not classified as surrender or victory");
 Check(HistoryViewText.OpponentName(legacy)=="玩家名称未记录" && HistoryViewText.Value(HistoryViewText.Opponent(legacy),"opponentHero")=="Pygmalien",
     "Portrait identity resolves both list and nested detail metadata");
-using (var fixture = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"history-preview.json"))))
-{
-    var expected = new[] { "state:broken", "Trophy_Bronze_TUI", "Trophy_Silver_TUI", "Trophy_Gold_TUI", "Trophy_Diamond_TUI", "state:flag", "state:pending", "state:broken" };
-    var rows = fixture.RootElement.GetProperty("runs").GetProperty("items").EnumerateArray().ToArray();
-    Check(rows.Select(HistoryViewText.Badge).SequenceEqual(expected), "Demo covers every artwork and both ends of the 0-3 win broken-cup range");
-    Check(rows[5].GetProperty("reason").GetString()=="surrender" && HistoryViewText.Tier(rows[5])=="已投降", "Only explicit mock surrender evidence receives the surrender state");
-}
 Check(HistoryViewText.Badge(missing)=="state:pending", "Incomplete final progress does not receive a broken-cup final result");
-Console.WriteLine("History browser presentation and outcome boundaries: 28 checks passed.");
+Console.WriteLine("History browser presentation and outcome boundaries: 26 checks passed.");
 void Check(bool value,string message) { if(!value)throw new Exception(message); }

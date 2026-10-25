@@ -122,6 +122,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 _nextContextRead = Time.realtimeSinceStartup + 1;
                 if (ReadContext()) Changed();
             }
+            _choices?.Tick();
             _thumbnails.Tick();
             try { TickPreview(); }
             catch (Exception error)
@@ -222,12 +223,12 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
 
     private void ChooseHero()
     {
-        var options = new List<(string, Action)> { (NativeUi.Text("All heroes", "全部英雄"), () =>
-        { if (!_filter.AllHeroesSelected) _filter.ToggleAllHeroes(); Changed(); }) };
-        foreach (var hero in _heroes)
-            options.Add((HeroName(hero), () =>
-            { if (_filter.AllHeroesSelected || _filter.EffectiveHero != hero) _filter.ToggleHero(hero); Changed(); }));
-        _choices?.Show(NativeUi.Text("Hero", "英雄"), options);
+        _choices?.ShowHeroes(_heroes, _filter.AllHeroesSelected ? null : _filter.EffectiveHero, hero =>
+        {
+            if (!hero.HasValue) { if (!_filter.AllHeroesSelected) _filter.ToggleAllHeroes(); }
+            else if (_filter.AllHeroesSelected || _filter.EffectiveHero != hero.Value) _filter.ToggleHero(hero.Value);
+            Changed();
+        });
     }
 
     private void ChooseTier()
@@ -304,8 +305,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         return !ReferenceEquals(previousSource, _source) || previousDay != _day || previousTier != _dayTiers?.MaximumTier;
     }
 
-    private static string HeroName(EHero hero) => hero == EHero.Common
-        ? NativeUi.Text("Common", "通用") : TheBazaar.Utilities.LocalizableShared.GetLocalizedHero(hero);
+    private static string HeroName(EHero hero) => AndroidChoicePopup.HeroName(hero);
 
     private static string TierName(ETier tier) => tier switch
     {
@@ -631,7 +631,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     public void OnDestroy()
     {
         AnyOpen = false;
-        _choices?.Close();
+        _choices?.Dispose();
         _thumbnails.Hide();
         ClearPreview();
         RetireRequest();

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using BazaarGameShared.Domain.Core.Types;
 using Il2CppInterop.Runtime;
 using TheBazaar;
 using TheBazaar.Localization;
@@ -22,15 +23,14 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     }
     private sealed record Query(Task<JsonElement> Task, int Version, string Scope, Action<JsonElement> Apply);
     private readonly Page _runs = new(), _battles = new();
-    private readonly Page _demoRuns = new(), _demoBattles = new();
-    private JsonElement? _demoData;
-    private bool _demo;
-    private TextMeshProUGUI? _demoToggle;
+    private EHero? _hero;
+    private AndroidChoicePopup? _choices;
+    private Button? _heroButton;
     private readonly List<Query> _queries = new();
     private sealed record Row(Button Button, Image Portrait, TextMeshProUGUI HeroFallback,
         TextMeshProUGUI Meta, Image Trophy, TextMeshProUGUI Score, TextMeshProUGUI Detail);
     private readonly List<Row> _rows = new();
-    private readonly AndroidHistoryArt _art = new();
+    private readonly AndroidUiArt _art = new();
     private Row? _runHeader;
     private static readonly Color Muted = new(.77f,.71f,.67f);
     private static readonly Color Amber = new(1f,.74f,.40f);
@@ -52,8 +52,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     private string? _scope;
     private Action? _retry;
 
-    private Page CurrentPage => _demo ? (_kind == PageKind.Runs ? _demoRuns : _demoBattles)
-        : _kind == PageKind.Runs ? _runs : _battles;
+    private Page CurrentPage => _kind == PageKind.Runs ? _runs : _battles;
     private static HistoryScope? Scope => AndroidRunObserver.Instance?.Session.Scope;
     private static string? AccountId => HistorySessionCore.NormalizeId(ClientCache.Profile?.HasData == true ? ClientCache.Profile.Value?.AccountId.ToString() : null);
     private static string ScopeKey => Scope is { } scope ? scope.SessionId + ":" + AccountId : "";
@@ -80,6 +79,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
             if (Keyboard.current?.escapeKey.wasPressedThisFrame == true) Back();
             _formation?.Tick();
             _art.Tick();
+            _choices?.Tick();
         }
         catch (Exception error)
         {
@@ -113,21 +113,10 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         Button(_panel, "返回", new(.02f,.91f), new(.12f,.98f), Back);
         Button(_panel, "刷新", new(.74f,.91f), new(.86f,.98f), Refresh);
         Button(_panel, "关闭", new(.88f,.91f), new(.98f,.98f), () => SetOpen(false));
-        // Explicit local QA fixture: never inserted into the history database or read bridge.
-        var demoPath = Path.Combine(BepInEx.Paths.ConfigPath, "BazaarPlusPlus.Android", "history-preview.json");
-        try
-        {
-            if (File.Exists(demoPath) && new FileInfo(demoPath).Length <= 65536)
-            {
-                using var document = JsonDocument.Parse(File.ReadAllText(demoPath));
-                _demoData = document.RootElement.Clone();
-                var toggle = Button(_panel, "演示战绩", new(.60f,.91f), new(.72f,.98f), ToggleDemo);
-                _demoToggle = toggle.GetComponentInChildren<TextMeshProUGUI>();
-            }
-        }
-        catch (Exception error) { Plugin.PluginLog?.LogWarning($"[BPP][Android] event=history.preview.invalid exception={error}"); }
-        _title = Label(NativeUi.Rect("Title", _panel, new(.14f,.91f), new(_demoData.HasValue ? .58f : .72f,.98f)), "对局历史", 34);
-        _summary = Label(NativeUi.Rect("Summary", _panel, new(.03f,.81f), new(.97f,.90f)), "", 24);
+        _title = Label(NativeUi.Rect("Title", _panel, new(.14f,.91f), new(.72f,.98f)), "对局历史", 34);
+        _choices = new AndroidChoicePopup(_panel, font);
+        _heroButton = Button(_panel, "英雄：全部", new(.73f,.815f), new(.97f,.895f), ChooseHero);
+        _summary = Label(NativeUi.Rect("Summary", _panel, new(.03f,.81f), new(.70f,.90f)), "", 24);
         _summary.alignment = TextAlignmentOptions.MidlineLeft;
         _status = Label(NativeUi.Rect("Status", _panel, new(.03f,.005f), new(.97f,.055f)), "", 22);
         _runHeader = CreateRow(_panel, () => { });
@@ -181,7 +170,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     {
         var hero = HistoryViewText.Value(run,"hero");
         row.HeroFallback.text = hero == "未记录" ? "英雄未记录" : hero;
-        _art.Bind(row.Portrait, AndroidHistoryArt.Hero(hero), row.HeroFallback);
+        _art.Bind(row.Portrait, AndroidUiArt.Hero(hero), row.HeroFallback);
         _art.Bind(row.Trophy, HistoryViewText.Badge(run));
         row.Meta.text = HistoryViewText.RunMeta(run);
         row.Score.text = HistoryViewText.Score(run); row.Score.color = Amber;
@@ -192,7 +181,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     {
         var hero = HistoryViewText.Value(HistoryViewText.Opponent(battle),"opponentHero");
         row.HeroFallback.text = hero == "未记录" ? "英雄未记录" : hero;
-        _art.Bind(row.Portrait, AndroidHistoryArt.Hero(hero), row.HeroFallback);
+        _art.Bind(row.Portrait, AndroidUiArt.Hero(hero), row.HeroFallback);
         _art.Bind(row.Trophy, null);
         row.Meta.text = HistoryViewText.OpponentName(battle)
             + $"\n第 {HistoryViewText.Number(battle,"day")} 天 {HistoryViewText.Number(battle,"hour")} 时 · #{HistoryViewText.Number(battle,"sequence")} · PvP"
@@ -202,13 +191,17 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         row.Detail.text = "查看阵容";
     }
 
-    private void ToggleDemo()
+    private void ChooseHero()
     {
-        if (_demoData == null) return;
-        Remember(); ++_version; _loading = false; _retry = null;
-        _demo = !_demo; _kind = PageKind.Runs; _run = _battle = null;
-        if (_demoToggle != null) _demoToggle.text = _demo ? "真实记录" : "演示战绩";
-        Render(); Refresh();
+        var heroes = Enum.GetValues<EHero>().Where(hero => hero != EHero.Common).ToArray();
+        _choices?.ShowHeroes(heroes, _hero, hero =>
+        {
+            if (_hero == hero) return;
+            _hero = hero;
+            ++_version; _loading = false; _retry = null;
+            _runs.Data = null; _runs.Tokens.Clear(); _runs.Tokens.Add(null); _runs.Scroll = 1;
+            Render(); Refresh();
+        });
     }
 
     private void SetOpen(bool open)
@@ -217,11 +210,13 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         if (open && _scope != ScopeKey)
         {
             _runs.Data = _battles.Data = null; _runs.Tokens.Clear(); _runs.Tokens.Add(null); _battles.Tokens.Clear(); _battles.Tokens.Add(null);
+            _hero = null;
             _runs.Scroll = _battles.Scroll = 1; _run = _battle = null; _kind = PageKind.Runs;
         }
         _open = open; AnyOpen = open; ++_version; _loading = false; _retry = null;
         _panel?.gameObject.SetActive(open);
         _formation?.Hide();
+        _choices?.Close();
         _art.Clear();
         if (!open) return;
         _scope = ScopeKey;
@@ -234,6 +229,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     }
     private void Back()
     {
+        if (_choices?.IsOpen == true) { _choices.Close(); return; }
         if (_formation?.CloseDetail() == true) return;
         Remember(); ++_version; _loading = false; _retry = null;
         if (_kind == PageKind.Runs) { SetOpen(false); return; }
@@ -242,7 +238,6 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     private void Refresh()
     {
         Remember();
-        if (_demo) { LoadCurrent(); return; }
         if (_kind != PageKind.Runs && _run.HasValue)
         {
             var metadata = Request("run"); metadata["runId"] = HistoryViewText.Value(_run.Value,"id");
@@ -278,12 +273,8 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     }
     private void LoadPage(Page page, JsonElement?[] tokens, bool moving = false)
     {
-        if (_demo && _demoData.HasValue)
-        {
-            page.Data = _demoData.Value.GetProperty(_kind == PageKind.Runs ? "runs" : "battles");
-            _loading = false; _retry = null; Render(); return;
-        }
         var request = Request(_kind == PageKind.Runs ? "runs" : "battles");
+        if (_kind == PageKind.Runs && _hero.HasValue) request["hero"] = _hero.Value.ToString();
         if (_kind != PageKind.Runs && _run.HasValue) request["runId"] = HistoryViewText.Value(_run.Value,"id");
         if (tokens[^1].HasValue) request["after"] = tokens[^1];
         QueryRead(request, result =>
@@ -336,7 +327,6 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         }
         else if (_kind == PageKind.Battles)
         {
-            if (_demo) { if (_status != null) _status.text = "演示数据仅用于观察布局与图标，无真实阵容"; return; }
             _battle = selected; _kind = PageKind.Formation; Render(); Refresh();
         }
     }
@@ -345,6 +335,12 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         if (_title == null || _listRoot == null || _content == null || _scroll == null) return;
         _title.text = _kind switch { PageKind.Runs => "对局历史", PageKind.Battles => "整局详情", _ => "双方历史阵容" };
         _art.Clear();
+        if (_heroButton != null)
+        {
+            _heroButton.gameObject.SetActive(_kind == PageKind.Runs);
+            _heroButton.GetComponentInChildren<TextMeshProUGUI>().text = NativeUi.Text("Hero: ", "英雄：")
+                + (_hero.HasValue ? AndroidChoicePopup.HeroName(_hero.Value) : NativeUi.Text("All", "全部")) + " ▾";
+        }
         var showHeader = _kind == PageKind.Battles && _run.HasValue;
         _runHeader?.Button.gameObject.SetActive(showHeader);
         if (showHeader)
@@ -361,7 +357,6 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         _listRoot.anchorMax = new(.97f, showHeader ? .73f : .80f);
         if (_status != null) _status.text = AccountId == null ? "账号待确认，仅显示本会话暂存记录"
             : _kind == PageKind.Formation ? "保存的属性是历史事实；原生卡面使用当前模板，仅供参考。" : "";
-        if (_demo && _status != null) _status.text = "演示数据 · 不保存到真实对局历史 · 点击上方“真实记录”退出";
         var formation = _kind == PageKind.Formation;
         _listRoot.gameObject.SetActive(!formation); _items.Clear();
         _formation?.Hide();
@@ -382,7 +377,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
                 }
             }
             _content.sizeDelta = new(0, Math.Max(1, _items.Count * RowHeight)); _scroll.verticalNormalizedPosition = CurrentPage.Scroll;
-            if (_items.Count == 0 && _status != null) _status.text = _kind == PageKind.Battles ? "本局暂无已保存的 PvP 交手记录" : "尚无已保存的整局记录";
+            if (_items.Count == 0 && _status != null) _status.text = _kind == PageKind.Battles ? "本局暂无已保存的 PvP 交手记录" : _hero.HasValue ? "该英雄暂无已保存的整局记录，可切换其他英雄" : "尚无已保存的整局记录";
         }
         Paging();
     }
@@ -401,6 +396,6 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     {
         SetOpen(false);
         foreach (var query in _queries) _ = query.Task.ContinueWith(task => { _ = task.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
-        _queries.Clear(); _art.Dispose(); if (_canvas != null) Destroy(_canvas);
+        _queries.Clear(); _choices?.Dispose(); _art.Dispose(); if (_canvas != null) Destroy(_canvas);
     }
 }

@@ -1483,3 +1483,32 @@ Python 10 项、BuildCorpus／EnchantPolicy 及插件编译（零警告／零错
 删除该配置后重启可隐藏演示入口。此测试 fixture 不修改真实数据库。
 设备为 OBJVWSPNSCFQU48L／Redmi 22041216C／Android 14，游戏 1.0.12825，2460×1080。
 本轮仅恢复已有普通局、浏览页面，没有选择野怪或推进战斗。
+
+
+## 2026-10-25：英雄筛选卡片、历史筛选与演示入口清理（用户反馈通过）
+
+参考 `docs/design.md`、桌面 Collection／History 实现及 Android 已有头像列表。
+`AndroidChoicePopup.ShowHeroes` 为图鉴与游戏内历史共用的三列头像＋本地化名称选择面板，
+增大触控高度，使用高亮与「已选」文字表达当前条件；全部／通用选项使用文字占位。
+原 `AndroidHistoryArt` 移至公共适配器 `android-mod/AndroidUiArt.cs`，保留主线程轮询、
+Global 资源加载及关闭后解绑，避免筛选面板依赖历史视图内部实现。
+`AndroidHistoryPanel.LoadPage` 将英雄条件传给 `HistoryReader.runs`，在 SQL 查询分页前筛选；
+切换条件清空旧页游标，详情返回保留条件，账号作用域变化重置条件。
+删除 `history-preview.json` 演示 fixture、复制配置、专用 fixture 断言及游戏内演示入口；
+保留正式展示规则的独立断言，旧设备配置不再被读取。
+
+按用户“尽管写代码，验证我自己来”的要求，本次未执行编译、测试、打包、部署或真机操作。
+待用户覆盖：头像与名称同时显示、全部／通用／各英雄选中反馈、滚动与关闭重开、历史跨页筛选、
+无结果提示、切换中旧请求晚完成、详情返回条件保留，以及标准／高级两种输入模式。
+历史筛选涉及启动器 Java Reader，验证包需同时包含本次启动器与插件代码。
+
+用户随后要求覆盖安装并启动游戏。本轮已重新编译插件（零警告／零错误），按 APK 导出 skill
+构建签名包，v2 签名通过，证书为 `CN=BazaarPlusPlus Android Test`。
+在 OBJVWSPNSCFQU48L 上 `adb install -r` 成功，通过首页「启动游戏」启动，
+`verify_launcher.py --expect-loaded` 的 12 项会话／摘要检查全部通过。
+启动截图显示游戏加载至 94%，功能交互留给用户验证；未进入新对局或进行筛选验收。
+APK 版本 `0.1.0-test.14`，SHA-256：
+`64ab1ade914a102b6843bf5e02d733f89bd5ae2c0ff5767c8a8beab15d83011c`。
+证据：忽略目录 `artifacts/hero-filter-launch-evidence/`、`artifacts/hero-filter-launched.png`。
+
+覆盖安装后用户反馈“不错”，要求先提交本次修改；未逐项报告的专项覆盖保持待验证。
