@@ -37,7 +37,7 @@ def bundle_dependencies(manifest, assets, cache):
                     if not url.startswith("https://"):
                         raise ValueError("Dependency source must use HTTPS")
                     request = urllib.request.Request(url, headers={
-                        "Accept": "application/octet-stream", "User-Agent": "BazaarPlusPlusAndroid-build"})
+                        "Accept": "application/octet-stream", "User-Agent": "BazaarPlusAndroid-build"})
                     with urllib.request.urlopen(request, timeout=60) as response, temp.open("wb") as output:
                         if response.status != 200 or not response.geturl().startswith("https://"):
                             raise ValueError("Dependency response must be HTTPS 200")
@@ -134,14 +134,14 @@ def prepare(root, upstream, plugin_dir, dependency_dir=None):
     manifest["releaseId"] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
     (asset_dir / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")
     (asset_dir / "NOTICE.txt").write_text(
-        "BazaarPlusPlus Android launcher\nBazaarPlusPlus: MIT (see BPP-LICENSE.txt).\n"
+        "BazaarPlusAndroid launcher\nBazaarPlusPlus: MIT (see BPP-LICENSE.txt).\n"
         "FusionCore: GPL-3.0, copyright its contributors (see FusionCore-LICENSE.txt).\n"
         "In-game dock icons made by Lorc (\"Anvil impact\", \"Tied scroll\", \"Magnifying glass\") "
         "and Skoll (\"Sight disabled\"), from https://game-icons.net, "
         "CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/); "
         "recoloured and outlined, see bazaarplusplus-android/assets/dock-icons/SOURCE.md.\n"
         "Corresponding launcher source and build inputs: bazaarplusplus-android/launcher and build_launcher.py "
-        "in https://github.com/VIkill33/BazaarPlusPlusForAndroid (supply the exact source archive with any test distribution).\n"
+        "in https://github.com/VIkill33/BazaarPlusAndroid (supply the exact source archive with any test distribution).\n"
         "BepInEx/.NET/Dobby and bundled components retain their own licenses. "
         "Third-party redistribution review remains required before public release.\n"
         "This is a local test build, not a publicly approved distribution.\n")
@@ -183,9 +183,9 @@ def main():
     verify_bundled_inputs(apk, manifest)
     output = root / "artifacts/launcher"
     output.mkdir(parents=True, exist_ok=True)
-    target = output / "BazaarPlusPlus-launcher.apk"
+    target = output / "BazaarPlusAndroid-launcher.apk"
     shutil.copyfile(apk, target)
-    (output / "BazaarPlusPlus-launcher.apk.sha256").write_text(f"{digest(target)}  {target.name}\n")
+    (output / "BazaarPlusAndroid-launcher.apk.sha256").write_text(f"{digest(target)}  {target.name}\n")
     (output / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")
     sdk = Path(env["ANDROID_HOME"])
     signers = sorted((sdk / "build-tools").glob("*/apksigner"))

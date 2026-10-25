@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.RuntimeProbe;
 
-[BepInPlugin("com.bazaarplusplus.android.runtimeprobe", "BazaarPlusPlus Android Runtime Probe", "0.1.0")]
+[BepInPlugin("com.bazaarplusplus.android.runtimeprobe", "BazaarPlusAndroid Runtime Probe", "0.1.0")]
 public sealed class AndroidRuntimeProbe : BasePlugin
 {
     public override void Load()

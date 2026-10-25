@@ -1,8 +1,8 @@
-# BazaarPlusPlusForAndroid
+# BazaarPlusAndroid
 
 《The Bazaar》（大巴扎）的 Android 移植项目，提供独立启动器和游戏内辅助功能，围绕触屏操作适配卡牌图鉴、附魔与升级预览、事件预览及构筑推荐。
 
-[English](README.md) · [下载 APK](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) · [反馈问题](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues)
+[English](README.md) · [下载 APK](https://github.com/VIkill33/BazaarPlusAndroid/releases) · [反馈问题](https://github.com/VIkill33/BazaarPlusAndroid/issues)
 
 项目目前处于实验性测试阶段。不同设备、系统和游戏版本的验证范围见[真机验证记录](bazaarplusplus-android/docs/device-validation.md)，完整功能状态见[功能清单](bazaarplusplus-android/docs/feature-checklist.md)。
 
@@ -10,10 +10,10 @@
 
 ### 找到并下载 APK
 
-1. 点击本 README 顶部的「下载 APK」，或直接打开 [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases)。即使仓库主页右侧只显示「1 tag」或「Create a new release」，也可通过此链接查看发布列表。
+1. 点击本 README 顶部的「下载 APK」，或直接打开 [GitHub Releases](https://github.com/VIkill33/BazaarPlusAndroid/releases)。即使仓库主页右侧只显示「1 tag」或「Create a new release」，也可通过此链接查看发布列表。
 2. 选择要安装的 Android 版本，阅读发布说明和兼容范围；实验性测试版标记为 **Pre-release**。
 3. 滚动到该版本说明下方，点击 **Assets** 展开附件列表。
-4. 点击以 `.apk` 结尾的文件（命名格式为 `BazaarPlusPlus-Android-<版本标签>.apk`）下载安装包。`.apk.sha256` 用于校验，`-source.tar.gz` 和 **Source code** 是源码，安装时无需下载这些文件。
+4. 点击以 `.apk` 结尾的文件（命名格式为 `BazaarPlusAndroid-<版本标签>.apk`）下载安装包。`.apk.sha256` 用于校验，`-source.tar.gz` 和 **Source code** 是源码，安装时无需下载这些文件。
 
 ### 安装并启动
 
@@ -50,10 +50,10 @@
 
 ## 源码与开发
 
-项目名称为 **BazaarPlusPlusForAndroid**，本地主目录名为 **`BazaarPlusPlus`**。主要开发代码位于 `bazaarplusplus-android/`。
+项目名称为 **BazaarPlusAndroid**，本地主目录名为 **`BazaarPlusPlus`**。主要开发代码位于 `bazaarplusplus-android/`。
 
 ```sh
-git clone https://github.com/VIkill33/BazaarPlusPlusForAndroid.git BazaarPlusPlus
+git clone https://github.com/VIkill33/BazaarPlusAndroid.git BazaarPlusPlus
 cd BazaarPlusPlus
 ```
 
@@ -80,7 +80,7 @@ python3 -m unittest discover -s bazaarplusplus-android/tests -v
 
 ## 反馈与支持
 
-请通过 [GitHub Issues](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues) 反馈问题，附上启动器版本、手机型号、Android 版本、游戏客户端版本和复现步骤。需要时可附启动器导出的诊断文件，提交前检查并移除个人信息。
+请通过 [GitHub Issues](https://github.com/VIkill33/BazaarPlusAndroid/issues) 反馈问题，附上启动器版本、手机型号、Android 版本、游戏客户端版本和复现步骤。需要时可附启动器导出的诊断文件，提交前检查并移除个人信息。
 
 支持作者可使用启动器首页的「打赏作者」按钮；「Github」按钮可直接打开本项目仓库。
 

@@ -1,8 +1,8 @@
-# BazaarPlusPlusForAndroid
+# BazaarPlusAndroid
 
 An Android port for *The Bazaar*, with a dedicated launcher and in-game tools adapted for touch: a card collection browser, enchant and upgrade previews, encounter previews, and build recommendations.
 
-[中文](README_zh.md) · [Download APK](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) · [Report an issue](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues)
+[中文](README_zh.md) · [Download APK](https://github.com/VIkill33/BazaarPlusAndroid/releases) · [Report an issue](https://github.com/VIkill33/BazaarPlusAndroid/issues)
 
 The project is experimental. See the [device validation records](bazaarplusplus-android/docs/device-validation.md) for tested devices, systems, and game versions, and the [feature checklist](bazaarplusplus-android/docs/feature-checklist.md) for implementation status. These detailed documents are currently in Chinese.
 
@@ -10,10 +10,10 @@ The project is experimental. See the [device validation records](bazaarplusplus-
 
 ### Find and download the APK
 
-1. Click **Download APK** at the top of this README, or open [GitHub Releases](https://github.com/VIkill33/BazaarPlusPlusForAndroid/releases) directly. This link opens the release list even if the repository homepage sidebar only shows **1 tag** or **Create a new release**.
+1. Click **Download APK** at the top of this README, or open [GitHub Releases](https://github.com/VIkill33/BazaarPlusAndroid/releases) directly. This link opens the release list even if the repository homepage sidebar only shows **1 tag** or **Create a new release**.
 2. Choose the Android version you want to install and read its release notes and compatibility information. Experimental test releases are marked **Pre-release**.
 3. Scroll below that version's release notes and click **Assets** to expand the attached files.
-4. Click the file ending in `.apk` (named `BazaarPlusPlus-Android-<version-tag>.apk`) to download the installer. The `.apk.sha256` file is for checksum verification; `-source.tar.gz` and **Source code** contain source code. These files are not required for installation.
+4. Click the file ending in `.apk` (named `BazaarPlusAndroid-<version-tag>.apk`) to download the installer. The `.apk.sha256` file is for checksum verification; `-source.tar.gz` and **Source code** contain source code. These files are not required for installation.
 
 ### Install and launch
 
@@ -50,10 +50,10 @@ The launcher uses a separate runtime directory and does not automatically migrat
 
 ## Source and development
 
-The project is named **BazaarPlusPlusForAndroid**; its local root directory is named **`BazaarPlusPlus`**. The main development code is in `bazaarplusplus-android/`.
+The project is named **BazaarPlusAndroid**; its local root directory is named **`BazaarPlusPlus`**. The main development code is in `bazaarplusplus-android/`.
 
 ```sh
-git clone https://github.com/VIkill33/BazaarPlusPlusForAndroid.git BazaarPlusPlus
+git clone https://github.com/VIkill33/BazaarPlusAndroid.git BazaarPlusPlus
 cd BazaarPlusPlus
 ```
 
@@ -80,7 +80,7 @@ A full build requires the matching toolchain, pinned framework inputs, Android g
 
 ## Feedback and support
 
-Report problems through [GitHub Issues](https://github.com/VIkill33/BazaarPlusPlusForAndroid/issues), including the launcher version, phone model, Android version, game client version, and reproduction steps. Attach exported launcher diagnostics when needed, after checking for and removing personal information.
+Report problems through [GitHub Issues](https://github.com/VIkill33/BazaarPlusAndroid/issues), including the launcher version, phone model, Android version, game client version, and reproduction steps. Attach exported launcher diagnostics when needed, after checking for and removing personal information.
 
 Use 「打赏作者」 (Support the author) on the launcher home screen to support maintenance. The 「Github」 button opens this project's repository.
 

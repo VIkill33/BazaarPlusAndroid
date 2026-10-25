@@ -138,7 +138,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         _opacity = _group.gameObject.AddComponent<CanvasGroup>();
         _group.pivot = Vector2.zero;
         _buttons = NativeUi.Rect("BPP.DockButtons", _group, Vector2.zero, Vector2.one);
-        _handle = NativeUi.Button(_group, font, "BPP", Vector2.zero, Vector2.zero, () =>
+        _handle = NativeUi.Button(_group, font, "BPA", Vector2.zero, Vector2.zero, () =>
         {
             if (_dragged) return;
             _collapsed = !_collapsed;
@@ -287,7 +287,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         handle.sizeDelta = _collapsed ? style.Collapsed : new Vector2(style.Button.x, style.HandleHeight);
         handle.anchoredPosition = Vector2.zero;
         var label = _handle.GetComponentInChildren<TextMeshProUGUI>();
-        label.text = _collapsed ? "B\nP\nP" : _textButtons ? NativeUi.Text("Collapse", "收起") : NativeUi.Text("Hide", "收起");
+        label.text = _collapsed ? "B\nP\nA" : _textButtons ? NativeUi.Text("Collapse", "收起") : NativeUi.Text("Hide", "收起");
         label.fontSize = _collapsed ? style.CollapsedFont : style.HandleFont;
         var area = Bounds();
         var travel = new Vector2(Math.Max(0, area.width - _group.sizeDelta.x), Math.Max(0, area.height - _group.sizeDelta.y));

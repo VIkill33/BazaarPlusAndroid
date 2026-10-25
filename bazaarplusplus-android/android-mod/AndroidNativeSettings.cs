@@ -190,23 +190,23 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
 
     private static readonly Spec[] Specs =
     {
-        new("BPP.LongPressSetting", "long_press", () => NativeUi.Text("BPP: Long press preview", "BPP：长按预览"),
+        new("BPP.LongPressSetting", "long_press", () => NativeUi.Text("BazaarPlusAndroid: Long press preview", "BazaarPlusAndroid：长按预览"),
             () => new[] { NativeUi.Text("Enchants", "附魔"), NativeUi.Text("Upgrade", "升级"), NativeUi.Text("None", "无") },
             () => (int)AndroidLongPressPreviewSettings.Mode, value => AndroidLongPressPreviewSettings.Mode = (AndroidLongPressPreviewMode)value),
-        new("BPP.PreviewPositionSetting", "panel_position", () => NativeUi.Text("BPP: Preview panel position", "BPP：预览面板位置"),
+        new("BPP.PreviewPositionSetting", "panel_position", () => NativeUi.Text("BazaarPlusAndroid: Preview panel position", "BazaarPlusAndroid：预览面板位置"),
             () => new[] { NativeUi.Text("Default", "默认位置"), NativeUi.Text("Left edge", "靠屏幕左侧边缘") },
             () => AndroidLauncherSettings.LeftEdge ? 1 : 0, value => AndroidLauncherSettings.SetLeftEdge(value == 1)),
-        new("BPP.DockSetting", "dock_auto_hide", () => NativeUi.Text("BPP: Auto-hide buttons", "BPP：按钮自动收起"),
+        new("BPP.DockSetting", "dock_auto_hide", () => NativeUi.Text("BazaarPlusAndroid: Auto-hide buttons", "BazaarPlusAndroid：按钮自动收起"),
             () => new[] { NativeUi.Text("Off", "关闭"), NativeUi.Text("After 5 seconds", "闲置5秒后收起") },
             () => AndroidFloatingDock.AutoHide ? 1 : 0, value => AndroidFloatingDock.AutoHide = value == 1),
-        new("BPP.ButtonStyleSetting", "dock_style", () => NativeUi.Text("BPP: Button style", "BPP：按钮样式"),
+        new("BPP.ButtonStyleSetting", "dock_style", () => NativeUi.Text("BazaarPlusAndroid: Button style", "BazaarPlusAndroid：按钮样式"),
             () => new[] { NativeUi.Text("Icons", "图标"), NativeUi.Text("Text only (classic)", "纯文字（旧版）") },
             () => AndroidDockSettings.Current.TextButtons ? 1 : 0,
             value => AndroidDockSettings.Save(AndroidDockSettings.Current with { TextButtons = value == 1 })),
-        Button("BPP.CollectionButtonSetting", "dock_collection", "BPP: Card collection button", "BPP：卡牌图鉴按钮", AndroidDockButton.Collection),
-        Button("BPP.BuildsButtonSetting", "dock_builds", "BPP: Builds button", "BPP：构筑推荐按钮", AndroidDockButton.Builds),
-        Button("BPP.PreviewModeButtonSetting", "dock_preview_mode", "BPP: Long press mode button", "BPP：长按模式按钮", AndroidDockButton.PreviewMode),
-        Button("BPP.HoldPreviewButtonSetting", "dock_hold_preview", "BPP: Hold to preview button", "BPP：按住预览按钮", AndroidDockButton.HoldPreview),
-        Button("BPP.HistoryButtonSetting", "dock_history", "BPP: History button", "BPP：对局历史按钮", AndroidDockButton.History),
+        Button("BPP.CollectionButtonSetting", "dock_collection", "BazaarPlusAndroid: Card collection button", "BazaarPlusAndroid：卡牌图鉴按钮", AndroidDockButton.Collection),
+        Button("BPP.BuildsButtonSetting", "dock_builds", "BazaarPlusAndroid: Builds button", "BazaarPlusAndroid：构筑推荐按钮", AndroidDockButton.Builds),
+        Button("BPP.PreviewModeButtonSetting", "dock_preview_mode", "BazaarPlusAndroid: Long press mode button", "BazaarPlusAndroid：长按模式按钮", AndroidDockButton.PreviewMode),
+        Button("BPP.HoldPreviewButtonSetting", "dock_hold_preview", "BazaarPlusAndroid: Hold to preview button", "BazaarPlusAndroid：按住预览按钮", AndroidDockButton.HoldPreview),
+        Button("BPP.HistoryButtonSetting", "dock_history", "BazaarPlusAndroid: History button", "BazaarPlusAndroid：对局历史按钮", AndroidDockButton.History),
     };
 }

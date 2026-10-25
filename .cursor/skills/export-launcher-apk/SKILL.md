@@ -1,7 +1,7 @@
 ---
 name: export-launcher-apk
 description: >-
-  Build and export the signed BazaarPlusPlus Android launcher APK.
+  Build and export the signed BazaarPlusAndroid launcher APK.
   Use when the user asks to 导出 APK, 打包, export the launcher, or run
   build_launcher.py / assembleRelease for bazaarplusplus-android.
 ---
@@ -23,7 +23,7 @@ description: >-
 
 在仓库根运行 `bazaarplusplus-android/build_launcher.py`，传入 `--keystore signing-secrets/android-launcher.jks`。脚本会准备发行清单、执行 `:fusionApp:assembleRelease`、核对 APK 内置依赖，并写入：
 
-- `bazaarplusplus-android/artifacts/launcher/BazaarPlusPlus-launcher.apk`
+- `bazaarplusplus-android/artifacts/launcher/BazaarPlusAndroid-launcher.apk`
 - 同目录的 `.sha256`、`release.json`、`signing-report.txt`
 - `launcher-source.tar.gz`
 

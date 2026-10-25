@@ -1804,3 +1804,39 @@ test.12 签名构建：
 用户本次反馈未逐台列出验证设备、步骤或新的诊断，因此不声称 API 28／35／36／37
 全部逐机验收完成，也不新增自动握手、游戏功能、全新初始化或完整修复的验证结论。
 本次验收来源为用户反馈；本机手机继续保持其他测试任务，不重新安装或操作。
+
+
+## 2026-10-26：BazaarPlusAndroid 更名
+
+参考启动器 ADR-0001、BUILDING、插件设置文档与当前 `LauncherActivity`、
+`AndroidNativeSettings`、`AndroidFloatingDock` 实现，仅调整产品名称与链接。
+项目中英文说明、三种应用名资源、启动器首页／帮助／许可、插件与探针显示名、
+游戏内设置、附魔预览标题、折叠入口和构建／发布附件统一品牌；折叠入口使用 BPA。
+上游 BazaarPlusPlus 署名、签名证书、应用 ID、插件 GUID／程序集、JNI 类路径、
+数据目录与配置键保持兼容。此前验证记录保留当时实际名称。
+GitHub 仓库已在现有登录会话中更名为 `VIkill33/BazaarPlusAndroid`，
+仓库 About 说明、项目链接及本地 android remote 已更新；未推送源码或发布 Release。
+
+离线与构建：Python unittest 12 项通过，Android 插件／探针编译零警告、零错误；
+JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
+发布校验器验证新附件命名通过，并以实际签名包验证历史附件命名兼容路径。
+最终 APK `0.1.0-test.14` SHA-256：
+`656c2539174d9d80eb7b97edbaab42f5eeb9073fcc59342d59944e43c3a0b9c0`。
+签名 Verifies、v2 true，沿用 `CN=BazaarPlusPlus Android Test`。
+
+本次设备：22041216C（xaga），Android 14，官方游戏
+`1.0.12825-production-android-d9601ded`；测试前停留启动器首页。
+覆盖安装保留原有应用数据。Android CLI 获取布局与截图，断言首页和帮助页含新名称，
+人工复核两页标题完整显示；帮助页通过文字定位打开。最终链接更新后再次构建并覆盖安装，
+从启动器启动游戏，独立新会话、当前 APK／插件摘要及加载时序等 12 项断言全部通过。
+首次采集发生于运行环境准备期间，仅旧握手可见，未计为通过；初始化完成后重采全部通过。
+未新开或推进对局、购买、上传或清除数据。
+
+证据：被忽略的 `artifacts/rename/` 下的首页／帮助布局及截图、
+`evidence/verification.json`、加载日志、`final-release/` 的发行校验输入；
+`artifacts/rename-tests.log`、`artifacts/rename-build.log`、`artifacts/launcher-apk-build.log`。
+进入游戏大厅后打开设置，截图人工复核长按预览、预览位置、自动收起、按钮样式及
+五个入口开关均显示新品牌且未截断；原生游戏字体按既有样式显示为大写英文，未修改设置值。
+设置页证据为 `settings-brand.png`、`settings-buttons.png`。
+附魔标题和 BPA 折叠条的逐项视觉验收，以及双输入模式、横屏启动器与放大字体组合
+仍待覆盖；不扩展为这些路径均已真机通过。

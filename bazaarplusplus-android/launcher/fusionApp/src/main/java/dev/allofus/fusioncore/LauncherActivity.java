@@ -86,7 +86,7 @@ public final class LauncherActivity extends AppCompatActivity {
         findViewById(R.id.launcher_github).setOnClickListener(v -> {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/VIkill33/BazaarPlusPlusForAndroid")));
+                        Uri.parse("https://github.com/VIkill33/BazaarPlusAndroid")));
             } catch (ActivityNotFoundException error) {
                 Toast.makeText(this, "无法打开链接", Toast.LENGTH_SHORT).show();
             }
@@ -165,7 +165,7 @@ public final class LauncherActivity extends AppCompatActivity {
         checks.execute(() -> {
             String details;
             try {
-                details = "BazaarPlusPlus " + BuildConfig.VERSION_NAME + "\n独立社区工具，非游戏官方出品。\n\n" +
+                details = getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + "\n独立社区工具，非游戏官方出品。\n\n" +
                         LauncherRelease.read(getAssets().open("launcher/NOTICE.txt")) + "\n\n" +
                         LauncherRelease.read(getAssets().open("launcher/BPP-LICENSE.txt")) + "\n\n" +
                         LauncherRelease.read(getAssets().open("launcher/FusionCore-LICENSE.txt"));
