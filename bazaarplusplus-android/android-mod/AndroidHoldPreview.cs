@@ -2,6 +2,7 @@ using Il2CppInterop.Runtime;
 using TheBazaar;
 using TheBazaar.UI;
 using TheBazaar.Tooltips;
+using TheBazaar.UI.Tooltips;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -108,6 +109,8 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
                 var preview = hit.gameObject.GetComponentInParent<CardPreviewBase>();
                 var data = card?.CurrentTooltipData?.TryCast<CardTooltipData>() ?? preview?._tooltipData;
                 var parent = Data.TooltipParentComponent;
+                // Tooltips shown by this preview overlap neighbouring cards; look through them.
+                if (data == null && IsPreviewSurface(hit.gameObject.transform)) continue;
                 if (data == null || parent == null)
                 {
                     Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.hold_preview.target_unavailable hit={hit.gameObject.name} card_controller={card != null} preview={preview != null}");
@@ -130,6 +133,13 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
             Plugin.PluginLog?.LogError($"[BPP][Android] event=android.hold_preview.failed exception={error}");
             Stop();
         }
+    }
+
+    private static bool IsPreviewSurface(Transform target)
+    {
+        var panel = AndroidTooltipObserver.FocusPanel;
+        return (panel != null && target.IsChildOf(panel))
+            || target.GetComponentInParent<CardTooltipController>() != null;
     }
 
     public void Update()

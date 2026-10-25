@@ -1585,3 +1585,18 @@ LongPressSettings 测试通过。签名 APK `0.1.0-test.14` 的 `apksigner` 校�
 最终 APK SHA-256 为 `dc1f19c0cfafd3204d06e5b5be9ff3aa67ba1270608c804bef81fcac199e77a8`。
 代理未启动游戏或执行界面断言，`verify_floating_dock.py` 仅同步了新尺寸、未在本次运行。
 用户在设备上查看后确认通过；未逐项报告的标准／高级模式、四边吸附、自动收起、纯文字样式与历史隐藏组合不扩大为全部覆盖。
+
+
+## 2026-10-26：按住预览可穿过已打开的预览面板（用户真机确认通过）
+
+问题：按住预览期间，另一根手指点击被附加预览面板（`BPP.EnchantPreview`）或原生详情遮住的物品／事件时，
+`AndroidHoldPreview.Preview` 只取首个非遮罩命中，命中面板后记录 `target_unavailable` 并放弃，须松手后才能再选。
+修正：新增 `AndroidHoldPreview.IsPreviewSurface`，命中位于 `AndroidTooltipObserver.FocusPanel` 或
+`CardTooltipController` 下且无法解析卡牌时继续检查下一命中；其他菜单与界面仍阻挡；野怪浮层内的卡图仍可直接解析。
+
+插件经 `build_probe.py --mod` 编译零警告、零错误，HoldPreview 与 PreviewTooltips 测试通过。
+签名 APK `0.1.0-test.14` 的 `apksigner` 校验通过（v2，`CN=BazaarPlusPlus Android Test`），
+APK SHA-256 为 `ae8218d0331533e0d2fd1083f543ee2e01e8a1a859e2c1ba2c1bd56109939146`，内置插件 SHA-256 `77df0f18c265a108f4488c3ffe0d06a47e74046fe14a078ce76c767a45c39346`；
+覆盖安装至 Redmi 22041216C（`OBJVWSPNSCFQU48L`）返回 Success。代理未执行界面操作。
+用户在高级模式真机测试后确认通过；野怪浮层下方目标与连续多次穿透切换未单独报告，不扩大为全部覆盖。
+构建日志：忽略目录 `artifacts/hold-preview-passthrough-build.log`、`artifacts/launcher-apk-build.log`。
