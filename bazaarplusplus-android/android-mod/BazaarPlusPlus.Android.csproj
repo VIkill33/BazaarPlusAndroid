@@ -11,6 +11,7 @@
     <DesktopSource>$(MSBuildThisFileDirectory)../../bazaarplusplus-mod/src/BazaarPlusPlus</DesktopSource>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="$(DesktopSource)/Resources/HistoryPanel/run-state-badges.png" LogicalName="BazaarPlusPlus.Android.History.run-state-badges.png" />
     <Compile Include="$(DesktopSource)/Game/CollectionPanel/Grid/CollectionGridLayout.cs;$(DesktopSource)/Game/CollectionPanel/Grid/CollectionGridCell.cs;$(DesktopSource)/Game/CollectionPanel/Grid/CollectionGridConstants.cs;$(DesktopSource)/Infrastructure/UiTokens/BppOverlaySorting.cs" Link="Shared/Grid/%(Filename)%(Extension)" />
     <EmbeddedResource Include="$(DesktopSource)/Data/CollectionSources/collection-sources.json" LogicalName="BazaarPlusPlus.Android.collection-sources.json" />
     <Compile Include="$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceEntry.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceOfferRule.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceOfferPoolResolver.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceOfferPoolResult.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionHiddenTagGroups.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceHeroParser.cs;$(DesktopSource)/GameInterop/Heroes/TheDragonsHeroIdentity.cs" Link="Shared/Sources/%(Filename)%(Extension)" />

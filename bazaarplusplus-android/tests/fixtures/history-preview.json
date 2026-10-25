@@ -1,0 +1,168 @@
+{
+  "runs": {
+    "items": [
+      {
+        "id": "demo-0",
+        "hero": "Vanessa",
+        "status": "completed",
+        "reason": null,
+        "playMode": "Unranked",
+        "startedAt": 1792900800000,
+        "endedAt": 1792900800000,
+        "day": 3,
+        "victories": 0,
+        "losses": 3,
+        "battleCount": 3,
+        "startDay": 1
+      },
+      {
+        "id": "demo-1",
+        "hero": "Pygmalien",
+        "status": "completed",
+        "reason": null,
+        "playMode": "Unranked",
+        "startedAt": 1792897200000,
+        "endedAt": 1792900800000,
+        "day": 7,
+        "victories": 4,
+        "losses": 3,
+        "battleCount": 7,
+        "startDay": 1
+      },
+      {
+        "id": "demo-2",
+        "hero": "Dooley",
+        "status": "completed",
+        "reason": null,
+        "playMode": "Unranked",
+        "startedAt": 1792893600000,
+        "endedAt": 1792900800000,
+        "day": 10,
+        "victories": 7,
+        "losses": 3,
+        "battleCount": 10,
+        "startDay": 1
+      },
+      {
+        "id": "demo-3",
+        "hero": "Mak",
+        "status": "completed",
+        "reason": null,
+        "playMode": "Unranked",
+        "startedAt": 1792890000000,
+        "endedAt": 1792900800000,
+        "day": 12,
+        "victories": 10,
+        "losses": 2,
+        "battleCount": 12,
+        "startDay": 1
+      },
+      {
+        "id": "demo-4",
+        "hero": "Vanessa",
+        "status": "completed",
+        "reason": null,
+        "playMode": "Unranked",
+        "startedAt": 1792886400000,
+        "endedAt": 1792900800000,
+        "day": 10,
+        "victories": 10,
+        "losses": 0,
+        "battleCount": 10,
+        "startDay": 1
+      },
+      {
+        "id": "demo-5",
+        "hero": "Pygmalien",
+        "status": "completed",
+        "reason": "surrender",
+        "playMode": "Unranked",
+        "startedAt": 1792882800000,
+        "endedAt": 1792900800000,
+        "day": 3,
+        "victories": 2,
+        "losses": 1,
+        "battleCount": 3,
+        "startDay": 1
+      },
+      {
+        "id": "demo-6",
+        "hero": "Dooley",
+        "status": "active",
+        "reason": null,
+        "playMode": "Unranked",
+        "startedAt": 1792879200000,
+        "endedAt": null,
+        "day": 1,
+        "victories": 1,
+        "losses": 0,
+        "battleCount": 1,
+        "startDay": 1
+      },
+      {
+        "id": "demo-7",
+        "hero": "Mak",
+        "status": "completed",
+        "reason": null,
+        "playMode": "Unranked",
+        "startedAt": 1792875600000,
+        "endedAt": 1792900800000,
+        "day": 6,
+        "victories": 3,
+        "losses": 3,
+        "battleCount": 6,
+        "startDay": 1
+      }
+    ],
+    "hasMore": false
+  },
+  "battles": {
+    "items": [
+      {
+        "id": "demo-battle-0",
+        "sequence": 1,
+        "kind": "pvp",
+        "day": 1,
+        "hour": 6,
+        "outcome": "win",
+        "opponentName": "CaptainFox",
+        "opponentHero": "Vanessa",
+        "partialOpening": 0
+      },
+      {
+        "id": "demo-battle-1",
+        "sequence": 2,
+        "kind": "pvp",
+        "day": 2,
+        "hour": 6,
+        "outcome": "loss",
+        "opponentName": "Clockwork",
+        "opponentHero": "Dooley",
+        "partialOpening": 0
+      },
+      {
+        "id": "demo-battle-2",
+        "sequence": 3,
+        "kind": "pvp",
+        "day": 3,
+        "hour": 6,
+        "outcome": "win",
+        "opponentName": "GreenMarket",
+        "opponentHero": "Pygmalien",
+        "partialOpening": 0
+      },
+      {
+        "id": "demo-battle-3",
+        "sequence": 4,
+        "kind": "pvp",
+        "day": 4,
+        "hour": 6,
+        "outcome": "win",
+        "opponentName": "Alchemy",
+        "opponentHero": "Mak",
+        "partialOpening": 0
+      }
+    ],
+    "hasMore": false
+  }
+}

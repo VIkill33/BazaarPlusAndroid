@@ -23,5 +23,31 @@ Check(HistoryFormationLayout.ItemSlot("Socket_0",9)==0 && HistoryFormationLayout
 Check(HistoryFormationLayout.ItemSlot("OpponentSocket_9",0)==9 && HistoryFormationLayout.ItemSlot("未记录",4)==4
     && HistoryFormationLayout.ItemSlot("Socket_-1",4)==4 && HistoryFormationLayout.ItemSlot("Socket_128",4)==4,
     "Opponent positions are preserved and unavailable or invalid positions use sequential placement");
-Console.WriteLine("History browser normal record presentation: 10 checks passed.");
+foreach (var (wins, losses, tier) in new[] { (0,3,"未达奖杯"), (3,3,"未达奖杯"), (4,3,"青铜胜利"), (6,3,"青铜胜利"),
+    (7,3,"白银胜利"), (9,3,"白银胜利"), (10,1,"黄金胜利"), (10,0,"钻石胜利") })
+{
+    var row = JsonSerializer.SerializeToElement(new { status="completed", victories=wins, losses });
+    Check(HistoryViewText.Tier(row)==tier, "Trophy boundaries match the saved final progress");
+}
+foreach (var json in new[] { "{\"status\":\"completed\",\"victories\":10}",
+    "{\"status\":\"completed\",\"victories\":10,\"losses\":null}",
+    "{\"status\":\"completed\",\"victories\":10,\"losses\":-1}",
+    "{\"status\":\"completed\",\"victories\":10,\"losses\":\"0\"}" })
+    Check(HistoryViewText.Trophy(JsonSerializer.Deserialize<JsonElement>(json))==null, "Unknown or invalid losses never imply diamond");
+Check(HistoryViewText.Trophy(active)==null && HistoryViewText.Trophy(missing)==null,
+    "Active and unavailable final progress never receive final trophies");
+var interrupted=JsonSerializer.SerializeToElement(new {status="abandoned",reason="new_run_confirmed",victories=10,losses=0});
+Check(HistoryViewText.Tier(interrupted)=="已中断" && HistoryViewText.Trophy(interrupted)==null && HistoryViewText.Badge(interrupted)=="state:pending",
+    "An interrupted archive is not classified as surrender or victory");
+Check(HistoryViewText.OpponentName(legacy)=="玩家名称未记录" && HistoryViewText.Value(HistoryViewText.Opponent(legacy),"opponentHero")=="Pygmalien",
+    "Portrait identity resolves both list and nested detail metadata");
+using (var fixture = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"history-preview.json"))))
+{
+    var expected = new[] { "state:broken", "Trophy_Bronze_TUI", "Trophy_Silver_TUI", "Trophy_Gold_TUI", "Trophy_Diamond_TUI", "state:flag", "state:pending", "state:broken" };
+    var rows = fixture.RootElement.GetProperty("runs").GetProperty("items").EnumerateArray().ToArray();
+    Check(rows.Select(HistoryViewText.Badge).SequenceEqual(expected), "Demo covers every artwork and both ends of the 0-3 win broken-cup range");
+    Check(rows[5].GetProperty("reason").GetString()=="surrender" && HistoryViewText.Tier(rows[5])=="已投降", "Only explicit mock surrender evidence receives the surrender state");
+}
+Check(HistoryViewText.Badge(missing)=="state:pending", "Incomplete final progress does not receive a broken-cup final result");
+Console.WriteLine("History browser presentation and outcome boundaries: 28 checks passed.");
 void Check(bool value,string message) { if(!value)throw new Exception(message); }

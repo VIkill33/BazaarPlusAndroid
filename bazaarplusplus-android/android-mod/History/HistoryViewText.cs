@@ -35,6 +35,43 @@ internal static class HistoryViewText
             + $"\n对手：{name} · {opponent}"
             + (Number(row, "partialOpening") != 0 ? " · 开局信息不完整" : "");
     }
+    internal static bool HasProgress(JsonElement row) => ValidCount(row, "victories") && ValidCount(row, "losses");
+    private static bool ValidCount(JsonElement row, string key) => row.TryGetProperty(key, out var value)
+        && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var count) && count >= 0;
+    internal static string Score(JsonElement row) => HasProgress(row) ? $"{Number(row, "victories")} 胜" : "胜场未记录";
+    internal static string Tier(JsonElement row)
+    {
+        if (Value(row, "reason") == "surrender") return "已投降";
+        if (Value(row, "reason") == "final_progress_unavailable") return "最后观察 · 最终进度未记录";
+        if (Value(row, "status") != "completed") return Value(row, "status") == "abandoned" ? "已中断" :
+            Value(row, "sourceKind") == "import" ? "中断记录" : Number(row, "recoveryPending") != 0
+                || Number(row, "pendingIdentity") != 0 ? "待确认续接" : "进行中 · 最后观察";
+        if (!HasProgress(row)) return "最终进度未记录";
+        var wins = Number(row, "victories");
+        return wins == 10 && Number(row, "losses") == 0 ? "钻石胜利" : wins >= 10 ? "黄金胜利"
+            : wins >= 7 ? "白银胜利" : wins >= 4 ? "青铜胜利" : "未达奖杯";
+    }
+    internal static string? Trophy(JsonElement row) => Tier(row) switch
+    {
+        "青铜胜利" => "Trophy_Bronze_TUI", "白银胜利" => "Trophy_Silver_TUI",
+        "黄金胜利" => "Trophy_Gold_TUI", "钻石胜利" => "Trophy_Diamond_TUI", _ => null,
+    };
+    internal static string Badge(JsonElement row) => Trophy(row) ?? (Tier(row) switch
+    {
+        "未达奖杯" => "state:broken", "已投降" => "state:flag", "已中断" => "state:pending", _ => "state:pending",
+    });
+    internal static string RunMeta(JsonElement row) => $"{Date(row, "startedAt")} · {Mode(Value(row, "playMode"))}"
+        + $"\n第 {Number(row, "day")} 天 · {Number(row, "battleCount")} 场 PvP"
+        + (Number(row, "startDay") > 1 ? " · 中途开始记录" : "");
+    internal static JsonElement Opponent(JsonElement row) => row.TryGetProperty("opening", out var opening)
+        && opening.ValueKind == JsonValueKind.Object ? opening : row;
+    internal static string OpponentName(JsonElement row)
+    {
+        var name = Value(Opponent(row), "opponentName");
+        return name == "未记录" || string.IsNullOrWhiteSpace(name) ? "玩家名称未记录" : name;
+    }
+    internal static string Result(JsonElement row) => Value(row, "outcome") switch
+        { "win" => "胜", "loss" => "负", "draw" => "平", _ => "结果未记录" };
     internal static string Group(JsonElement group)
     {
         var count = group.TryGetProperty("cards", out var cards) ? cards.GetArrayLength() : 0;
