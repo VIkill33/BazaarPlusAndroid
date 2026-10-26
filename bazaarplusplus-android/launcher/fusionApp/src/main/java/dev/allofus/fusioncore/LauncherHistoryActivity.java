@@ -11,6 +11,10 @@ import dev.allofus.fusioncore.history.HistoryBattleView;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.text.TextUtils;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
 import android.view.Gravity;
 import android.widget.ImageButton;
 import dev.allofus.fusioncore.history.HistoryArtwork;
@@ -343,7 +347,18 @@ public final class LauncherHistoryActivity extends AppCompatActivity {
         TextView name = rowText(value(row, "hero"), 16, R.color.bpp_text); name.setTypeface(null, Typeface.BOLD); name.setId(android.R.id.text1);
         copy.addView(name);
         TextView score = rowText(HistoryPresentation.hasProgress(row) ? row.optLong("victories") + " 胜 / " + row.optLong("losses") + " 负" : "胜场未记录", overview ? 25 : 21, R.color.bpp_accent);
-        score.setTypeface(null, Typeface.BOLD); copy.addView(score);
+        score.setTypeface(null, Typeface.BOLD);
+        if (overview && HistoryPresentation.hasProgress(row)) {
+            // Five full-width spaces retain the victory font's character width.
+            String wins = row.optLong("victories") + " 胜";
+            String gap = "\u3000\u3000\u3000\u3000\u3000";
+            SpannableString result = new SpannableString(wins + gap + row.optLong("losses") + " 负");
+            int lossStart = wins.length() + gap.length();
+            result.setSpan(new RelativeSizeSpan(.25f), lossStart, result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            result.setSpan(new ForegroundColorSpan(getColor(R.color.bpp_muted)), lossStart, result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            score.setText(result);
+        }
+        copy.addView(score);
         copy.addView(rowText(time(row, "startedAt") + " · " + HistoryPresentation.tier(row), 12, R.color.bpp_muted));
         copy.addView(rowText((overview ? mode(row) + " · 第 " + value(row, "day") + " 天 · " : "")
             + row.optInt("battleCount") + " 场已存 PvP 交手"

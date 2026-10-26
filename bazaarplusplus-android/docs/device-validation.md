@@ -1,5 +1,29 @@
 # Android 真机验证
 
+## 单场对局败场样式与完整采集文案（2026-10-26，test.14）
+
+`LauncherHistoryActivity.runRow` 仅在单场对局摘要中将败场缩为原 25sp 的四分之一（6.25sp），
+使用 `bpp_muted` 灰色，与胜场间加入五个保持胜场字号的全角空格；沿同一基线显示。
+`HistoryBattleView.groupLabel` 对完整采集返回分组名，不显示完整采集提示、张数或空阵容提示；
+部分采集、失败、未采集的提示保留。仅调整启动器视图，不改历史数据或游戏内面板。
+参考 Android README、功能清单、启动器 ADR／构建说明、桌面历史布局及当前 Java 实现。
+
+设备 `OBJVWSPNSCFQU48L`、22041216C、Android 14，系统字体 1.0；目标游戏为
+`1.0.12825-production-android-d9601ded`。测试开始位于历史对局列表，只读浏览既存记录，未启动游戏或推进对局。
+按导出 skill 使用 JDK 24 和持久签名构建并覆盖安装 `0.1.0-test.14`，Lint／签名构建通过，
+签名 `Verifies`、v2=true、`CN=BazaarPlusPlus Android Test`；内置依赖、插件摘要、已安装版本三项检查通过。
+APK SHA-256：`4f8de06015ef53ebeed08b7219ec99ab2809719d450ec748a82afe1c2bc4faae`。
+
+13 项 Python 离线回归通过，`verify_history_browser.py` 普通记录 138 项真机断言通过，
+覆盖完整采集标签无冗余文案、全部卡图入屏、横竖屏与旋转恢复、筛选及返回位置。
+人工复核单场对局截图中的败场大小、灰色及间距，以及单场对战横竖屏标签与卡图；
+字号比例和五字符间距由 spans 与全角空格实现，本轮未对像素进行自动字体测量。
+结束恢复全部英雄和原旋转设置；崩溃缓冲区最新记录早于本轮测试，无本轮新增启动器崩溃。
+启动器操作与游戏标准／高级输入模式无关；其他设备、放大字体和非完整采集状态专项仍待验证。
+
+证据位于忽略目录 `artifacts/history-score/`（`normal.log`、`normal/` 布局树／截图／138 项结果、
+`installed/verification.json`）；离线记录为 `artifacts/history-score-tests.log`。
+
 ## 启动器历史列表原型实施与同行小头像（2026-10-26，test.14）
 
 根据用户选定的紧凑列表原型，在现有原生 Java 启动器内调整历史页面：日期标题嵌在真实记录行内，

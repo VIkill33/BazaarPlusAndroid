@@ -60,8 +60,8 @@ public final class HistoryBattleView extends ViewGroup {
     private static String groupLabel(JSONObject group, String name) {
         JSONArray cards = group == null ? null : group.optJSONArray("cards"); int count = cards == null ? 0 : cards.length();
         String state = group == null ? "unavailable" : group.optString("status");
-        return name + " · " + (state.equals("captured") ? count == 0 ? "已完整采集，空阵容" : "已完整采集，" + count + " 张"
-            : state.equals("partial") ? "部分采集，" + count + " 张" : state.equals("failed") ? "采集失败" : "未采集");
+        if (state.equals("captured")) return name;
+        return name + " · " + (state.equals("partial") ? "部分采集，" + count + " 张" : state.equals("failed") ? "采集失败" : "未采集");
     }
     private void images(JSONObject group, List<ImageView> result, boolean items) {
         JSONArray cards = group == null ? null : group.optJSONArray("cards"); if (cards == null) return;

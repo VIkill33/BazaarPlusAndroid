@@ -175,7 +175,7 @@ def main():
             if box[3] - box[1] >= box[2] - box[0]:
                 opponent = next(item for item in items if item.get('text', '').startswith('对方：') and 'bounds' in item)
                 opponent_top = int(re.findall(r'\d+', opponent['bounds'])[1])
-                player_skills = next(item for item in items if item.get('text', '').startswith('我方技能 · ') and 'bounds' in item)
+                player_skills = next(item for item in items if item.get('text', '').startswith('我方技能') and 'bounds' in item)
                 player_bottom = int(re.findall(r'\d+', player_skills['bounds'])[3])
                 for item in images:
                     rect = list(map(int, re.findall(r'\d+', item['bounds'])))
@@ -188,7 +188,11 @@ def main():
             joined = texts(items)
             for key, name in [('playerHand', '我方物品'), ('playerSkills', '我方技能'), ('opponentHand', '对方物品'), ('opponentSkills', '对方技能')]:
                 state = {'captured': '已完整采集', 'partial': '部分采集', 'failed': '采集失败', 'unavailable': '未采集'}[selected['snapshots'][key]['status']]
-                check(name + ' · ' + state in joined, label + ': ' + name + ' capture state remains visible')
+                if selected['snapshots'][key]['status'] == 'captured':
+                    check(any(item.get('text') == name for item in items), label + ': ' + name + ' omits completed capture caption')
+                else:
+                    check(name + ' · ' + state in joined, label + ': ' + name + ' capture state remains visible')
+            check('已完整采集' not in joined, label + ': completed capture captions are absent')
         complete_sheet(layout(), first, 'portrait')
         shell('input', 'keyevent', '4')
         check('单场对局' in texts(layout()), 'back returns to the battle list')
