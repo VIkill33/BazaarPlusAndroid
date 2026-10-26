@@ -4,6 +4,12 @@ public final class HistoryBattleLayoutTest {
     public static void main(String[] args) {
         if (!(HistoryBattleLayout.artworkAspect("Small") < .6f && HistoryBattleLayout.artworkAspect("Medium") > 1f
             && HistoryBattleLayout.artworkAspect("Large") > 1.5f)) throw new AssertionError("Native card profiles were replaced by square texture proportions");
+        if (HistoryBattleLayout.frameAspect("Skill") != 1f || HistoryBattleLayout.artworkAspect("Skill") != 1f)
+            throw new AssertionError("Native skill frames are square");
+        float[] skillInsets = HistoryBattleLayout.artInsets("Skill");
+        if (skillInsets.length != 4 || skillInsets[0] <= 0 || skillInsets[0] >= .5f || skillInsets[0] != skillInsets[1]
+            || skillInsets[1] != skillInsets[2] || skillInsets[2] != skillInsets[3])
+            throw new AssertionError("Skill art sits in a circular window inside the frame");
         int cases = 0;
         for (int width : new int[] {160, 320, 540, 1080, 1230}) {
             for (int height : new int[] {100, 180, 300, 700}) {

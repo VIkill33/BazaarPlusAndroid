@@ -15,7 +15,7 @@ import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Image-only battle sheet. Every item has the same height and its saved tier's native frame, with no popups. */
+/** Image-only battle sheet. Items and skills use the saved tier's native frame, with no popups. */
 public final class HistoryBattleView extends ViewGroup {
     // The former skill image area was 88dp high; use one quarter of that edge length.
     private static final int SKILL_EDGE_DP = 22;
@@ -56,23 +56,35 @@ public final class HistoryBattleView extends ViewGroup {
         text.setSingleLine(true); text.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.setId(android.R.id.text1); addView(text); return text;
     }
-    /** Native item card: artwork inside the frame window, the saved tier's game frame drawn over it. */
+    /** Native card: artwork inside the frame window, the saved tier's game frame drawn over it. */
     private final class FramedItem extends ImageView {
         private final float[] insets;
+        private final boolean circular;
         private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+        private final Paint mask = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.RectF oval = new android.graphics.RectF();
         private final Rect full = new Rect();
         private Bitmap frame;
         FramedItem(String size, String tier) {
             super(HistoryBattleView.this.getContext()); insets = HistoryBattleLayout.artInsets(size);
+            circular = "Skill".equals(size);
+            mask.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN));
             artwork.load(HistoryArtwork.frame(size, tier), loaded -> { frame = loaded; invalidate(); });
         }
         @Override protected void onDraw(Canvas canvas) {
             int width = getWidth(), height = getHeight();
             android.graphics.drawable.Drawable art = getDrawable();
             if (art != null) {
-                art.setBounds(Math.round(width * insets[0]), Math.round(height * insets[1]),
-                    width - Math.round(width * insets[2]), height - Math.round(height * insets[3]));
-                art.draw(canvas);
+                int left = Math.round(width * insets[0]), top = Math.round(height * insets[1]);
+                int right = width - Math.round(width * insets[2]), bottom = height - Math.round(height * insets[3]);
+                art.setBounds(left, top, right, bottom);
+                if (circular) {
+                    int layer = canvas.saveLayer(0, 0, width, height, null);
+                    art.draw(canvas);
+                    oval.set(left, top, right, bottom);
+                    canvas.drawOval(oval, mask);
+                    canvas.restoreToCount(layer);
+                } else art.draw(canvas);
             }
             if (frame != null) { full.set(0, 0, width, height); canvas.drawBitmap(frame, null, full, paint); }
         }
@@ -94,12 +106,13 @@ public final class HistoryBattleView extends ViewGroup {
         JSONArray cards = group == null ? null : group.optJSONArray("cards"); if (cards == null) return;
         for (int i = 0; i < cards.length(); i++) {
             JSONObject card = cards.optJSONObject(i); if (card == null) continue;
-            String key = "card-" + card.optString("templateId"), size = card.optString("size");
-            float nativeAspect = items ? HistoryBattleLayout.frameAspect(size) : 0;
+            String key = "card-" + card.optString("templateId");
+            String size = items ? card.optString("size") : "Skill";
+            float nativeAspect = HistoryBattleLayout.frameAspect(size);
             ImageView art;
             if (nativeAspect > 0) {
                 // Game RawImage maps the complete material UV rectangle into the frame window.
-                // Reproduce that projection instead of treating the packed texture as a square card.
+                // Skills use the native circular CardPreviewSkill frame for the saved tier.
                 art = bind(new FramedItem(size, card.optString("tier")), key);
                 nativeItemAspects.put(art, nativeAspect);
             } else art = image(key);

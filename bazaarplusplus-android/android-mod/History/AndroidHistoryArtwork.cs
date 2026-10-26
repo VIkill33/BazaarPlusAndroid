@@ -24,7 +24,7 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
     private Il2CppSystem.Threading.Tasks.Task<Texture2D>? _texture;
     private Il2CppSystem.Threading.Tasks.Task<Sprite>? _sprite;
     private AndroidHistoryFrameRender? _frame;
-    private readonly Dictionary<ECardSize, TCardBase> _frameTemplates = new();
+    private readonly Dictionary<string, TCardBase> _frameTemplates = new();
     private string? _key, _directory, _scope, _writingKey;
     private readonly Dictionary<string, (int Attempts, float At)> _retry = new();
     private float _lastTick;
@@ -164,7 +164,9 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                 else if (next.StartsWith("frame-", StringComparison.Ordinal))
                 {
                     var parts = next.Split('-');
-                    _frame = new AndroidHistoryFrameRender(_frameTemplates[Enum.Parse<ECardSize>(parts[1])], Enum.Parse<ETier>(parts[2]));
+                    if (parts.Length != 3 || !_frameTemplates.TryGetValue(parts[1], out var frameTemplate))
+                        throw new InvalidOperationException("Native frame template unavailable");
+                    _frame = new AndroidHistoryFrameRender(frameTemplate, Enum.Parse<ETier>(parts[2]));
                 }
                 else if (next.StartsWith("state-", StringComparison.Ordinal)) return;
                 else if (next.StartsWith("hero-", StringComparison.Ordinal))
@@ -191,8 +193,12 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                         if (!Guid.TryParse(id.GetString(), out var guid)) continue;
                         Enqueue("card-" + guid.ToString("D"));
                         var template = Data.GetStatic().GetCardById(new Il2CppSystem.Guid(guid.ToString("D")))?.TryCast<TCardBase>();
-                        if (template is { Type: ECardType.Item } && _frameTemplates.TryAdd(template.Size, template))
-                            foreach (var tier in Enum.GetValues<ETier>()) Enqueue($"frame-{template.Size}-{tier}");
+                        if (template is { Type: ECardType.Item or ECardType.Skill })
+                        {
+                            var frameKey = template.Type == ECardType.Item ? template.Size.ToString() : "Skill";
+                            if (_frameTemplates.TryAdd(frameKey, template))
+                                foreach (var tier in Enum.GetValues<ETier>()) Enqueue($"frame-{frameKey}-{tier}");
+                        }
                     }
                     _after = query.Result.GetProperty("afterRow").GetInt64();
                     if (!query.Result.GetProperty("hasMore").GetBoolean()) { _after = 0; _nextQuery = Time.realtimeSinceStartup + 60; }

@@ -10,17 +10,20 @@ public final class HistoryBattleLayout {
             case "Small": return 469.0741f / 935.1852f;
             case "Medium": return 975.1852f / 935.1852f;
             case "Large": return 1509.074f / 944.44446f;
+            case "Skill": return 1f;
             default: return 0f;
         }
     }
     // Native FrameContainer aspect and the artwork window inside it as left, top, right, bottom
     // fractions. Small/Medium heights and Small widths come from CardPreviewItem rects; the Medium
     // and Large widths follow the exported frame sprites' transparent window so art meets the frame.
+    // Skills use the native CardPreviewSkill square frame and a circular inner window.
     public static float frameAspect(String size) {
         switch (size) {
             case "Small": return 326f / 622f;
             case "Medium": return 660f / 622f;
             case "Large": return 1.533f;
+            case "Skill": return 1f;
             default: return 0f;
         }
     }
@@ -29,6 +32,7 @@ public final class HistoryBattleLayout {
             case "Small": return new float[] {.069f, .049f, .069f, .049f};
             case "Medium": return new float[] {.035f, .049f, .035f, .049f};
             case "Large": return new float[] {.025f, .044f, .025f, .044f};
+            case "Skill": return new float[] {.09f, .09f, .09f, .09f};
             default: return new float[4];
         }
     }

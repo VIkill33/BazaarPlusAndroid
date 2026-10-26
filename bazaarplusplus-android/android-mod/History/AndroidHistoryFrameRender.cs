@@ -9,7 +9,7 @@ using NativeTask = Il2CppSystem.Threading.Tasks.Task;
 
 namespace BazaarPlusPlus.Android;
 
-// Exports the native tier frame sprite that a synthetic preview of this size and tier loads.
+// Exports the native tier frame sprite that a synthetic item or skill preview loads.
 // The preview has no canvas, so it is never drawn; only its frame sprite is copied.
 internal sealed class AndroidHistoryFrameRender : IDisposable
 {

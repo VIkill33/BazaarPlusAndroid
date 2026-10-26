@@ -12,4 +12,4 @@
 
 缓存 PNG 是源材质纹理，其方形像素尺寸不能代表物品的显示比例。启动器以 `HistoryBattleLayout.artworkAspect` 中当前手机版 `CardPreviewItem._cardImage` 区域的实测比例还原原生 UV 映射，再按整排预算统一高度、单行缩放；不从装饰框或方形纹理推断小／中／大型卡图比例。
 
-品质边框同样来自本机缓存：插件为历史中出现的每种物品体型创建不显示的原生预览，按五档品质 `SetUp` 后复制 `_currentFrame` 的 Simple 精灵为 `frame-<体型>-<品质>.png`，保留透明度。启动器按 `HistoryBattleLayout.frameAspect` 与 `artInsets` 把插画放入边框窗口再叠加边框；边框未缓存时只显示插画。
+品质边框同样来自本机缓存：插件为历史中出现的每种物品体型及技能创建不显示的原生预览，按五档品质 `SetUp` 后复制 `_currentFrame` 的 Simple 精灵为 `frame-<体型>-<品质>.png` 或 `frame-Skill-<品质>.png`，保留透明度。启动器按 `HistoryBattleLayout.frameAspect` 与 `artInsets` 把插画放入边框窗口再叠加边框；技能插画裁成圆形以对齐游戏内 `CardPreviewSkill`。边框未缓存时只显示插画。
