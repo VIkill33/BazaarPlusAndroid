@@ -349,12 +349,12 @@ public final class LauncherHistoryActivity extends AppCompatActivity {
         TextView score = rowText(HistoryPresentation.hasProgress(row) ? row.optLong("victories") + " 胜 / " + row.optLong("losses") + " 负" : "胜场未记录", overview ? 25 : 21, R.color.bpp_accent);
         score.setTypeface(null, Typeface.BOLD);
         if (overview && HistoryPresentation.hasProgress(row)) {
-            // Five full-width spaces retain the victory font's character width.
+            // Three full-width spaces keep the loss count near the victory text.
             String wins = row.optLong("victories") + " 胜";
-            String gap = "\u3000\u3000\u3000\u3000\u3000";
+            String gap = "\u3000\u3000\u3000";
             SpannableString result = new SpannableString(wins + gap + row.optLong("losses") + " 负");
             int lossStart = wins.length() + gap.length();
-            result.setSpan(new RelativeSizeSpan(.25f), lossStart, result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            result.setSpan(new RelativeSizeSpan(.5f), lossStart, result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             result.setSpan(new ForegroundColorSpan(getColor(R.color.bpp_muted)), lossStart, result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             score.setText(result);
         }
