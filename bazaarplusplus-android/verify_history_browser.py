@@ -160,6 +160,17 @@ def main():
             check(not item_heights or max(item_heights) - min(item_heights) <= 1, label + ': all item image heights are equal across both sides')
             check(all(len(tops) == 1 for tops in item_tops.values()), label + ': each side displays all items in exactly one row')
             density = int(re.findall(r'\d+', shell('wm', 'density'))[-1]) / 160
+            if box[3] - box[1] >= box[2] - box[0]:
+                opponent = next(item for item in items if item.get('text', '').startswith('对方：') and 'bounds' in item)
+                opponent_top = int(re.findall(r'\d+', opponent['bounds'])[1])
+                player_skills = next(item for item in items if item.get('text', '').startswith('我方技能 · ') and 'bounds' in item)
+                player_bottom = int(re.findall(r'\d+', player_skills['bounds'])[3])
+                for item in images:
+                    rect = list(map(int, re.findall(r'\d+', item['bounds'])))
+                    if rect[1] < opponent_top:
+                        player_bottom = max(player_bottom, rect[3])
+                check(0 <= opponent_top - player_bottom <= 8 * density + 1,
+                    label + ': opponent follows actual player content with a compact gap')
             check(not skill_heights or max(skill_heights) <= 22 * density + 1, label + ': skills use at most one quarter of the former 88dp image edge')
             check('品质 ' not in texts(items) and all(card['name'] not in texts(items) for group in selected['snapshots'].values() for card in group['cards']), label + ': image sheet displays no card names or quality captions')
             joined = texts(items)

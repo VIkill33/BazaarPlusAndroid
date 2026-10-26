@@ -1,5 +1,30 @@
 # Android 真机验证
 
+## 启动器竖屏双方阵容间距（2026-10-26，test.14）
+
+用户确认上一版可用后反馈竖屏双方阵容距离过远。`HistoryBattleView.onMeasure` 原先将视口平分给双方，
+物品按宽度缩小后仍保留整块高度，导致己方内容下方出现大量空白。现保留原图片预算和公共高度，
+仅将对方起点改为己方技能区实际底部加小间距；横屏继续左右并列。
+参考 Android README、历史图片缓存 ADR、桌面 `HistoryPanelLayout` 和当前启动器布局；仅修改启动器排版。
+
+设备 `OBJVWSPNSCFQU48L`、22041216C、Android 14；当前目标游戏版本
+`1.0.12825-production-android-d9601ded`，测试前停在启动器首页，未运行游戏对局。
+使用导出 skill 的 JDK 24、持久签名完成 test.14 构建、Lint 和覆盖安装，签名 `Verifies`、v2=true、
+证书 `CN=BazaarPlusPlus Android Test`；内置依赖、插件摘要和已安装版本三项检查通过。
+APK SHA-256：`c1201f80b600be44ed4370794e9ed15c36c85bce060f8afa07736d5e7d38081b`。
+
+Python unittest 13 项通过。普通记录的原布局中，己方技能标签底部 y=856，对方标题顶部 y=1346，
+中间留白 490 像素；新布局对方标题顶部 y=878，中间留白缩为 22 像素（约 8dp），物品高度保持一致。
+`verify_history_browser.py` 新增竖屏内容间距断言，检查普通及多技能记录的横竖屏、旋转恢复、
+全部图片入屏、物品单行等高与原生比例、技能尺寸、筛选及返回锚点。
+本次普通记录 129 项、多技能记录 195 项设备断言全部通过；人工复核两组横竖屏截图，
+中间空白收紧，全部图片完整可见。结束恢复全部英雄和原旋转设置，未出现本日新增崩溃日志。
+
+证据位于忽略目录 `artifacts/history-spacing/`，包含修改前截图和布局树、只读 `inspection.json`、
+`tests.log`、`installed/verification.json` 以及 `normal/`、`dense/` 下的布局树、截图和验收结果。
+启动器操作不依赖游戏标准／高级输入模式；本轮仅只读浏览保存记录，未推进游戏或更改账号状态。
+其他设备、分屏小窗口及放大字体仍待专项验证。
+
 ## 启动器单场历史一屏纯图片布局（2026-10-26，test.14）
 
 按用户反馈，将 `LauncherHistoryActivity` 的单场详情替换为 `HistoryBattleView` 固定视口。

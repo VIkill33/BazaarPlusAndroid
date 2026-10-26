@@ -109,9 +109,10 @@ public final class HistoryBattleView extends ViewGroup {
         HistoryBattleLayout.Plan plan = HistoryBattleLayout.plan(boardWidth,
             Math.max(1, boardHeight - hero - label * 2), itemAspects, skillAspects, iconGap, skillEdge);
         iconGap = plan.gap; skillEdge = plan.skillEdge; int itemEdge = Math.max(1, plan.itemHeight);
+        int nextTop = meta;
         for (int side = 0; side < 2; side++) {
             Side data = sides[side]; int x = landscape ? side * (boardWidth + gap) : 0;
-            int y = meta + (landscape ? 0 : side * (boardHeight + gap));
+            int y = landscape ? meta : nextTop;
             place(data.portrait, x, y, hero, hero); place(data.name, x + hero + 4, y, boardWidth - hero - 4, hero);
             place(data.itemsLabel, x, y + hero, boardWidth, label);
             int itemTop = y + hero + label;
@@ -119,6 +120,9 @@ public final class HistoryBattleView extends ViewGroup {
             int skillTop = itemTop + (data.items.isEmpty() ? 0 : itemEdge) + iconGap;
             place(data.skillsLabel, x, skillTop, boardWidth, label);
             rows(data.skills, skillAspects[side], x, skillTop + label, boardWidth, skillEdge, iconGap);
+            // Stack actual content, rather than leaving the unused half-screen budget between sides.
+            nextTop = skillTop + label
+                + HistoryBattleLayout.rowsHeight(skillAspects[side], boardWidth, skillEdge, iconGap) + gap;
         }
     }
     private void singleRow(List<ImageView> images, float[] aspects, int x, int y, int height, int gap) {
