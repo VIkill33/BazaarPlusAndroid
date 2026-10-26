@@ -1931,3 +1931,20 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 设置页证据为 `settings-brand.png`、`settings-buttons.png`。
 附魔标题和 BPA 折叠条的逐项视觉验收，以及双输入模式、横屏启动器与放大字体组合
 仍待覆盖；不扩展为这些路径均已真机通过。
+
+
+## 2026-10-26：启动器首页第二版按钮网格
+
+参考 `docs/design/launcher-home-grid.png` 与 `LauncherActivity`／`activity_launcher.xml` 原实现。
+保留集市背景、品牌、启动前状态、既有点击处理；仅首页使用全宽启动按钮、两行三列带图标按钮与全宽更多入口，其他页面样式不变。
+
+- 设备：`OBJVWSPNSCFQU48L`，Redmi 22041216C，Android 14，1080×2460，440dpi，字体初始为 1.0。起始前台为启动器历史页；本次没有启动或操作游戏对局，不涉及游戏双输入模式。
+- 离线：`python3 -m unittest discover -s bazaarplusplus-android/tests -v`，13 项通过；签名构建通过，签名报告 `Verifies`、v2 为 true，证书 `CN=BazaarPlusPlus Android Test`。本机签名包覆盖安装成功，版本仍为 `0.1.0-test.14`。
+- 原生入口：八个按钮均有可访问文本，首轮布局树断言全部可见、触控高度不低于 48dp；历史／设置／帮助进入预期 Activity，打赏打开可关闭弹窗，Github 打开外部处理应用，更多打开原菜单，许可弹窗可读取新增图标来源与许可证。重新检查完成后恢复可启动状态。
+- 最终尺寸：网格最小高度由初版 76dp 收紧至 64dp，竖屏及 130% 字体下按钮标签完整、排列一致，截图人工复核通过；页脚可滚动查看。
+- 横屏：确认实际截图为 2460×1080 后，通过 ADB 滑动至按钮区，六个按钮与更多入口完整无重叠，人工复核通过。Android CLI 布局／滚动服务会令设备回到竖屏，因此其命名为 landscape 的布局 JSON 不作为横屏证据；本轮横屏以 `home-grid-landscape-adb-buttons.png` 为准。系统 uiautomator 未生成预期 XML，不记为树断言通过。
+- 测试结束恢复字体 1.0、自动旋转 1 与原 user_rotation 0，并回到竖屏主页。崩溃缓冲区所见记录为 10 月 23 日历史记录，本次未见新增启动器崩溃。
+
+证据（均位于被忽略的 `artifacts/`）：`launcher-home-tests.log`、`launcher-apk-build.log`、`launcher/signing-report.txt`、`launcher/home-grid-checks/results.txt`、`launcher/home-grid-final.png`、`launcher/home-grid-font130-buttons.png`、`launcher/home-grid-landscape-adb-buttons.png`、`launcher/home-grid-comparison-final.png` 与 `launcher/home-grid-buttons-final.png`。
+
+范围限制：本次验证启动器 UI，没有点击启动游戏、执行修复／退出、修改游戏设置、支付或提交外部内容。更大字体、第二设备与分屏待验证。

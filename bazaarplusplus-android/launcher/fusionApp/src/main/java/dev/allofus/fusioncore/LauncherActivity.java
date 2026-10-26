@@ -168,6 +168,7 @@ public final class LauncherActivity extends AppCompatActivity {
                 details = getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + "\n独立社区工具，非游戏官方出品。\n\n" +
                         LauncherRelease.read(getAssets().open("launcher/NOTICE.txt")) + "\n\n" +
                         LauncherRelease.read(getAssets().open("launcher/BPP-LICENSE.txt")) + "\n\n" +
+                        LauncherRelease.read(getAssets().open("launcher/MDI-LICENSE.txt")) + "\n\n" +
                         LauncherRelease.read(getAssets().open("launcher/FusionCore-LICENSE.txt"));
             } catch (Exception error) { details = "许可读取失败，请关闭后重试"; }
             final String text = details;

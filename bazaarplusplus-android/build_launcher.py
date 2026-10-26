@@ -140,11 +140,14 @@ def prepare(root, upstream, plugin_dir, dependency_dir=None):
         "and Skoll (\"Sight disabled\"), from https://game-icons.net, "
         "CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/); "
         "recoloured and outlined, see bazaarplusplus-android/assets/dock-icons/SOURCE.md.\n"
+        "Launcher home icons: Material Design Icons, copyright its contributors, Apache-2.0 "
+        "(see MDI-LICENSE.txt); paths converted to Android VectorDrawable and tinted.\n"
         "Corresponding launcher source and build inputs: bazaarplusplus-android/launcher and build_launcher.py "
         "in https://github.com/VIkill33/BazaarPlusAndroid (supply the exact source archive with any test distribution).\n"
         "BepInEx/.NET/Dobby and bundled components retain their own licenses. "
         "Third-party redistribution review remains required before public release.\n"
         "This is a local test build, not a publicly approved distribution.\n")
+    shutil.copyfile(root / "assets/launcher-icons/LICENSE", asset_dir / "MDI-LICENSE.txt")
     shutil.copyfile(launcher / "LICENSE", asset_dir / "FusionCore-LICENSE.txt")
     shutil.copyfile(root.parent / "LICENSE", asset_dir / "BPP-LICENSE.txt")
     print(f"Prepared launcher release {manifest['releaseId']}")
@@ -199,6 +202,8 @@ def main():
     inputs = json.loads((args.plugin_dir / "build-inputs.json").read_text())
     source_paths += list(inputs["sourceInputs"])
     source_paths += ["LICENSE", "bazaarplusplus-android/build_launcher.py", "bazaarplusplus-android/build_probe.py",
+                     "bazaarplusplus-android/assets/launcher-icons/LICENSE",
+                     "bazaarplusplus-android/assets/launcher-icons/SOURCE.md",
                      "bazaarplusplus-android/toolchain.json", "bazaarplusplus-android/android-mod/BazaarPlusPlus.Android.csproj",
                      "bazaarplusplus-android/README.md", "bazaarplusplus-android/data/README.md",
                      "bazaarplusplus-android/docs/adr/0001-dedicated-launcher.md",
