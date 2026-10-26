@@ -23,6 +23,7 @@ public sealed class Plugin : BasePlugin
         AddComponent<AndroidNativeSettings>();
         AddComponent<NativePreviewCleanup>();
         AddComponent<AndroidRunObserver>();
+        AddComponent<AndroidCombatTimer>();
         AddComponent<CollectionController>();
         AddComponent<AndroidTooltipObserver>();
         AddComponent<AndroidBuildPanelController>();

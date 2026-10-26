@@ -2018,3 +2018,22 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 - 用户已确认本次修复自测通过；未逐项提供卡牌样本、输入模式、跨账号／游戏版本或失败重试过程，不扩大为全部边界均已验收。
 - 证据：忽略目录 `artifacts/purchase-art-fix/` 的 `offline-tests.log`、`build.log`、`reader.log` 与 `reader/`；签名包构建日志在 `artifacts/launcher-apk-build.log`。
 - 本次提交包含图片回填及编译所需的购牌存储／查询依赖和回归测试；工作区其他购牌采集、页面与战斗计时器改动保持原状，不混入本次提交。
+
+
+## 战斗计时器拖动与四边吸附（2026-10-26，用户自测通过）
+
+本次以 `android-mod/AndroidFloatingDock.cs` 的 `Bind`、`Bounds`、`Snap` 为交互参考，
+在 `AndroidCombatTimer` 中启用独立触摸拖动，松手吸附到最近的物理屏幕边缘，上下保留安全区域。
+默认底部居中，边缘及沿边比例保存到原有 `combat-timer.json`，显示设置与位置互相保留；
+旧配置缺少位置时回退到底部居中。屏幕、安全区域或 Canvas 缩放变化后重新布局，
+失焦或隐藏时结束当前拖动；多指仅接受当前持有指针。计时帧来源与战斗生命周期不变。
+
+离线结果：`CombatTimer.Tests` 37 项检查通过，覆盖旧配置兼容、位置保存与读取、范围限制、
+显示切换保留位置和写入失败保护；Python unittest 20 项通过（Java 编译保留既有 source/target 8 过时警告）。
+`build_probe.py --mod` 使用本机固定框架及 Android interop 编译通过，零警告／零错误；
+构建日志位于被忽略的 `artifacts/mod/combat-timer-drag-build.log`，输入摘要为 `artifacts/mod/build-inputs.json`。
+
+实现阶段按用户要求跳过代理实机验证，未部署、启动游戏或操作设备，也未新增设备截图。
+随后用户确认“已验证，直接提交”，本次功能记为用户自测通过。用户未逐项报告设备、输入模式、
+多指、隐藏／失焦、重启位置恢复及分辨率变化等覆盖范围，不扩大为所有边界已通过。
+本次提交包含计时器及其必要的帧观察、设置和生命周期接入，其他购牌采集与启动器页面改动保留在工作区。

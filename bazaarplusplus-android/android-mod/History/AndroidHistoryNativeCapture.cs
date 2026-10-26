@@ -16,7 +16,7 @@ internal static class AndroidHistoryNativeCapture
     private delegate IntPtr Hook(IntPtr target, IntPtr replacement, [MarshalAs(UnmanagedType.I1)] bool specialReturn);
     private static Simulate? _original;
     private static readonly Simulate Replacement = Observe;
-    private sealed record Pending(Il2CppSystem.Threading.Tasks.Task Task, AndroidRunObserver.Ticket Ticket, string Winner, string Loser);
+    private sealed record Pending(Il2CppSystem.Threading.Tasks.Task Task, AndroidRunObserver.Ticket? Ticket, string Winner, string Loser, long TimerGeneration);
     private static readonly List<Pending> Tasks = new();
 
     internal static unsafe void Install()
@@ -56,14 +56,16 @@ internal static class AndroidHistoryNativeCapture
             }
         }
         catch (Exception error) { observer?.Failure(error); }
+        var generation = AndroidCombatTimer.Clock.Begin();
         // History failure must never skip the game's original simulation.
         var result = _original!(self, message, cancellation, method);
         try
         {
-            if (ticket != null && result != IntPtr.Zero)
-                Tasks.Add(new(new Il2CppSystem.Threading.Tasks.Task(result), ticket, winner, loser));
+            if (result != IntPtr.Zero)
+                Tasks.Add(new(new Il2CppSystem.Threading.Tasks.Task(result), ticket, winner, loser, generation));
+            else AndroidCombatTimer.Clock.Complete(generation, false);
         }
-        catch (Exception error) { observer?.Failure(error); }
+        catch (Exception error) { AndroidCombatTimer.Clock.Complete(generation, false); observer?.Failure(error); }
         return result;
     }
 
@@ -74,7 +76,11 @@ internal static class AndroidHistoryNativeCapture
             var item = Tasks[index];
             if (!item.Task.IsCompleted) continue;
             Tasks.RemoveAt(index);
-            AndroidRunObserver.Instance?.Complete(item.Ticket, item.Winner, item.Loser, item.Task.Status.ToString() == "RanToCompletion");
+            var successful = item.Task.Status.ToString() == "RanToCompletion";
+            if (AndroidCombatTimer.Clock.Complete(item.TimerGeneration, successful))
+                Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.combat_timer.completed elapsed={AndroidCombatTimer.Clock.Text} frames={AndroidCombatTimer.Clock.Frames} successful={successful}");
+            if (item.Ticket != null)
+                AndroidRunObserver.Instance?.Complete(item.Ticket, item.Winner, item.Loser, successful);
         }
     }
 }
