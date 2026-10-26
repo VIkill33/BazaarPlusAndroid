@@ -1,0 +1,124 @@
+package dev.allofus.fusioncore.history;
+
+import android.content.Context;
+import android.content.res.ColorStateList;
+import android.graphics.Typeface;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import dev.allofus.fusioncore.R;
+import java.util.Locale;
+import org.json.JSONObject;
+
+/** Native, accessible purchase tile backed exclusively by the local template artwork cache. */
+public final class PurchaseCardView extends LinearLayout {
+    public PurchaseCardView(Context context, HistoryArtwork artwork, JSONObject item, int rank,
+            long maximum, boolean featured, Runnable details) {
+        super(context);
+        boolean horizontal = (featured || rank == 0) && getResources().getConfiguration().fontScale < 1.3f;
+        setOrientation(horizontal ? HORIZONTAL : VERTICAL);
+        setGravity(Gravity.CENTER_VERTICAL);
+        setPadding(dp(6), dp(6), dp(6), dp(6));
+        setBackground(surface(featured));
+        setClickable(true); setFocusable(true);
+        android.util.TypedValue ripple = new android.util.TypedValue();
+        context.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
+        setForeground(context.getDrawable(ripple.resourceId));
+        setOnClickListener(v -> details.run());
+
+        FrameLayout picture = new FrameLayout(context);
+        picture.setBackgroundColor(color(R.color.bpp_surface));
+        TextView missing = label("图片未缓存", 12, false);
+        missing.setGravity(Gravity.CENTER);
+        picture.addView(missing, new FrameLayout.LayoutParams(-1, -1));
+        ImageView image = new ImageView(context) {
+            @Override protected void onDraw(Canvas canvas) {
+                float aspect = HistoryBattleLayout.artworkAspect(item.optString("size"));
+                Drawable art = getDrawable();
+                if (aspect <= 0 || art == null) { super.onDraw(canvas); return; }
+                // Cached material textures use different pixel proportions from the game's card window.
+                // Match the single-battle history artwork aspect, then fit the complete card in the tile.
+                int height = Math.min(getHeight(), Math.round(getWidth() / aspect));
+                int width = Math.min(getWidth(), Math.round(height * aspect));
+                int left = (getWidth() - width) / 2, top = (getHeight() - height) / 2;
+                art.setBounds(left, top, left + width, top + height);
+                art.draw(canvas);
+            }
+        };
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        picture.addView(image, new FrameLayout.LayoutParams(-1, -1));
+        artwork.load("card-" + item.optString("templateId"), bitmap -> {
+            image.setImageBitmap(bitmap); missing.setVisibility(GONE);
+        });
+        if (rank > 0) {
+            TextView badge = label(Integer.toString(rank), 16, true);
+            badge.setGravity(Gravity.CENTER); badge.setTextColor(color(R.color.bpp_background));
+            badge.setBackgroundTintList(ColorStateList.valueOf(color(R.color.bpp_accent)));
+            badge.setBackgroundResource(R.drawable.bpp_primary);
+            picture.addView(badge, new FrameLayout.LayoutParams(dp(30), dp(36), Gravity.TOP | Gravity.START));
+        }
+        LinearLayout.LayoutParams pictureSize = horizontal
+            ? new LinearLayout.LayoutParams(0, dp(rank == 0 ? 88 : 112), 1)
+            : new LinearLayout.LayoutParams(-1, dp(featured ? 136 : 88));
+        addView(picture, pictureSize);
+
+        LinearLayout copy = new LinearLayout(context); copy.setOrientation(VERTICAL);
+        copy.setPadding(horizontal ? dp(12) : dp(4), dp(4), dp(4), dp(2));
+        addView(copy, horizontal ? new LinearLayout.LayoutParams(0, -2, 1) : new LinearLayout.LayoutParams(-1, -2));
+        String name = item.optString("name");
+        copy.addView(label(name.isEmpty() ? "未记录名称" : name, featured ? 21 : 17, true));
+        boolean ranking = rank > 0;
+        long count = item.optLong("purchaseCount");
+        TextView value = label(ranking ? number(count) + " 次购买" : number(item.optLong("price")) + " 金币", featured ? 21 : 18, true);
+        value.setTextColor(color(R.color.bpp_accent)); copy.addView(value);
+        if (ranking) {
+            ProgressBar bar = new ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal);
+            bar.setMax(1000); bar.setProgress((int)Math.round(1000d * count / Math.max(1, maximum)));
+            bar.setProgressTintList(ColorStateList.valueOf(color(R.color.bpp_accent)));
+            bar.setProgressBackgroundTintList(ColorStateList.valueOf(color(R.color.bpp_history_line)));
+            bar.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams barSize = new LinearLayout.LayoutParams(-1, dp(8));
+            barSize.topMargin = dp(2); barSize.bottomMargin = dp(2); copy.addView(bar, barSize);
+            copy.addView(label(number(item.optLong("gold")) + " 金币 · " + number(item.optLong("runCount")) + " 局", 13, false));
+        } else {
+            copy.addView(label(tier(item.optString("tier")) + " · " + item.optString("hero", "未记录英雄"), 13, false));
+            copy.addView(label("第 " + item.optLong("day") + " 天 · 第 " + item.optLong("hour") + " 小时", 13, false));
+            copy.addView(label(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
+                .format(new java.util.Date(item.optLong("purchasedAt"))), 12, false));
+        }
+        setContentDescription((ranking ? "第 " + rank + " 名，" : "") + name + "，" + value.getText()
+            + (ranking ? "，" + number(item.optLong("gold")) + " 金币，" + item.optLong("runCount") + " 局" : "，" + tier(item.optString("tier")) + "，" + item.optString("hero", "未记录英雄")
+                + "，第 " + item.optLong("day") + " 天，第 " + item.optLong("hour") + " 小时，"
+                + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
+                    .format(new java.util.Date(item.optLong("purchasedAt")))) + "，查看详情");
+    }
+
+    private GradientDrawable surface(boolean featured) {
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(color(R.color.bpp_surface)); background.setCornerRadius(dp(8));
+        background.setStroke(dp(featured ? 2 : 1), color(featured ? R.color.bpp_accent : R.color.bpp_border));
+        return background;
+    }
+    private TextView label(String value, int size, boolean strong) {
+        TextView text = new TextView(getContext()); text.setText(value); text.setTextSize(size);
+        text.setTextColor(color(strong ? R.color.bpp_text : R.color.bpp_muted));
+        text.setPadding(0, 0, 0, 0);
+        if (strong) text.setTypeface(null, Typeface.BOLD);
+        return text;
+    }
+    private int color(int id) { return getContext().getColor(id); }
+    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
+    private static String number(long value) { return String.format(Locale.getDefault(), "%,d", value); }
+    private static String tier(String value) {
+        switch (value) { case "Bronze": return "青铜"; case "Silver": return "白银"; case "Gold": return "黄金";
+            case "Diamond": return "钻石"; case "Legendary": return "传奇"; default: return value; }
+    }
+}

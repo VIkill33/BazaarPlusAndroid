@@ -2005,6 +2005,22 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 范围限制：本次验证启动器 UI，没有点击启动游戏、执行修复／退出、修改游戏设置、支付或提交外部内容。更大字体、第二设备与分屏待验证。
 
 
+## 2026-10-26：启动器购牌统计第二版卡图排行
+
+参考用户选定的[第二版原型](design/launcher-purchase-gallery.md)、启动器 ADR-0001、图片缓存 ADR-0003、现有 `LauncherPurchaseActivity`、`HistoryReader.purchases` 和 `HistoryArtwork`。本次仅实现原生页面与卡片展示，复用工作区已有购牌采集和查询，不修改其数据契约，不验证游戏内新购牌采集闭环。
+
+- 实现：集市页头、英雄筛选、累计数据、排行／明细标签；首名横向突出，其余双列，次数条以当前筛选榜首为基准；卡片点击详情、分页、刷新、缺图与空数据提示。窄屏及 130% 字体单列；所有内容可滚动。旋转与字体变化按逻辑卡牌位置恢复，保留英雄、视图、页码、读取时间边界与次数条基准。
+- 离线：Python unittest discover 共 20 项通过；完整启动器签名构建通过，`apksigner` 为 `Verifies`、v2=true，证书 DN 为 `CN=BazaarPlusPlus Android Test`。原生页面使用生产 Java 源码，独立应用的两个编译接缝仅为 `LauncherHistoryActivity.TARGET` 常量及原样提取的窗口 inset 方法。
+- 设备：`OBJVWSPNSCFQU48L`，Redmi 22041216C，Android 14，1080×2460、440dpi，初始字体 1.0、自动旋转 1、user_rotation 0；测试前正式应用停在已有皮格对局的选择界面，未执行购买、推进战斗或改动账号数据。本轮只在独立应用 `dev.bpp.purchasepreview` 中操作，不覆盖安装正式应用。
+- 数据：隔离目录 `BppPurchaseUiValidation/dev.bpp.purchasepreview` 的合成 SQLite 样本，443 次购买、2,782 金币、23 种卡牌、2 局；23 种中 22 种复制现有本机模板图片，一种故意缺图。样本名称为测试文案，与复制图片的题材不构成语义验收证据；不读取、写入或迁移正式购牌库。
+- 断言：21 项原生布局／交互检查通过，涵盖累计数值、双列第二张卡的正确详情、页尾数值与页数、第二页第 21–23 名和奇数尾项、缺图提示、第 23 名详情、旋转页码恢复、英雄空数据、Vanessa 筛选、明细选中态与单笔详情、130% 字体单列、刷新保留筛选。另以第 4 名为首个可见项验证双列切单列仍保持第 4 名，通过。
+- 视觉：首轮发现 FrameLayout 的背景固有高度撑大页头，改为按字体计算高度；修正灰色默认按钮边框、卡片留白及首页竖图在短页头中的裁切。最终与原型并排人工复核，保留真实每页 20 条数据和现有主题 token；原型只展示五条的页尾位置、生成插画、金属旗形名次标记不视为数据或素材来源。截图人工复核不是自动视觉断言。
+- 证据：`artifacts/purchase-ui/` 中的 `offline-tests.log`、`device-tests.log`、`checks.json`、`regroup-tests.log`、`gallery-portrait-final.png`、`gallery-landscape.png`、`gallery-font130.png`、`comparison-final.png` 及 `preview/design-qa.md`。可复现入口为同目录 `build-preview.py`、`prepare-fixture.py`、`verify.py`、`verify-regroup.py`；只允许这些入口的隔离测试目录，不将样本写入正式游戏。
+- 边界：正式应用身份下的入口跳转与真实购牌内容、新购牌到统计的完整链路、其他 Android 版本／设备、系统字体大于 130% 仍待验证。正式 APK 已导出为 `artifacts/purchase-ui/BazaarPlusAndroid-purchase-gallery.apk`；本轮未覆盖安装，以保留进行中的对局。页面依赖工作区已有但尚未提交的购牌基础改动，未将这些改动混入本次本地提交。
+
+测试收尾：独立验证应用已卸载，字体 1.0、自动旋转 1 与 user_rotation 0 已恢复；验证应用在崩溃缓冲区中无记录。
+
+
 ## 2026-10-26：购牌卡图回填遗漏修复（用户自测通过）
 
 参考 Android README、功能清单、图片缓存 ADR-0003、桌面历史与卡图实现及当前购牌采集路径。
@@ -2037,3 +2053,31 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 随后用户确认“已验证，直接提交”，本次功能记为用户自测通过。用户未逐项报告设备、输入模式、
 多指、隐藏／失焦、重启位置恢复及分辨率变化等覆盖范围，不扩大为所有边界已通过。
 本次提交包含计时器及其必要的帧观察、设置和生命周期接入，其他购牌采集与启动器页面改动保留在工作区。
+
+## 2026-10-26：购牌统计互斥胶囊与单行缩小
+
+参考 Android README、功能清单、启动器 ADR-0001、图片缓存 ADR-0003、桌面历史／采集文档与模板读取实现，以及现有 `LauncherPurchaseActivity`、`HistoryReader.purchases` 和 `PurchaseSql.page`。仅修改启动器原生筛选与只读查询，不修改插件采集或数据库结构。
+
+- 交互：英雄条件之下提供全部、近三日、近七日、小型、中型、大型六个互斥选项；排行、明细和汇总共用同一条件，切换回第一页并重置次数条基准，刷新保留条件，旋转／字体变化恢复选中项。按用户补充要求改为单行，按钮宽高约为最初两行版的一半（面积约四分之一），高度 24dp。
+- 数据：近三日／七日以页面刷新截止时刻向前取 72／168 小时，包含起止边界；体型从目标目录 `PersistentData/prod/cache/GameData.db` 的 `cards` 只读解析当前 Item 模板，以严格校验的 UUID 过滤历史。技能及当前目录不含的模板不纳入体型结果。缺目录、损坏或读取中发生变更时明确提示，可使用全部和时间筛选，不把查询失败伪装成零条记录。
+- 离线：Python unittest 22 项通过，覆盖英雄／时间交集及边界、英雄／体型交集、技能排除、汇总和列表一致、空集合与 SQL 字面量 UUID 校验；签名构建及 APK 内置输入校验通过，`Verifies`、v2=true，证书 `CN=BazaarPlusPlus Android Test`。应用版本 test.14，最终 APK SHA-256 `85a14ccbb6d5c6dcc08c439f6f1b10d1cd64e91be3cf2ece67262d236d9b4c54`。
+- 真机：`OBJVWSPNSCFQU48L`（22041216C／Android 14），测试前仅启动器进程存在。最终签名包覆盖安装成功，从首页「购牌统计」进入，读取真实历史及 WAL 快照核对：全部 28 次／43 金币，所有英雄及 Pygmalien 下逐项核对六种条件，六胶囊始终仅一个选中；明细、旋转和 130% 字体保持条件。最终版共 42 项真机断言通过，其中另断言六按钮同一行、每个布局面积为初版约四分之一。截图人工复核，未宣称自动文字裁切识别。
+- 证据：忽略目录 `artifacts/purchase-filters/` 内的 `actual-device.log`、`actual-checks.json`、`verify-actual.py`、`final-one-row.png`、`actual-landscape.png`、`actual-font130.png` 及逐条件布局；离线日志为 `artifacts/purchase-filter-offline.log`，构建日志为 `artifacts/launcher-apk-build.log`。
+- 边界：只验证启动器，不启动游戏、不推进或变更对局、不部署插件。当前真实购买都位于近三日内；另以 Android 14 独立验证应用读取隔离的 443 条购买样本，共 45 项断言通过：近三日 149 条、近七日 345 条，六种条件与 Vanessa 取交集、明细保持条件、空英雄结果、缺少本机目录明确提示且时间筛选仍可用。隔离数据仅写入 `BppPurchaseUiValidation`，未写入正式游戏目录；复现入口和日志为 `artifacts/purchase-filters/verify-fixture.py`、`fixture-device.log`、`fixture-ui/fixture-checks.json`。测试结束卸载独立验证应用，恢复字体 1.0 与自动旋转 1，返回正式启动器购牌页。其他设备、Android 旧版、分屏和更大字体待验证。体型表示本机当前模板分类，并非购买时快照。
+
+本次未创建本地提交：购牌页面与入口、卡片及相关说明在任务开始时已含未提交改动，新胶囊直接扩展该页面；未将既有改动与本次筛选变更混合暂存。
+
+
+## 2026-10-26：购牌图标占位底色统一
+
+参考启动器 ADR-0001、图片缓存 ADR-0003、`PurchaseCardView` 与 `LauncherPurchaseActivity.tabState`。图标容器由页面近黑底色 `bpp_background` 改用与卡片按钮主体、未选中按钮共用的 `bpp_surface`；复用原有缓存与图片比例，不修改图片、购买记录或查询。
+
+- 离线：22 项 Python unittest 通过；按导出 skill 完成签名构建与 APK 内置输入核对，签名 v2=true。APK SHA-256：`0fa3165d93c90a1725e633352ea0d95241dd7c677ff565b03ebd12a672202f99`。
+- 真机：`OBJVWSPNSCFQU48L`，Redmi 22041216C／Android 14，字体 1.0、竖屏；开始时启动器在前台。覆盖安装返回 Success，从首页「购牌统计」进入真实历史，切换排行与明细，再返回排行。截图人工复核：小型物品左右留白与卡片主体连成一体，明细缺图提示保留且底色一致。未启动游戏或改变对局。本次未完成自动像素断言（系统 Python 缺少 Pillow），不宣称自动视觉断言通过。
+- 证据：忽略目录 `artifacts/` 内的 `purchase-background-tests.log`、`purchase-background-build.log`、`purchase-background-ranking.png/json` 和 `purchase-background-recent.png/json`；签名报告为 `artifacts/launcher/signing-report.txt`。
+- 边界：本次只核对当前设备、默认字体竖屏下的颜色；横屏、放大字体及第二设备未专项复测。本次未创建本地提交：`PurchaseCardView.java` 在任务开始时即为未跟踪文件，相关购牌功能与文档也已有未提交改动，避免将既有实现混入单行颜色修复提交。
+
+
+## 2026-10-26：购牌相关改动统一验收与提交
+
+用户确认上述未提交改动“这些都验证了，一起提交”。购牌采集、启动器入口与卡图排行、时间／体型筛选、图标占位底色及配套测试、文档按用户自测通过记录，并统一纳入本地提交。用户未补充逐项设备与操作证据，保留前述自动验证的实际范围，不扩大为所有设备和边界均已覆盖。构筑目录刷新文件仅为待实现设计方案，随本次提交保存，不表示方案已经实现。

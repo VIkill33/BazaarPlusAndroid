@@ -28,6 +28,7 @@
                 <com.google.android.material.button.MaterialButton android:id="@+id/launcher_donate" style="@style/BppHomeTile" android:layout_marginStart="8dp" android:text="打赏作者" app:icon="@drawable/bpp_home_heart_outline" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/launcher_github" style="@style/BppHomeTile" android:layout_marginStart="8dp" android:text="Github" app:icon="@drawable/bpp_home_github" />
             </LinearLayout>
+            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_purchases" style="@style/BppHomeMore" android:text="购牌统计" app:icon="@drawable/bpp_home_history" />
             <com.google.android.material.button.MaterialButton android:id="@+id/launcher_more" style="@style/BppHomeMore" android:text="更多：修复与许可" app:icon="@drawable/bpp_home_wrench_outline" />
             <TextView style="@style/BppCaption" android:text="独立社区工具 · 非官方出品" android:textSize="12sp" android:gravity="center" android:layout_marginTop="28dp" />
             <TextView android:id="@+id/launcher_credit" style="@style/BppCaption" android:text="本插件基于原版 BazaarPlusPlus 开发" android:textSize="12sp" android:gravity="center" android:layout_marginTop="4dp" />

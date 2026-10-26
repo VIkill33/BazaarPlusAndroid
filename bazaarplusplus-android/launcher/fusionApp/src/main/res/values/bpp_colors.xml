@@ -10,4 +10,5 @@
     <color name="bpp_history_danger">#F28D85</color>
     <color name="bpp_history_line">#49323A</color>
     <color name="bpp_history_scrim">#991B1214</color>
+    <color name="bpp_purchase_scrim">#551B1214</color>
 </resources>

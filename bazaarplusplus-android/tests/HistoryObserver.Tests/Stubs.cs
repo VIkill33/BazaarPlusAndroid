@@ -6,6 +6,7 @@ namespace BazaarPlusPlus.Android
     internal sealed class LogStub { internal void LogWarning(string value) {} internal void LogInfo(string value) {} }
     internal static class AndroidBattleCapture { internal static void WarmOne() {} }
     internal static class AndroidHistoryNativeCapture { internal static void Install() {} internal static void Tick() {} }
+    internal static class AndroidPurchaseCapture { internal static void Install() {} }
     internal static class AndroidHistoryBridge
     {
         internal sealed record Call(JsonElement Request, TaskCompletionSource<JsonElement> Completion);

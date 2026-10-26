@@ -70,6 +70,25 @@ class PurchaseSqlTests(unittest.TestCase):
         self.assertEqual((hero['totalPurchases'], hero['purchaseCount']), (2, 2))
         self.assertEqual((len(cutoff), cutoff[0]['totalPurchases']), (1, 1))
 
+    def test_time_window_intersects_hero_and_includes_both_boundaries(self):
+        for id_, run, at in [('old', 'r1', 99), ('start', 'r1', 100), ('end', 'r1', 200),
+                             ('future', 'r1', 201), ('otherHero', 'r2', 150)]:
+            self.purchase(id_, run=run, at=at)
+        rows = self.rows('window', ('Vanessa', 100, 200) * 2)
+        self.assertEqual({r['purchaseId'] for r in rows}, {'start', 'end'})
+        self.assertEqual(rows[0]['totalPurchases'], 2)
+
+    def test_size_intersects_hero_in_both_projections(self):
+        small = '00000000-0000-0000-0000-000000000001'
+        self.purchase('small', template=small)
+        self.purchase('otherHero', run='r2', template=small)
+        self.purchase('medium', template='00000000-0000-0000-0000-000000000002')
+        self.purchase('skill', template=small)
+        self.db.execute("UPDATE card_purchases SET card_type='Skill' WHERE purchase_id='skill'")
+        rows = self.rows('size', ('Vanessa',) * 2)
+        self.assertEqual((len(rows), rows[0]['totalPurchases'], rows[0]['purchaseCount']), (1, 1, 1))
+        self.assertEqual(self.rows('emptySize')[0]['totalPurchases'], 0)
+
     def test_tied_times_have_stable_paging(self):
         for index in range(45):
             self.purchase(f'{index:02d}')

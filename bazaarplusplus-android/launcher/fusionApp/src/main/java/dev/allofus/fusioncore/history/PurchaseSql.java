@@ -13,6 +13,26 @@ public final class PurchaseSql {
     public static final String INSERT = "INSERT INTO card_purchases(purchase_id,run_id,instance_id,template_id,name,card_type,tier,price,purchased_at,day,hour) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
     private static final String FROM = " FROM card_purchases p JOIN runs r ON r.id=p.run_id JOIN history_scopes s ON s.id=r.scope_id WHERE ";
 
+    public static final String RECENT = "p.purchased_at>=? AND p.purchased_at<=?";
+
+    public static long since(int days, long through) {
+        if ((days != 3 && days != 7) || through < 0) throw new IllegalArgumentException("Invalid recent window");
+        return Math.max(0, through - days * 86400000L);
+    }
+
+    public static String templatePredicate(java.util.List<String> ids) {
+        if (ids.isEmpty()) return "0=1";
+        StringBuilder sql = new StringBuilder("p.template_id IN (");
+        for (String id : ids) {
+            // Catalog-owned UUID literals avoid the older SQLite bind limit when both projections repeat the filter.
+            if (id == null || !id.matches("[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}"))
+                throw new IllegalArgumentException("Invalid card template UUID");
+            if (sql.charAt(sql.length() - 1) != '(') sql.append(',');
+            sql.append('\'').append(id).append('\'');
+        }
+        return sql.append(')').toString();
+    }
+
     // Both projections share one SQLite SELECT snapshot, including an empty result page.
     // The scope clause is host-owned SQL; filter values always use placeholders.
     public static String page(String scope, boolean ranking, int offset, int pageSize) {

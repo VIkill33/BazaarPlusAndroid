@@ -52,6 +52,8 @@
     </activity>
     <activity android:name="dev.allofus.fusioncore.LauncherHistoryActivity"
         android:theme="@style/BppLauncherTheme" android:exported="false" />
+    <activity android:name="dev.allofus.fusioncore.LauncherPurchaseActivity"
+        android:theme="@style/BppLauncherTheme" android:exported="false" />
     <activity android:name="dev.allofus.fusioncore.LauncherHelpActivity"
         android:theme="@style/BppLauncherTheme" android:exported="false" />
     <activity android:name="dev.allofus.fusioncore.LauncherSettingsActivity"

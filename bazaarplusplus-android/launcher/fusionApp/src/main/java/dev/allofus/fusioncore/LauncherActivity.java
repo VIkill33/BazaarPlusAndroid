@@ -83,6 +83,8 @@ public final class LauncherActivity extends AppCompatActivity {
         findViewById(R.id.launcher_donate).setOnClickListener(v -> donate());
         findViewById(R.id.launcher_history).setOnClickListener(v -> startActivity(new Intent(this, LauncherHistoryActivity.class)
                 .putExtra(LauncherHistoryActivity.TARGET, LauncherGames.selected(this))));
+        findViewById(R.id.launcher_purchases).setOnClickListener(v -> startActivity(new Intent(this, LauncherPurchaseActivity.class)
+                .putExtra(LauncherHistoryActivity.TARGET, LauncherGames.selected(this))));
         findViewById(R.id.launcher_github).setOnClickListener(v -> {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW,

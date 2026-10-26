@@ -20,6 +20,9 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
     private HistoryScope? _boundScope;
     private float _next;
     private bool _installed;
+    private readonly Queue<(HistoryScope Scope, Dictionary<string, object?> Request)> _purchases = new();
+    private bool _purchaseWriting;
+    private float _nextRetry;
 
     private sealed record Observation(HistoryScope Scope, HistoryPhase Phase, string? Checkpoint,
         uint Day, uint Hour, uint Victories, uint Losses, string? Hero, string? Mode, bool ProgressAvailable);
@@ -41,12 +44,66 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
             _installed = true;
             try { AndroidHistoryNativeCapture.Install(); }
             catch (Exception error) { Failure(error); }
+            try { AndroidPurchaseCapture.Install(); }
+            catch (Exception error) { Failure(error); }
         }
+        if (_retry.Count > 0 && _pendingWrites.Count == 0 && Time.realtimeSinceStartup >= _nextRetry)
+        {
+            _nextRetry = Time.realtimeSinceStartup + 5;
+            Retry();
+        }
+        FlushPurchases();
         try { AndroidHistoryNativeCapture.Tick(); } catch (Exception error) { Failure(error); }
         if (Time.realtimeSinceStartup < _next) return;
         _next = Time.realtimeSinceStartup + .5f;
         try { Observe(); AndroidBattleCapture.WarmOne(); }
         catch (Exception error) { Failure(error); }
+    }
+
+    internal void Purchase(PurchaseFact fact)
+    {
+        Observe();
+        if (CurrentPhase() is not (HistoryPhase.Choice or HistoryPhase.Encounter or HistoryPhase.Loot or HistoryPhase.LevelUp)
+            || Session.Scope is not { Confirmed: true } scope)
+        {
+            Failure(new InvalidOperationException("购牌身份未确认，未归入其他账号"));
+            return;
+        }
+        if (_purchases.Count >= 512)
+        {
+            Failure(new InvalidOperationException("购牌待保存队列已满"));
+            return;
+        }
+        var request = Request("recordPurchase", scope);
+        request["purchaseId"] = Guid.NewGuid().ToString("D");
+        request["card"] = fact; request["day"] = _last?.Day ?? 0; request["hour"] = _last?.Hour ?? 0;
+        _purchases.Enqueue((scope, request));
+        FlushPurchases();
+    }
+
+    private void FlushPurchases()
+    {
+        if (_purchaseWriting || _pendingWrites.Count != 0 || _retry.Count != 0) return;
+        while (_purchases.TryPeek(out var pending))
+        {
+            if (Session.Scope != pending.Scope)
+            {
+                _purchases.Dequeue();
+                Failure(new InvalidOperationException("购牌保存前账号或对局已改变，未归入新账号"));
+                continue;
+            }
+            if (_boundScope != pending.Scope || _localRun == null) return;
+            pending.Request["runId"] = _localRun;
+            _purchaseWriting = true;
+            Submit(pending.Request, response =>
+            {
+                var state = response.GetProperty("state").GetString();
+                if (state != "recorded") Failure(new InvalidOperationException("购牌未保存：" + state));
+                _purchases.Dequeue();
+                _purchaseWriting = false;
+            });
+            return;
+        }
     }
 
     internal static HistoryPhase CurrentPhase() => AppState.CurrentState?.GetIl2CppType().Name switch
@@ -207,6 +264,7 @@ public sealed class AndroidRunObserver(IntPtr pointer) : MonoBehaviour(pointer)
 
     private void RetainRetry(long order, Action retry)
     {
+        if (_retry.Count == 0) _nextRetry = Time.realtimeSinceStartup + 5;
         if (_retry.ContainsKey(order) || _retry.Count < HistoryLimits.QueueCapacity) _retry[order] = retry;
     }
 

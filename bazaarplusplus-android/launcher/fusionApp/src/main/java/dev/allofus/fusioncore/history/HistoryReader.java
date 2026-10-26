@@ -26,6 +26,7 @@ public final class HistoryReader {
     private static final String BATTLE_COLUMNS = "b.id,b.run_id AS runId,b.sequence,b.kind,b.day,b.hour,b.opened_at AS openedAt,"
         + "b.resolved_at AS resolvedAt,b.outcome,b.winner,b.loser,b.partial_opening AS partialOpening";
     private final File file;
+    private final PurchaseSizeCatalog purchaseSizes;
     private final String target;
     private final Scope scope;
 
@@ -42,6 +43,7 @@ public final class HistoryReader {
     public HistoryReader(File gameRoot, String targetPackage, Scope readScope) {
         if (readScope == null || targetPackage == null) throw new IllegalArgumentException("History read scope is required");
         file = new File(new File(gameRoot, HistoryAccessLock.DIRECTORY_NAME), HistoryStore.FILE_NAME);
+        purchaseSizes = new PurchaseSizeCatalog(gameRoot);
         target = targetPackage;
         scope = readScope;
     }
@@ -84,6 +86,16 @@ public final class HistoryReader {
                 where += " AND r.hero IN (?,?)"; args.add("TheDragons"); args.add("Hero8");
             } else { where += " AND r.hero=?"; args.add(hero); }
         }
+        String filter = request.optString("filter", "all");
+        if (filter.equals("3d") || filter.equals("7d")) {
+            long through = request.has("through") ? nonnegative(request, "through") : System.currentTimeMillis();
+            where += " AND " + PurchaseSql.RECENT;
+            args.add(Long.toString(PurchaseSql.since(filter.equals("3d") ? 3 : 7, through)));
+            args.add(Long.toString(through));
+        } else if (Arrays.asList("Small", "Medium", "Large").contains(filter)) {
+            try { where += " AND p.card_type='Item' AND " + purchaseSizes.predicate(filter); }
+            catch (IOException unavailable) { return state("catalog_unavailable"); }
+        } else if (!filter.equals("all")) throw new IllegalArgumentException("Invalid purchase filter");
         String view = request.optString("view", "ranking");
         if (!view.equals("ranking") && !view.equals("recent")) throw new IllegalArgumentException("Invalid purchase view");
         long offset = request.has("offset") ? nonnegative(request, "offset") : 0;
@@ -96,12 +108,16 @@ public final class HistoryReader {
                 int index = rows.getColumnIndexOrThrow(key);
                 summary.put(key, rows.isNull(index) ? JSONObject.NULL : rows.getLong(index));
             }
+            java.util.Map<String, String> artworkSizes;
+            try { artworkSizes = purchaseSizes.artworkSizes(); }
+            catch (IOException unavailable) { artworkSizes = java.util.Collections.emptyMap(); }
             JSONArray items = new JSONArray(); boolean more = false;
             do {
                 if (rows.isNull(rows.getColumnIndexOrThrow("templateId"))) break;
                 if (items.length() == PAGE_SIZE) { more = true; break; }
                 JSONObject item = row(rows);
                 for (java.util.Iterator<String> keys = summary.keys(); keys.hasNext();) item.remove(keys.next());
+                item.put("size", artworkSizes.getOrDefault(item.optString("templateId"), ""));
                 items.put(item);
             } while (rows.moveToNext());
             return state("ok").put("summary", summary).put("items", items).put("hasMore", more).put("offset", offset);

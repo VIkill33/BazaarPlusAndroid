@@ -91,7 +91,37 @@ var unpaired=Proven().Resolve(endingAccount.ToString(),null,HistoryPhase.Defeat,
 Expect(unpaired.Progress==facts && !unpaired.ProgressAvailable,"Unpaired native progress never becomes terminal facts");
 Expect(new HistoryRunContinuity().Resolve(endingAccount.ToString(),endingRun,HistoryPhase.Defeat,null).NativeRunId==null,
     "An ending without a previous reliable observation cannot invent a binding");
-Console.WriteLine("Observer late-task identity guard, duplicate reuse, ordered snapshot retry and terminal continuity passed.");
+// A purchase can precede the asynchronous run-binding acknowledgement.
+Data.Run=new Run(); AppState.CurrentState=new State("EncounterState");
+ClientCache.Profile.Value.AccountId=Guid.NewGuid(); AppState._cachedRunInitialized=new Initialized(Guid.NewGuid().ToString());
+observer=new AndroidRunObserver(IntPtr.Zero); observer.Update(); initial=Take("observeRun");
+var fact=new PurchaseFact("not-a-uuid",Guid.NewGuid().ToString(),"Test card","Item","Gold",uint.MaxValue);
+observer.Purchase(fact);
+Expect(AndroidHistoryBridge.Calls.IsEmpty,"First purchase waits for binding, rather than disappearing or using an old run");
+Bound(initial,local); await Pump(); checkpoint=Take("observeRun"); Bound(checkpoint,local); await Pump();
+var purchase=Take("recordPurchase");
+Expect(purchase.Request.GetProperty("card").GetProperty("Price").GetUInt32()==uint.MaxValue
+    && purchase.Request.GetProperty("runId").GetString()==local,"Immutable purchase retains the full uint price and original run");
+var purchaseId=purchase.Request.GetProperty("purchaseId").GetString();
+purchase.Completion.SetException(new IOException("injected purchase write failure")); await Pump();
+UnityEngine.Time.realtimeSinceStartup=6; observer.Update();
+var purchaseRetry=Take("recordPurchase");
+Expect(purchaseRetry.Request.GetProperty("purchaseId").GetString()==purchaseId,"Automatic retry preserves the same purchase identity");
+var retryObserve=Take("observeRun"); Bound(retryObserve,local);
+purchaseRetry.Completion.SetResult(JsonSerializer.SerializeToElement(new {state="recorded"})); await Pump();
+AppState.CurrentState=new State("ReplayState"); observer.Purchase(fact);
+Expect(!AndroidHistoryBridge.Calls.Any(c=>c.Request.GetProperty("op").GetString()=="recordPurchase"),"Replay cannot create purchase rows");
+while(AndroidHistoryBridge.Calls.TryDequeue(out var replayCall)) Bound(replayCall,local);
+await Pump();
+
+// A scope change before binding must not transfer a queued fact to the next account.
+UnityEngine.Time.realtimeSinceStartup=0; AppState.CurrentState=new State("ChoiceState");
+observer=new AndroidRunObserver(IntPtr.Zero); observer.Update(); initial=Take("observeRun"); observer.Purchase(fact);
+ClientCache.Profile.Value.AccountId=Guid.NewGuid(); AppState._cachedRunInitialized=new Initialized(Guid.NewGuid().ToString());
+observer.Observe(); var switched=Take("observeRun"); Bound(initial,local); Bound(switched,Guid.NewGuid().ToString()); await Pump();
+checkpoint=Take("observeRun"); Bound(checkpoint,local); await Pump();
+Expect(!AndroidHistoryBridge.Calls.Any(c=>c.Request.GetProperty("op").GetString()=="recordPurchase"),"Unbound old-account purchase is never attached to the new account");
+Console.WriteLine("Observer history guards and purchase first-binding, immutable uint price, automatic retry, replay and account-switch checks passed.");
 
 AndroidHistoryBridge.Call Take(string op)
 {
