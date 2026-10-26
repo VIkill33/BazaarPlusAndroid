@@ -106,29 +106,39 @@ def main():
     original = {key: shell('settings', 'get', 'system', key) for key in ['accelerometer_rotation', 'user_rotation']}
     try:
         items = layout()
-        check('对局历史' in texts(items), 'history list is open')
+        check('历史对局' in texts(items), 'history list is open')
         if args.expect_artwork:
             check(any(item.get('content-desc', '').startswith('hero-') and '图片已加载' in item.get('content-desc', '') for item in items), 'cached hero artwork is decoded and bound in the run list')
         tap(find(run['hero']))
         items = layout()
-        check('本局 PvP 交手记录' in texts(items) and f"{run['battleCount']} 场已存 PvP 交手" in texts(items), 'run identity and persisted battle count match the database')
+        check('单场对局' in texts(items) and f"{run['battleCount']} 场已存 PvP 交手" in texts(items), 'run identity and persisted battle count match the database')
         screenshot('battles-portrait')
         first_row = find(f"#{battles[0]['sequence']} ·")
         first_bounds = first_row['bounds']
         tap(first_row)
         items = layout()
-        check('双方阵容' in texts(items), 'selected battle opens its own snapshot page')
+        check('单场对战' in texts(items), 'selected battle opens its own snapshot page')
         cards = first['snapshots']['playerHand']['cards']
         if cards:
             card = cards[0]
             target = next(item for item in layout() if item.get('content-desc', '').startswith('card-' + card['templateId']) and 'bounds' in item)
             tap(target)
-            check('双方阵容' in texts(layout()) and card['instanceId'] not in texts(layout()), 'item tap keeps the screenshot sheet open without a details popup')
+            check('单场对战' in texts(layout()) and card['instanceId'] not in texts(layout()), 'item tap keeps the screenshot sheet open without a details popup')
             tap(target, hold=True)
-            check('双方阵容' in texts(layout()) and card['instanceId'] not in texts(layout()), 'item long press does not open stored fields')
+            check('单场对战' in texts(layout()) and card['instanceId'] not in texts(layout()), 'item long press does not open stored fields')
         def complete_sheet(items, selected, label):
             sheet = next(item for item in items if item.get('content-desc') == '完整对战阵容 · 所有卡牌在一屏内展示' and 'bounds' in item)
             box = list(map(int, re.findall(r'\d+', sheet['bounds'])))
+            for side in ['我方：', '对方：']:
+                name = next(item for item in items if item.get('text', '').startswith(side) and 'bounds' in item)
+                name_box = list(map(int, re.findall(r'\d+', name['bounds'])))
+                portraits = [item for item in items if item.get('content-desc', '').startswith('hero-') and 'bounds' in item]
+                portrait = next(item for item in portraits
+                    if list(map(int, re.findall(r'\d+', item['bounds'])))[1] == name_box[1]
+                    and list(map(int, re.findall(r'\d+', item['bounds'])))[2] <= name_box[0])
+                portrait_box = list(map(int, re.findall(r'\d+', portrait['bounds'])))
+                check(portrait_box[3] == name_box[3] and portrait_box[3] - portrait_box[1] == portrait_box[2] - portrait_box[0],
+                    label + ': hero portrait is square, name-line height and beside the name')
             images = [item for item in items if item.get('content-desc', '').startswith('card-') and 'bounds' in item]
             from collections import Counter
             expected_images = Counter('card-' + card['templateId'] for group in selected['snapshots'].values() for card in group['cards'])
@@ -156,7 +166,9 @@ def main():
                         if any('card-' + card['templateId'] == key for card in selected['snapshots'][side]['cards']):
                             item_tops.setdefault(side, set()).add(rect[1])
                 if key in skill_keys: skill_heights.append(rect[3] - rect[1])
-                check(not image.get('clickable', False) and not image.get('long-clickable', False), label + ': image has no details action')
+                interactions = image.get('interactions', [])
+                check(not image.get('clickable', False) and not image.get('long-clickable', False)
+                    and 'CLICKABLE' not in interactions and 'LONG_CLICKABLE' not in interactions, label + ': image has no details action')
             check(not item_heights or max(item_heights) - min(item_heights) <= 1, label + ': all item image heights are equal across both sides')
             check(all(len(tops) == 1 for tops in item_tops.values()), label + ': each side displays all items in exactly one row')
             density = int(re.findall(r'\d+', shell('wm', 'density'))[-1]) / 160
@@ -179,7 +191,7 @@ def main():
                 check(name + ' · ' + state in joined, label + ': ' + name + ' capture state remains visible')
         complete_sheet(layout(), first, 'portrait')
         shell('input', 'keyevent', '4')
-        check('本局 PvP 交手记录' in texts(layout()), 'back returns to the battle list')
+        check('单场对局' in texts(layout()), 'back returns to the battle list')
         check(find(f"#{battles[0]['sequence']} ·")['bounds'] == first_bounds, 'back preserves the battle list scroll anchor')
         pending = next((item for item in battles if item['outcome'] is None), None)
         if pending:
@@ -191,20 +203,20 @@ def main():
         shell('settings', 'put', 'system', 'user_rotation', '1')
         time.sleep(2)
         items = layout()
-        check('双方阵容' in texts(items), 'selected snapshot survives landscape recreation')
+        check('单场对战' in texts(items), 'selected snapshot survives landscape recreation')
         if not pending:
             complete_sheet(items, first, 'landscape')
         screenshot('snapshot-landscape')
         shell('settings', 'put', 'system', 'user_rotation', '0')
         time.sleep(2)
         portrait_items = layout()
-        check('双方阵容' in texts(portrait_items), 'selected snapshot survives portrait recreation')
+        check('单场对战' in texts(portrait_items), 'selected snapshot survives portrait recreation')
         if not pending:
             complete_sheet(portrait_items, first, 'portrait after recreation')
         screenshot('snapshot-portrait')
         shell('input', 'keyevent', '4')
         shell('input', 'keyevent', '4')
-        check('对局历史' in texts(layout()), 'back restores the run list')
+        check('历史对局' in texts(layout()), 'back restores the run list')
         def tap_text(label):
             tap(next(item for item in layout() if item.get('text') == label and 'bounds' in item))
         all_heroes = ['Vanessa', 'Pygmalien', 'Dooley', 'Mak', 'Stelle', 'Jules', 'Karnok', 'TheDragons']

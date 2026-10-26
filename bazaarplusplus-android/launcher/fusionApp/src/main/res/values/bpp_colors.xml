@@ -7,4 +7,7 @@
     <color name="bpp_muted">#C5B5AA</color>
     <color name="bpp_accent">#FFBD67</color>
     <color name="bpp_success">#70D6AC</color>
+    <color name="bpp_history_danger">#F28D85</color>
+    <color name="bpp_history_line">#49323A</color>
+    <color name="bpp_history_scrim">#991B1214</color>
 </resources>

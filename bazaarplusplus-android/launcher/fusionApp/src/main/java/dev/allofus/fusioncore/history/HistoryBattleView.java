@@ -49,6 +49,7 @@ public final class HistoryBattleView extends ViewGroup {
     private TextView label(String value, int size) {
         TextView text = new TextView(getContext()); text.setText(value); text.setTextSize(size);
         text.setTextColor(0xfff7e7c8); text.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        text.setIncludeFontPadding(false);
         text.setSingleLine(true); text.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.setId(android.R.id.text1); addView(text); return text;
     }
@@ -95,13 +96,16 @@ public final class HistoryBattleView extends ViewGroup {
     }
     @Override protected void onMeasure(int widthSpec, int heightSpec) {
         int width = MeasureSpec.getSize(widthSpec), height = MeasureSpec.getSize(heightSpec); setMeasuredDimension(width, height); bounds.clear();
-        int meta = Math.min(Math.round(28 * density), height / 12), footer = Math.min(Math.round(20 * density), height / 16);
+        int meta = lineHeight(information) + Math.round(12 * density), footer = lineHeight(footnote) + Math.round(8 * density);
         place(information, 0, 0, width, meta); place(footnote, 0, height - footer, width, footer);
         boolean landscape = width > height;
         int gap = Math.min(Math.round(8 * density), Math.min(width, height) / 40);
         int boardWidth = landscape ? (width - gap) / 2 : width;
         int boardHeight = landscape ? height - meta - footer : (height - meta - footer - gap) / 2;
-        int hero = Math.min(Math.round(32 * density), boardHeight / 8), label = Math.min(Math.round(20 * density), boardHeight / 12);
+        // Match the portrait to the actual name line, including the user's font scale.
+        // This header spans the full board width and never takes a column from the artwork.
+        int hero = Math.max(lineHeight(sides[0].name), lineHeight(sides[1].name));
+        int label = Math.max(lineHeight(sides[0].itemsLabel), lineHeight(sides[0].skillsLabel)) + Math.round(4 * density);
         int iconGap = Math.max(1, Math.round(4 * density));
         int skillEdge = Math.max(1, Math.min(Math.round(SKILL_EDGE_DP * density), boardHeight / 8));
         float[][] itemAspects = {aspects(sides[0].items), aspects(sides[1].items)};
@@ -113,7 +117,8 @@ public final class HistoryBattleView extends ViewGroup {
         for (int side = 0; side < 2; side++) {
             Side data = sides[side]; int x = landscape ? side * (boardWidth + gap) : 0;
             int y = landscape ? meta : nextTop;
-            place(data.portrait, x, y, hero, hero); place(data.name, x + hero + 4, y, boardWidth - hero - 4, hero);
+            int nameGap = Math.round(6 * density);
+            place(data.portrait, x, y, hero, hero); place(data.name, x + hero + nameGap, y, boardWidth - hero - nameGap, hero);
             place(data.itemsLabel, x, y + hero, boardWidth, label);
             int itemTop = y + hero + label;
             singleRow(data.items, itemAspects[side], x, itemTop, itemEdge, iconGap);
@@ -124,6 +129,10 @@ public final class HistoryBattleView extends ViewGroup {
             nextTop = skillTop + label
                 + HistoryBattleLayout.rowsHeight(skillAspects[side], boardWidth, skillEdge, iconGap) + gap;
         }
+    }
+    private static int lineHeight(TextView text) {
+        android.graphics.Paint.FontMetrics metrics = text.getPaint().getFontMetrics();
+        return Math.max(1, (int)Math.ceil(metrics.descent - metrics.ascent));
     }
     private void singleRow(List<ImageView> images, float[] aspects, int x, int y, int height, int gap) {
         int left = x;
