@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /** One game writer. Callers own the process-life game lease; readers never initialize a database. */
 final class HistoryStore implements AutoCloseable {
-    static final int SCHEMA_VERSION = 1;
+    static final int SCHEMA_VERSION = 2;
     static final int MAX_PAYLOAD_BYTES = 262144;
     static final int MAX_CARDS_PER_GROUP = 128;
     static final int MAX_ATTRIBUTES_PER_CARD = 128;
@@ -56,6 +56,11 @@ final class HistoryStore implements AutoCloseable {
             Exception initializationFailure = null;
             try {
                 if (opened.getVersion() == 0) createSchema(opened);
+                if (opened.getVersion() == 1) {
+                    opened.execSQL(PurchaseSql.CREATE);
+                    opened.execSQL(PurchaseSql.INDEX);
+                    opened.setVersion(SCHEMA_VERSION);
+                }
                 String existing = text(opened, "SELECT value FROM metadata WHERE key='target_package'", null);
                 if (existing != null && !existing.equals(targetPackage)) throw new IOException("历史目录与目标游戏不匹配");
                 metadata(opened, "target_package", targetPackage);
@@ -90,6 +95,8 @@ final class HistoryStore implements AutoCloseable {
             "CREATE TABLE history_source_records(origin_profile_id TEXT NOT NULL,export_id TEXT NOT NULL,run_id TEXT NOT NULL REFERENCES runs(id),content_hash TEXT NOT NULL,canonical_json TEXT NOT NULL,PRIMARY KEY(origin_profile_id,export_id))"
         };
         for (String statement : statements) db.execSQL(statement);
+        db.execSQL(PurchaseSql.CREATE);
+        db.execSQL(PurchaseSql.INDEX);
         db.setVersion(SCHEMA_VERSION);
     }
 
@@ -109,6 +116,7 @@ final class HistoryStore implements AutoCloseable {
                 response = state("stale");
             else if (operation.equals("beginBattle")) response = begin(request);
             else if (operation.equals("resolveBattle")) response = resolve(request);
+            else if (operation.equals("recordPurchase")) response = purchase(request);
             else if (operation.equals("quarantine")) response = quarantine(boundRun, "identity_uncertain", request);
             else throw new JSONException("Unknown history operation");
             db.setTransactionSuccessful();
@@ -124,6 +132,28 @@ final class HistoryStore implements AutoCloseable {
             boundRun = response.has("runId") ? response.getString("runId") : null;
         }
         return response;
+    }
+
+    private JSONObject purchase(JSONObject request) throws Exception {
+        JSONObject card = request.getJSONObject("card");
+        String id = uuid(required(request, "purchaseId", 36));
+        String instance = required(card, "instanceId", 128);
+        String template = uuid(required(card, "templateId", 36));
+        String name = required(card, "name", 1024), type = required(card, "type", 64), tier = required(card, "tier", 64);
+        long price = nonnegative(card, "price");
+        if (price > 4294967295L) throw new JSONException("Invalid purchase price");
+        long at = nonnegative(request, "observedAt"), day = nonnegative(request, "day"), hour = nonnegative(request, "hour");
+        try (Cursor previous = db.rawQuery("SELECT template_id,price FROM card_purchases WHERE run_id=? AND instance_id=?",
+                new String[] {boundRun, instance})) {
+            if (previous.moveToFirst()) {
+                if (!template.equals(previous.getString(0)) || price != previous.getLong(1))
+                    return state("purchase_conflict");
+                return state("recorded").put("duplicate", true);
+            }
+        }
+        if (!"active".equals(text(db, "SELECT status FROM runs WHERE id=?", new String[] {boundRun}))) return state("stale");
+        db.execSQL(PurchaseSql.INSERT, new Object[] {id, boundRun, instance, template, name, type, tier, price, at, day, hour});
+        return state("recorded").put("duplicate", false);
     }
 
     private JSONObject observe(JSONObject request, long requestedEpoch) throws Exception {

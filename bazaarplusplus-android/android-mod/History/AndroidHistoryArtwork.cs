@@ -32,7 +32,7 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
     private Texture? _directTexture;
     private Rect? _directRegion;
     private EHero? _portraitHero;
-    private long _after;
+    private long _after, _afterPurchase;
     private float _nextQuery, _deadline, _nextFrame;
     private void Enqueue(string key)
     {
@@ -182,7 +182,7 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
             var scope = AndroidRunObserver.Instance?.Session.Scope;
             if (scope == null) return;
             var identity = scope.SessionId + ":" + scope.AccountId;
-            if (_scope != identity) { _scope = identity; _after = 0; _query = null; _nextQuery = 0; }
+            if (_scope != identity) { _scope = identity; _after = 0; _afterPurchase = 0; _query = null; _nextQuery = 0; }
             if (_query is { IsCompleted: true } query)
             {
                 _query = null; _nextQuery = Time.realtimeSinceStartup + 5;
@@ -201,11 +201,12 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                         }
                     }
                     _after = query.Result.GetProperty("afterRow").GetInt64();
-                    if (!query.Result.GetProperty("hasMore").GetBoolean()) { _after = 0; _nextQuery = Time.realtimeSinceStartup + 60; }
+                    _afterPurchase = query.Result.TryGetProperty("afterPurchaseRow", out var purchaseRow) ? purchaseRow.GetInt64() : 0;
+                    if (!query.Result.GetProperty("hasMore").GetBoolean()) { _after = 0; _afterPurchase = 0; _nextQuery = Time.realtimeSinceStartup + 60; }
                 }
             }
             if (_query == null && Time.realtimeSinceStartup >= _nextQuery)
-                _query = AndroidHistoryBridge.ReadAsync(new { op = "artwork", sessionId = scope.SessionId, accountId = scope.AccountId, afterRow = _after });
+                _query = AndroidHistoryBridge.ReadAsync(new { op = "artwork", sessionId = scope.SessionId, accountId = scope.AccountId, afterRow = _after, afterPurchaseRow = _afterPurchase });
         }
         catch (Exception error)
         {

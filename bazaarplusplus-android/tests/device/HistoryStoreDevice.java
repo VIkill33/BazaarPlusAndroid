@@ -57,10 +57,25 @@ public final class HistoryStoreDevice {
         String localRun;
         try (HistoryAccessLock lease = HistoryAccessLock.acquire(root); HistoryStore store = store(root, session);
              SQLiteDatabase inspect = SQLiteDatabase.openDatabase(database(root).getPath(), null, SQLiteDatabase.OPEN_READWRITE, HistoryStore.PRESERVE_CORRUPTION)) {
-            check(inspect.getVersion() == 1, "schema version");
+            check(inspect.getVersion() == HistoryStore.SCHEMA_VERSION, "schema version");
             check("wal".equals(value(inspect, "PRAGMA journal_mode")), "WAL enabled");
             JSONObject bound = store.write(observation(session, 0, 0, account, nativeRun, checkpoint));
             state(bound, "bound", "confirmed binding"); localRun = bound.getString("runId");
+            JSONObject purchase = new JSONObject().put("op", "recordPurchase").put("sessionId", session).put("epoch", 0)
+                .put("runId", localRun).put("purchaseId", id()).put("observedAt", 1500).put("day", 1).put("hour", 3)
+                .put("card", new JSONObject().put("instanceId", "purchased-not-a-uuid").put("templateId", id())
+                    .put("name", "测试购买").put("type", "Skill").put("tier", "Gold").put("price", 4294967295L));
+            check(!store.write(purchase).getBoolean("duplicate"), "successful purchase saved");
+            check(store.write(purchase).getBoolean("duplicate") && number(inspect, "SELECT COUNT(*) FROM card_purchases") == 1,
+                "purchase retry is idempotent");
+            purchase.getJSONObject("card").put("price", 1);
+            state(store.write(purchase), "purchase_conflict", "conflicting original purchase is preserved");
+            purchase.getJSONObject("card").put("price", 4294967295L);
+            JSONObject purchases = new HistoryReader(root, "test.history.target", HistoryReader.Scope.account(account))
+                .read(new JSONObject().put("op", "purchases"));
+            check(purchases.getJSONObject("summary").getLong("totalGold") == 4294967295L
+                && purchases.getJSONArray("items").getJSONObject(0).getLong("purchaseCount") == 1,
+                "purchase reader uses full uint price and account scope");
             JSONObject monster = begin(session, 0, localRun, checkpoint, id(), "monster", false).put("kind", "pve");
             state(store.write(monster), "ignored", "PvE request ignored");
             check(number(inspect, "SELECT COUNT(*) FROM battles") == 0
@@ -154,7 +169,7 @@ public final class HistoryStoreDevice {
             JSONObject promoted = pending.write(observation(pendingSession, 1, 1, id(), pendingNative, id()));
             check(first.getString("runId").equals(promoted.getString("runId")), "same-process pending run promoted without replacing identity");
         }
-        protect(root, "future", 2, false);
+        protect(root, "future", HistoryStore.SCHEMA_VERSION + 1, false);
         protect(root, "unknown", 0, false);
         protect(root, "corrupt", 0, true);
         System.out.println(new JSONObject().put("passed", true).put("checks", checks).put("root", root.getPath()));

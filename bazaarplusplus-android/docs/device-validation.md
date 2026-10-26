@@ -2003,3 +2003,18 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 证据（均位于被忽略的 `artifacts/`）：`launcher-home-tests.log`、`launcher-apk-build.log`、`launcher/signing-report.txt`、`launcher/home-grid-checks/results.txt`、`launcher/home-grid-final.png`、`launcher/home-grid-font130-buttons.png`、`launcher/home-grid-landscape-adb-buttons.png`、`launcher/home-grid-comparison-final.png` 与 `launcher/home-grid-buttons-final.png`。
 
 范围限制：本次验证启动器 UI，没有点击启动游戏、执行修复／退出、修改游戏设置、支付或提交外部内容。更大字体、第二设备与分屏待验证。
+
+
+## 2026-10-26：购牌卡图回填遗漏修复（用户自测通过）
+
+参考 Android README、功能清单、图片缓存 ADR-0003、桌面历史与卡图实现及当前购牌采集路径。
+`HistoryReader.artwork` 原先只扫描 PvP 快照，购买后出售、合成或未带入战斗的牌可能只存在于 `card_purchases`，无法进入图片导出队列。
+现按宿主确定的账号／暂存会话合并两类来源，每类独立分页并保留已耗尽来源的游标；同页去重，非法模板跳过，旧版无购买表的数据库继续读取快照。
+`AndroidHistoryArtwork` 同步传递和重置购买游标，沿用现有原生插画、品质边框导出及后台落盘机制。
+
+- 离线：Python unittest 20 项通过；固定工具链插件编译通过；签名构建通过，签名报告 Verifies、v2=true，证书为 CN=BazaarPlusPlus Android Test；`git diff --check` 通过。
+- 用户提出“先不要实机验证”前，已启动的隔离 `verify_history_store.py --reader` 在 Android 14 设备 `OBJVWSPNSCFQU48L` 完成 99 项断言：包含 47 条购买记录跨页、仅有购买记录的模板、同页去重、非法模板、账号／暂存会话隔离、旧版无购牌表以及原历史读取契约。数据仅写入本次随机隔离目录，成功后由脚本清理，未写入正式历史库。
+- 用户要求暂停后停止自动设备验收；随后按用户明确指令覆盖安装同一签名修复包 test.14，ADB 返回 Success。APK SHA-256 为 `e6cb8b83a59a6211f37a7781d86fb661ffe8cfc8bd50a8c4fe0fada4c73ddcfd`。安装后由用户自行验证，用户反馈“已验证，提交代码”。未继续自动操作游戏；隔离 SQLite 断言不等同自动图片导出验证。
+- 用户已确认本次修复自测通过；未逐项提供卡牌样本、输入模式、跨账号／游戏版本或失败重试过程，不扩大为全部边界均已验收。
+- 证据：忽略目录 `artifacts/purchase-art-fix/` 的 `offline-tests.log`、`build.log`、`reader.log` 与 `reader/`；签名包构建日志在 `artifacts/launcher-apk-build.log`。
+- 本次提交包含图片回填及编译所需的购牌存储／查询依赖和回归测试；工作区其他购牌采集、页面与战斗计时器改动保持原状，不混入本次提交。

@@ -134,6 +134,43 @@ public final class HistoryReaderDevice {
                 check(artPages > 1 && artIds.size()==1 && artIds.contains(artId), "artwork backfill paginates, deduplicates and skips invalid templates");
                 check(new HistoryReader(root,"test.history.target",HistoryReader.Scope.account(other)).read(request("artwork")).getJSONArray("items").length()==0,
                     "artwork backfill cannot read another account's snapshots");
+                Set<String> expectedArt = new HashSet<>(); expectedArt.add(artId);
+                for (int i = 0; i < 47; i++) {
+                    String template = i == 0 ? "invalid" : i == 1 ? artId : id();
+                    if (i > 0) expectedArt.add(template);
+                    fixture.execSQL(PurchaseSql.INSERT, new Object[] {id(), first, id(), template, "Purchased only", "Item", "Bronze", 3, 3000, 1, 3});
+                }
+                String otherArt = id(), pendingArt = id();
+                fixture.execSQL("INSERT INTO card_purchases SELECT ?,r.id,?,?, 'Other', 'Skill','Gold',1,3000,1,3 FROM runs r JOIN history_scopes s ON s.id=r.scope_id WHERE s.account_key=? LIMIT 1",
+                    new Object[] {id(), id(), otherArt, other});
+                fixture.execSQL("INSERT INTO card_purchases SELECT ?,r.id,?,?, 'Pending', 'Item','Gold',1,3000,1,3 FROM runs r JOIN history_scopes s ON s.id=r.scope_id WHERE s.account_key IS NULL LIMIT 1",
+                    new Object[] {id(), id(), pendingArt});
+                artIds.clear(); artAfter = 0; long purchaseAfter = 0; artPages = 0;
+                do {
+                    JSONObject art = own.read(request("artwork").put("afterRow", artAfter).put("afterPurchaseRow", purchaseAfter));
+                    artPages++;
+                    JSONArray values = art.getJSONArray("items"); Set<String> pageIds = new HashSet<>();
+                    for (int i = 0; i < values.length(); i++) {
+                        check(pageIds.add(values.getString(i)), "snapshot and purchase artwork deduplicated within page");
+                        artIds.add(values.getString(i));
+                    }
+                    long nextArt = art.getLong("afterRow"), nextPurchase = art.getLong("afterPurchaseRow");
+                    check(nextArt >= artAfter && nextPurchase >= purchaseAfter, "independent artwork cursors never rewind an exhausted source");
+                    if (!art.getBoolean("hasMore")) break;
+                    check(nextArt > artAfter || nextPurchase > purchaseAfter, "combined artwork continuation advances at least one source");
+                    artAfter = nextArt; purchaseAfter = nextPurchase;
+                    if (artPages > 20) throw new AssertionError("artwork pagination did not finish");
+                } while (true);
+                check(artPages > 3 && artIds.equals(expectedArt), "all purchase-only templates backfill without requiring a PvP snapshot");
+                JSONArray otherIds = new HistoryReader(root,"test.history.target",HistoryReader.Scope.account(other))
+                    .read(request("artwork")).getJSONArray("items");
+                check(otherIds.length() == 1 && otherArt.equals(otherIds.getString(0)), "purchase artwork stays within account scope");
+                JSONArray pendingIds = new HistoryReader(root,"test.history.target",HistoryReader.Scope.pending(session))
+                    .read(request("artwork")).getJSONArray("items");
+                check(pendingIds.length() == 1 && pendingArt.equals(pendingIds.getString(0)), "purchase artwork stays within pending session scope");
+                fixture.execSQL("ALTER TABLE card_purchases RENAME TO purchases_v2"); fixture.setVersion(1);
+                check(own.read(request("artwork")).getJSONArray("items").length() <= 1, "v1 history without a purchase table still exports snapshot artwork");
+                fixture.execSQL("ALTER TABLE purchases_v2 RENAME TO card_purchases"); fixture.setVersion(HistoryStore.SCHEMA_VERSION);
                 check("state-pending".equals(HistoryPresentation.trophy(new JSONObject().put("status","active").put("victories",10).put("losses",0)))
                     && "state-pending".equals(HistoryPresentation.trophy(new JSONObject().put("status","completed"))), "unknown and unfinished progress cannot award trophies");
                 check("Trophy_Diamond_TUI".equals(HistoryPresentation.trophy(new JSONObject().put("status","completed").put("victories",10).put("losses",0)))
@@ -168,7 +205,7 @@ public final class HistoryReaderDevice {
         }
         File futureRoot = new File(root, "future");
         database(futureRoot).getParentFile().mkdirs();
-        try (SQLiteDatabase future = SQLiteDatabase.openOrCreateDatabase(database(futureRoot), null)) { future.setVersion(2); }
+        try (SQLiteDatabase future = SQLiteDatabase.openOrCreateDatabase(database(futureRoot), null)) { future.setVersion(HistoryStore.SCHEMA_VERSION + 1); }
         byte[] before = digest(database(futureRoot));
         check("newer_format".equals(new HistoryReader(futureRoot, "test.history.target", HistoryReader.Scope.launcher()).read(request("runs")).getString("state"))
             && Arrays.equals(before, digest(database(futureRoot))), "future schema is reported distinctly and remains byte-identical");
