@@ -25,8 +25,15 @@ public final class HistoryArtwork implements AutoCloseable {
     private volatile boolean closed;
     public HistoryArtwork(File gameRoot) { root = new File(gameRoot, "BepInEx/history-art/v2"); }
     public static String hero(String name) { return "hero-" + ("Hero8".equalsIgnoreCase(name) ? "TheDragons" : name); }
+    public static String frame(String size, String tier) { return "frame-" + size + "-" + tier; }
     public void bind(ImageView view, String key) {
         view.setImageDrawable(null); view.setTag(key);
+        load(key, loaded -> {
+            if (key.equals(view.getTag())) { view.setImageBitmap(loaded); view.setContentDescription(key + " · 图片已加载"); }
+        });
+    }
+    /** Delivers the cached bitmap on the main thread; missing or invalid images are never delivered. */
+    public void load(String key, java.util.function.Consumer<Bitmap> result) {
         if (closed || key == null || !key.matches("[A-Za-z0-9_-]{1,100}")) return;
         worker.execute(() -> {
             try {
@@ -48,7 +55,7 @@ public final class HistoryArtwork implements AutoCloseable {
                     cache.put(identity, bitmap);
                 }
                 final Bitmap loaded = bitmap;
-                main.post(() -> { if (!closed && key.equals(view.getTag())) { view.setImageBitmap(loaded); view.setContentDescription(key + " · 图片已加载"); } });
+                main.post(() -> { if (!closed) result.accept(loaded); });
             } catch (Exception ignored) { /* Saved names and fields remain the fallback. */ }
         });
     }

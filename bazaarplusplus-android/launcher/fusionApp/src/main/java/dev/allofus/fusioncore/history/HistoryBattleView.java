@@ -1,7 +1,10 @@
 package dev.allofus.fusioncore.history;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Rect;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,7 +15,7 @@ import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Image-only battle sheet. Every item has the same image height, with no card frames or popups. */
+/** Image-only battle sheet. Every item has the same height and its saved tier's native frame, with no popups. */
 public final class HistoryBattleView extends ViewGroup {
     // The former skill image area was 88dp high; use one quarter of that edge length.
     private static final int SKILL_EDGE_DP = 22;
@@ -53,8 +56,32 @@ public final class HistoryBattleView extends ViewGroup {
         text.setSingleLine(true); text.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.setId(android.R.id.text1); addView(text); return text;
     }
+    /** Native item card: artwork inside the frame window, the saved tier's game frame drawn over it. */
+    private final class FramedItem extends ImageView {
+        private final float[] insets;
+        private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+        private final Rect full = new Rect();
+        private Bitmap frame;
+        FramedItem(String size, String tier) {
+            super(HistoryBattleView.this.getContext()); insets = HistoryBattleLayout.artInsets(size);
+            artwork.load(HistoryArtwork.frame(size, tier), loaded -> { frame = loaded; invalidate(); });
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            int width = getWidth(), height = getHeight();
+            android.graphics.drawable.Drawable art = getDrawable();
+            if (art != null) {
+                art.setBounds(Math.round(width * insets[0]), Math.round(height * insets[1]),
+                    width - Math.round(width * insets[2]), height - Math.round(height * insets[3]));
+                art.draw(canvas);
+            }
+            if (frame != null) { full.set(0, 0, width, height); canvas.drawBitmap(frame, null, full, paint); }
+        }
+    }
     private ImageView image(String key) {
         ImageView image = new ImageView(getContext()); image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        return bind(image, key);
+    }
+    private ImageView bind(ImageView image, String key) {
         image.setContentDescription(key + " · 图片未缓存"); artwork.bind(image, key); addView(image); return image;
     }
     private static String groupLabel(JSONObject group, String name) {
@@ -67,14 +94,15 @@ public final class HistoryBattleView extends ViewGroup {
         JSONArray cards = group == null ? null : group.optJSONArray("cards"); if (cards == null) return;
         for (int i = 0; i < cards.length(); i++) {
             JSONObject card = cards.optJSONObject(i); if (card == null) continue;
-            ImageView art = image("card-" + card.optString("templateId"));
-            float nativeAspect = items ? HistoryBattleLayout.artworkAspect(card.optString("size")) : 0;
+            String key = "card-" + card.optString("templateId"), size = card.optString("size");
+            float nativeAspect = items ? HistoryBattleLayout.frameAspect(size) : 0;
+            ImageView art;
             if (nativeAspect > 0) {
-                nativeItemAspects.put(art, nativeAspect);
-                // Game RawImage maps the complete material UV rectangle into this native body.
+                // Game RawImage maps the complete material UV rectangle into the frame window.
                 // Reproduce that projection instead of treating the packed texture as a square card.
-                art.setScaleType(ImageView.ScaleType.FIT_XY);
-            }
+                art = bind(new FramedItem(size, card.optString("tier")), key);
+                nativeItemAspects.put(art, nativeAspect);
+            } else art = image(key);
             result.add(art);
         }
     }

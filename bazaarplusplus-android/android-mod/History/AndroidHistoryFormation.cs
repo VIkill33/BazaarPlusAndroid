@@ -64,9 +64,9 @@ internal sealed class AndroidHistoryFormation
         NativeUi.Button(sheet, font, "关闭", new(.76f,.01f), new(.98f,.09f), () => CloseDetail());
         _detail.gameObject.SetActive(false); _root.gameObject.SetActive(false);
     }
-    private RectTransform Area(string name, float left, float right, float top, float height)
+    private RectTransform Area(string name, float left, float right, float top, float height, float inset = 4)
     {
-        var rect = NativeUi.Rect(name, _content, new(left,1), new(right,1), new(4,-top-height), new(-4,-top));
+        var rect = NativeUi.Rect(name, _content, new(left,1), new(right,1), new(inset,-top-height), new(-inset,-top));
         _owned.Add(rect.gameObject); return rect;
     }
     private void Text(string value, float left, float right, float top, float height, float size = 23)
@@ -83,6 +83,7 @@ internal sealed class AndroidHistoryFormation
         Text("我方：" + HistoryViewText.Value(opening,"playerHero"),0,.5f,110,42,27);
         Text("对方：" + HistoryViewText.Value(opening,"opponentHero"),.5f,1,110,42,27);
         var snapshots = battle.GetProperty("snapshots");
+        Canvas.ForceUpdateCanvases();
         var left = Group(snapshots.GetProperty("playerHand"),"物品",0,.5f,152,false);
         left = Group(snapshots.GetProperty("playerSkills"),"技能",0,.5f,left,true);
         var right = Group(snapshots.GetProperty("opponentHand"),"物品",.5f,1,152,false);
@@ -94,7 +95,12 @@ internal sealed class AndroidHistoryFormation
         Text(name + " · " + HistoryViewText.Group(group),left,right,top,44); top += 44;
         var cards = group.GetProperty("cards");
         if (cards.GetArrayLength() == 0) return top + 16;
-        var next = 0; var rows = 1; var columns = skills ? 5 : 10; var height = skills ? 174 : 248;
+        // The native board has ten small-card sockets; a small item frame is about 0.52 wide per height.
+        // The lower 15% of each slot holds its saved name.
+        const int columns = 10;
+        var slotWidth = Math.Max(40,_content.rect.width) * (right-left) / columns;
+        var height = Math.Clamp(slotWidth / (skills ? 1f : .52f) / .85f, skills ? 70 : 140, skills ? 160 : 320);
+        var next = 0; var rows = 1;
         foreach (var card in cards.EnumerateArray())
         {
             var size = skills ? 1 : HistoryViewText.Value(card,"size") switch { "Medium" => 2, "Large" => 3, _ => 1 };
@@ -102,9 +108,8 @@ internal sealed class AndroidHistoryFormation
             var slot = skills ? next : HistoryFormationLayout.ItemSlot(socket,next);
             var row = slot / columns; var column = slot % columns;
             var x = left + (right-left) * column / columns; var end = left + (right-left) * Math.Min(columns,column+size) / columns;
-            var box = Area("SavedCard",x,end,top + row * height,height - 8);
+            var box = Area("SavedCard",x,end,top + row * height,height - 2,1);
             var button = NativeUi.Button(box,_font,"",Vector2.zero,Vector2.one,() => { if (PlayerPreferences.Data?.AlternativeInput != true) ShowDetail(card); });
-            box.gameObject.AddComponent<Image>().color = new Color(.13f,.17f,.20f,1);
             button.GetComponent<Image>().color = new Color(0,0,0,.01f);
             var placeholder = NativeUi.Label(box,_font,HistoryViewText.Value(card,"name") + "\n" + HistoryViewText.Value(card,"tier"),17);
             placeholder.richText = false; placeholder.overflowMode = TextOverflowModes.Ellipsis;
@@ -121,7 +126,7 @@ internal sealed class AndroidHistoryFormation
             Event(trigger,EventTriggerType.EndDrag,data => _scroll.OnEndDrag(data));
             _previews.Add(preview); next = Math.Max(next,slot+size); rows = Math.Max(rows,row+1);
         }
-        return top + rows * height + 12;
+        return top + rows * height + 4;
     }
     private static void Event(EventTrigger trigger, EventTriggerType type, Action<PointerEventData> action)
     {
@@ -246,7 +251,7 @@ internal sealed class AndroidHistoryFormation
             ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
         if (frame.rect.width <= 1 || frame.rect.height <= 1) return;
         var parent = request.NativeRoot!.GetComponent<RectTransform>(); var bounds = parent.rect;
-        var scale = Math.Min(bounds.width / frame.rect.width,bounds.height / frame.rect.height) * .86f;
+        var scale = Math.Min(bounds.width / frame.rect.width,bounds.height / frame.rect.height) * .97f;
         rect.localScale = new(scale,scale,scale);
         var center = parent.InverseTransformPoint(frame.TransformPoint(frame.rect.center));
         rect.anchoredPosition -= new Vector2(center.x,center.y);

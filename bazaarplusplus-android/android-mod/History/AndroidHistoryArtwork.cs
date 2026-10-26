@@ -23,6 +23,8 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
     private Il2CppSystem.Threading.Tasks.Task<UnityEngine.Object>? _asset;
     private Il2CppSystem.Threading.Tasks.Task<Texture2D>? _texture;
     private Il2CppSystem.Threading.Tasks.Task<Sprite>? _sprite;
+    private AndroidHistoryFrameRender? _frame;
+    private readonly Dictionary<ECardSize, TCardBase> _frameTemplates = new();
     private string? _key, _directory, _scope, _writingKey;
     private readonly Dictionary<string, (int Attempts, float At)> _retry = new();
     private float _lastTick;
@@ -79,6 +81,14 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
             if (_key != null)
             {
                 if (Time.realtimeSinceStartup > _deadline) throw new TimeoutException("Artwork load timed out");
+                if (_frame != null)
+                {
+                    var frame = _frame.Step(loader);
+                    if (frame == null) return;
+                    _frame.Dispose(); _frame = null;
+                    Save(_key, frame);
+                    return;
+                }
                 if (_asset is { IsCompleted: true } asset)
                 {
                     _asset = null;
@@ -133,16 +143,7 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                     texture = sprite.Result.texture; region = sprite.Result.textureRect;
                 }
                 if (texture == null) return;
-                var bytes = CopyPng(texture, region, _key.StartsWith("card-", StringComparison.Ordinal));
-                var path = Path.Combine(_directory, _key + ".png");
-                var key = _key; _writingKey = key;
-                _key = null; _texture = null; _sprite = null; _directTexture = null; _directRegion = null;
-                _write = Task.Run(() =>
-                {
-                    try { File.WriteAllBytes(path + ".part", bytes); File.Move(path + ".part", path, true); }
-                    finally { if (File.Exists(path + ".part")) File.Delete(path + ".part"); }
-                    Plugin.PluginLog?.LogInfo($"[BPP][Android] event=history.art.saved key={key}");
-                });
+                Save(_key, CopyPng(texture, region, _key.StartsWith("card-", StringComparison.Ordinal)));
                 return;
             }
             foreach (var key in _retry.Keys.ToArray())
@@ -159,6 +160,11 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                     var template = Data.GetStatic().GetCardById(new Il2CppSystem.Guid(next[5..])).TryCast<TCardBase>();
                     if (template == null || string.IsNullOrWhiteSpace(template.ArtKey)) throw new InvalidOperationException("Template no longer available");
                     _asset = loader.LoadAssetAsyncByAddress<UnityEngine.Object>(template.ArtKey, NativeNullableValue.Box<AssetScope>(AssetScope.Global));
+                }
+                else if (next.StartsWith("frame-", StringComparison.Ordinal))
+                {
+                    var parts = next.Split('-');
+                    _frame = new AndroidHistoryFrameRender(_frameTemplates[Enum.Parse<ECardSize>(parts[1])], Enum.Parse<ETier>(parts[2]));
                 }
                 else if (next.StartsWith("state-", StringComparison.Ordinal)) return;
                 else if (next.StartsWith("hero-", StringComparison.Ordinal))
@@ -181,7 +187,13 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                 if (!query.IsFaulted && !query.IsCanceled && query.Result.GetProperty("state").GetString() == "ok")
                 {
                     foreach (var id in query.Result.GetProperty("items").EnumerateArray())
-                        if (Guid.TryParse(id.GetString(), out var guid)) Enqueue("card-" + guid.ToString("D"));
+                    {
+                        if (!Guid.TryParse(id.GetString(), out var guid)) continue;
+                        Enqueue("card-" + guid.ToString("D"));
+                        var template = Data.GetStatic().GetCardById(new Il2CppSystem.Guid(guid.ToString("D")))?.TryCast<TCardBase>();
+                        if (template is { Type: ECardType.Item } && _frameTemplates.TryAdd(template.Size, template))
+                            foreach (var tier in Enum.GetValues<ETier>()) Enqueue($"frame-{template.Size}-{tier}");
+                    }
                     _after = query.Result.GetProperty("afterRow").GetInt64();
                     if (!query.Result.GetProperty("hasMore").GetBoolean()) { _after = 0; _nextQuery = Time.realtimeSinceStartup + 60; }
                 }
@@ -194,10 +206,23 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
             Plugin.PluginLog?.LogWarning($"[BPP][Android] event=history.art.unavailable key={_key} reason={error.Message}");
             if (_directory == null) _nextFrame = Time.realtimeSinceStartup + 30;
             Retry(_key);
+            _frame?.Dispose(); _frame = null;
             _key = null; _asset = null; _texture = null; _sprite = null; _directTexture = null; _directRegion = null; _nextQuery = Time.realtimeSinceStartup + 30;
         }
     }
-    public void OnDestroy() { if (_stateAtlas != null) UnityEngine.Object.Destroy(_stateAtlas); }
+    private void Save(string key, byte[] bytes)
+    {
+        var path = Path.Combine(_directory!, key + ".png");
+        _writingKey = key;
+        _key = null; _texture = null; _sprite = null; _directTexture = null; _directRegion = null;
+        _write = Task.Run(() =>
+        {
+            try { File.WriteAllBytes(path + ".part", bytes); File.Move(path + ".part", path, true); }
+            finally { if (File.Exists(path + ".part")) File.Delete(path + ".part"); }
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=history.art.saved key={key}");
+        });
+    }
+    public void OnDestroy() { _frame?.Dispose(); if (_stateAtlas != null) UnityEngine.Object.Destroy(_stateAtlas); }
     private static byte[] CopyPng(Texture source, Rect? crop, bool opaque)
     {
         var region = crop ?? new Rect(0, 0, source.width, source.height);
