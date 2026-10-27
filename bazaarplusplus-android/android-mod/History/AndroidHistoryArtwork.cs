@@ -60,8 +60,7 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                 var root = Path.Combine(Paths.BepInExRootPath, "history-art", "v2");
                 var version = Application.version;
                 var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(version))).ToLowerInvariant();
-                var directory = Path.Combine(root, hash);
-                Directory.CreateDirectory(directory);
+                var directory = HistoryArtworkDirectory.Prepare(Path.GetDirectoryName(root)!, hash);
                 File.WriteAllText(Path.Combine(directory, "source.json"), JsonSerializer.Serialize(new { gameVersion = version, schema = 2 }));
                 File.WriteAllText(Path.Combine(root, "current.part"), hash);
                 File.Move(Path.Combine(root, "current.part"), Path.Combine(root, "current.txt"), true);

@@ -2081,3 +2081,23 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 ## 2026-10-26：购牌相关改动统一验收与提交
 
 用户确认上述未提交改动“这些都验证了，一起提交”。购牌采集、启动器入口与卡图排行、时间／体型筛选、图标占位底色及配套测试、文档按用户自测通过记录，并统一纳入本地提交。用户未补充逐项设备与操作证据，保留前述自动验证的实际范围，不扩大为所有设备和边界均已覆盖。构筑目录刷新文件仅为待实现设计方案，随本次提交保存，不表示方案已经实现。
+
+
+## 历史与购牌缓存相册排除（2026-10-28，新增防收录真机通过）
+
+参考 Android README、功能清单、ADR-0003、桌面 capture 架构与现有图片导出和读取实现。历史与购牌共用共享存储的 PNG，原实现未创建媒体排除标记，系统扫描可将卡图收录到相册。
+
+`HistoryArtworkDirectory.Prepare` 先在 `BepInEx/history-art/` 创建 `.nomedia` 再创建版本目录，覆盖新缓存、已有缓存及旧版本子树；标记失败由现有异常处理延迟重试，不进入导出。原 PNG 路径及启动器读取方式保留。
+
+离线结果：Python 回归全部 22 项通过；`HistoryArtworkDirectory.Tests` 执行生产代码的 8 项断言通过，覆盖新建标记、读取路径、旧缓存补标记、当前及旧版本图片字节保留、重复初始化、版本切换、标记失败阻止初始化；固定框架与 Android interop 的 `build_probe.py --mod` 构建通过，插件零警告／零错误。证据在忽略目录 `artifacts/history-art/nomedia-python-tests.log`、`nomedia-directory-tests.log`、`nomedia-build.log`，源码和 DLL 摘要见 `artifacts/mod/build-inputs.json`。
+
+最初无设备；随后用户要求开始真机验证，连接 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14，游戏 `1.0.12825-production-android-d9601ded`，1080×2460、440dpi）。开始时手机为系统桌面，游戏未运行；新启动后进入已有账号大厅，高级输入模式入口可见，未继续对局、购买、选择事件或推进战斗。
+
+- 按仓库导出 skill 使用 JDK 24 和既有测试签名构建、覆盖安装 `0.2.0`（code 15），签名 v2=true、DN 正确；APK SHA-256：`33b5d06a80c3ecc8a3d49279f6bb53e5018c11cb8faae379f674c0cfb1bd017d`。此版本号在任务开始前已由工作区修改，不纳入本次修复提交。
+- 当前包新会话、包内／请求／实际加载 DLL 摘要等 12 项检查通过；生产插件自动创建空的根 `.nomedia`。新会话无新增 crash 缓冲区记录，无图片初始化或写入失败事件。
+- 媒体与完整性 9 项断言通过：558 张原 PNG 摘要全部不变；修复前指定旧图可由系统扫描收录，标记生成后重新扫描不进入系统图片查询；在 v1、v2 版本目录分别写入新的唯一探针 PNG，调用系统扫描后均不进入图片库且字节可正常读取，探针随后清理。复现入口：忽略目录 `artifacts/history-art/nomedia-device/verify-media.py`，依赖同目录修复前摘要和旧图索引基线，专用于本轮设备；该脚本只创建并清理唯一命名的探针副本。
+- 在仅保留根标记时，额外保留一张本轮新写入的 PNG，发送小米相册的定向扫描通知后观察其照片列表；新增时间戳未出现在可见照片节点中，系统图片查询同样无此探针，验证后清理。证据为 `gallery-new-probe-checks.json`、`new-probe-media-query.txt` 与 `gallery-new-probe-after.png`；此项仅覆盖本轮观察窗口，不扩展为所有相册版本。
+- 正式启动器的购牌排行与购买明细卡图显示正常，真实摘要为 156 次购买／349 金币；截图人工复核，不宣称自动视觉识别。
+- 小米相册仍显示此前收录的正式缓存图片，详情页确认路径属于当前 `history-art/v2`；重开相册及定向扫描通知未立即清退。临时在实际版本目录补标记的兼容性试验也未清退旧图，实验标记已撤销，最终设备仅保留生产代码创建的根标记。用户随后明确“已有的图就别管了”，因此旧相册记录清退退出本次验收范围，未删除图片或清除相册数据，也不宣称已解决旧缩略图。
+
+真机证据在忽略目录 `artifacts/history-art/nomedia-device/`：`loading/verification.json`、`baseline.json`、`before-png-sha256.txt`／`after-png-sha256.txt`、`scan-before.txt`／`scan-after.txt`、`media-checks.json`、`runtime-checks.json`、`plugin.log`、`crash.log`、购牌页及相册截图／布局。签名和构建证据在 `artifacts/launcher/signing-report.txt` 与 `artifacts/launcher-apk-build.log`。按用户最新范围，当前设备的新增防收录与购牌显示通过；未验证其他厂商／旧版 Android，也未通过新购买触发原生图片重新导出。
