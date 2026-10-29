@@ -1257,3 +1257,77 @@ MANAGE_GAME_MODE 权限等错误及一次登录 401，随后自动进入主菜�
 本次提交包含配置保护加载链及其必要的只读 DEX、Activity 元数据与旧版 Android 读取修复；历史存储及其他并行改动未纳入提交。
 
 提交前另对暂存区快照执行离线回归，9 项全部通过；该快照不包含工作区历史互斥测试，因此与完整工作区的 10 项计数不同。
+
+
+## 启动器与插件英文支持（2026-10-29，离线通过，真机待验证）
+
+依据桌面 `docs/architecture/text.md` 的 `LocalizedTextSet`／`L`、Android 的
+`NativeUi.Text`／`AndroidLocalizedText` 和现有预览清理生命周期实现。
+未修改共享桌面本地化引擎、游戏数据及实际物品；本次没有游戏 UI 截图，布局检查依据当前源码。
+
+启动器将产品页面、帮助、设置、游戏选择、进度、弹窗及已知文件错误移入
+`launcher/fusionApp/src/main/res/values/bpp_strings.xml` 与 `values-zh/bpp_strings.xml`。
+原简体中文基础资源移到 `values-zh/strings.xml`，保留台湾区域资源覆盖，补全原上游缺失项；
+freeform 标签由 Android 系统字符串提供，标为不可翻译。英文为默认回退，中文系统使用中文；
+游戏内插件继续独立跟随游戏语言。
+`LauncherPreparation.failed` 使用独立持久状态并兼容旧版中文失败前缀，失败详情和状态原子保存，
+不再依赖翻译后的前缀识别重试；记录语言不匹配时显示当前语言的通用状态，避免复用旧语言进度。
+首页允许 Android 在语言变化后重建；准备页通过 `onConfigurationChanged` 刷新文字，保留准备任务。
+`AndroidTooltipObserver` 的三个预览标签改为显示时解析；语言变化时清理旧附加预览，
+`AndroidBuildPanelController` 清理详情、推荐原生卡及候选图缓存并触发刷新。
+
+本次实际检查：
+
+- `python3 -m unittest discover -s bazaarplusplus-android/tests -v`：10 项通过。
+  新本地化检查验证中英文键与占位符一致，并用资源支持的 Context 替身执行生产
+  `LauncherMessages`，覆盖中英文文件错误、取消、空错误、未知平台诊断和进程退出原因。
+  替身测试不证明 Android 系统资源选择或真实布局通过。
+- `.NET` 的 `Localization.Tests`、`BuildCorpus.Tests`、`PreviewTooltips.Tests` 均通过；
+  本地化包含英文区域代码、不支持语言英文回退、重复中英文切换及相同文案不重复写入。
+- Gradle `:fusionApp:compileDebugJavaWithJavac :fusionApp:processDebugResources` 通过；
+  AAPT2 读取编译资源，确认首页、帮助及格式字符串同时包含默认英文与 `zh` 中文。
+- `:fusionApp:lintDebug` 实际运行完成分析但未通过：9 项原代码已有的
+  `GestureBackNavigation`、`NewApi` 与 `UseAppTint` 错误；翻译缺失及格式错误为零。
+  未抑制检查、修改基线或将 Lint 标为通过。
+- 完整插件构建在 `ValidateInterop` 失败：当前环境缺少手机版生成的
+  `TheBazaarRuntime.dll`／`Il2Cppmscorlib.dll`，未用桌面程序集替代。
+- `adb devices -l` 未列出设备，因此未部署 DLL、安装 APK、登录或执行游戏操作。
+  未打包签名 APK；无本次真机通过记录，保留待验证状态；按用户明确要求先提交本次实现。
+
+本地证据位于被忽略的 `artifacts/localization-en/`，含测试、资源／Java 编译、
+Lint 报告、编译资源转储、插件构建失败及无设备检查日志。
+
+后续真机验收：系统中文与英文分别冷启动首页，覆盖帮助、设置、游戏列表、弹窗、
+初始化进度、取消及失败后重试；切换系统语言后检查首页及准备任务连续性。
+在标准和高级输入模式下，将游戏语言从中文切到英文再切回，核对入口、图鉴、构筑、
+附魔／升级／任务奖励标签、原生卡与详情语言，并覆盖保留的野怪面板和异步加载中切换。
+检查长英文、横屏滚动及放大字体，确认旧语言预览无残留，原物品品质和附魔未改变；
+不通过购买、选事件或推进战斗取得场景。
+
+
+## 英文本地化模拟器尝试（2026-10-29，环境受阻）
+
+按用户要求，在云环境安装 Android Emulator 和 AOSP 系统镜像，测试源码基于
+`be66422`。宿主为 x86_64，无 `/dev/kvm`，`emulator -accel-check` 返回
+“KVM requires a CPU that supports vmx or svm”，因此以 `-accel off` 软件执行。
+
+为验证启动器界面，通过临时 Gradle init script 构建 debug 测试 APK：使用当前
+Java 源码和中英文资源，排除 ARM64 `.so`，加入明确标记为 `emulator-ui-test-only`
+的测试清单和许可占位。此包不是可发行启动器，不包含可运行的游戏加载链或插件。
+未改动产品构建配置或签名材料，也未安装游戏、登录账号或执行游戏操作。
+
+- Android 11／API 30／x86_64：首次启动及降低核心数后的重试均无法稳定安装测试包。
+  观察到系统 `DeadSystemException`、包服务 `DEAD_OBJECT`／`Broken pipe`，
+  没有执行完成的应用断言；已停止此实例。
+- Android 9／API 28／x86：测试 APK 与仪器测试探针安装成功；系统出现
+  “System UI isn’t responding”，日志记录 `ANR in com.android.systemui`。
+  应用首次启动等待超时；资源与失败状态探针在 240 秒内未返回断言结果，
+  Android CLI 布局服务安装未完成，未取得有效产品页面截图。不能据此标记
+  英文页面、语言切换或重试路径通过。
+
+证据位于被忽略的 `artifacts/emulator-localization/`：AVD／构建与安装日志、
+软件模拟器启动日志、`test-run.log`／`test28-run.log`、`watchdog28.log`、
+`system28-screen.png` 及临时测试探针源码／脚本。
+其中系统截图只证明模拟器的 System UI 无响应，不是产品页面验收截图。
+后续仍需在具备硬件虚拟化的稳定模拟器验证启动器，游戏内插件另需 ARM64 游戏环境；
+本次尝试不改变上一节的离线通过与真机待验证状态。

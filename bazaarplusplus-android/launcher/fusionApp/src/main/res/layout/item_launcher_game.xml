@@ -16,6 +16,6 @@
             android:paddingTop="2dp" android:textColor="@color/bpp_muted" android:textSize="12sp" />
     </LinearLayout>
     <TextView android:id="@+id/game_current" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_marginStart="8dp" android:text="当前" android:textColor="@color/bpp_accent"
+        android:layout_marginStart="8dp" android:text="@string/bpp_current" android:textColor="@color/bpp_accent"
         android:textSize="14sp" android:textStyle="bold" android:visibility="gone" />
 </LinearLayout>

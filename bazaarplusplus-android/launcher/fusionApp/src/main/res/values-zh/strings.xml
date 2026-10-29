@@ -39,4 +39,10 @@
     <string name="selector_folder_create_failed">创建文件夹失败：%1$s</string>
     <string name="settings_automatic">自动</string>
     <string name="bootstrap_status_extracting_mono_dlls">正在解压 Mono 托管 DLL…</string>
+    <string name="bootstrap_request_dlls">请提供 Mono DLL 文件</string>
+    <string name="boostrap_file_request_il2cpp_map">请提供 IL2CPP API 的去混淆映射</string>
+    <string name="selector_metadata_title">需要解密后的元数据</string>
+    <string name="selector_metadata_message">此游戏的 global-metadata.dat 已加密，无法自动解密。\n\n请选择对应游戏版本解密后的 global-metadata.dat。</string>
+    <string name="selector_metadata_select">选择文件</string>
+    <string name="selector_metadata_invalid">这不是有效的元数据文件。</string>
 </resources>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="FreeformWindowSize_maximize">maximize</string>
-    <string name="FreeformWindowSize_tablet">tablet</string>
-    <string name="FreeformWindowSize_phone">phone</string>
-    <string name="FreeformWindowOrientation_landscape">landscape</string>
-    <string name="FreeformWindowOrientation_portrait">portrait</string>
+    <string translatable="false" name="FreeformWindowSize_maximize">maximize</string>
+    <string translatable="false" name="FreeformWindowSize_tablet">tablet</string>
+    <string translatable="false" name="FreeformWindowSize_phone">phone</string>
+    <string translatable="false" name="FreeformWindowOrientation_landscape">landscape</string>
+    <string translatable="false" name="FreeformWindowOrientation_portrait">portrait</string>
 </resources>

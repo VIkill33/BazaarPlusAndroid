@@ -29,13 +29,22 @@ public final class LauncherPreparation {
     }
 
     public static void phase(Context context, String phase) {
+        recordPhase(context, phase, null);
+    }
+
+    private static void recordPhase(Context context, String phase, String failureDetail) {
+        boolean failure = failureDetail != null;
         LauncherLog.note(context.getFilesDir(), phase);
         android.content.SharedPreferences preferences = context.getSharedPreferences("launcher", 0);
         android.content.SharedPreferences.Editor edit = preferences.edit().putString("phase", phase)
-                .putLong("phaseTime", System.currentTimeMillis());
-        if (!phase.startsWith("初始化失败")) edit.putString("lastPreparationStep", phase);
+                .putLong("phaseTime", System.currentTimeMillis())
+                .putString("phaseLocale", context.getResources().getConfiguration().getLocales().toLanguageTags());
+        edit.putBoolean("preparationFailed", failure);
+        if (failure) edit.putString("failureDetail", failureDetail);
+        else edit.remove("failureDetail");
+        if (!failure) edit.putString("lastPreparationStep", phase);
         // Keep a bounded stage trace. Raw error messages never enter the exported trace.
-        String safe = phase.startsWith("初始化失败") ? "初始化失败" : phase;
+        String safe = phase;
         try {
             JSONArray previous = new JSONArray(preferences.getString("stageTrace", "[]"));
             if (previous.length() == 0 || !previous.getJSONObject(previous.length() - 1).getString("stage").equals(safe)) {
@@ -46,6 +55,30 @@ public final class LauncherPreparation {
             }
         } catch (Exception ignored) {}
         edit.commit();
+    }
+
+    public static boolean failed(Context context) {
+        android.content.SharedPreferences saved = context.getSharedPreferences("launcher", 0);
+        return saved.getBoolean("preparationFailed", false)
+                || saved.getString("phase", "").startsWith("初始化失败"); // Earlier launcher versions.
+    }
+
+    public static String phaseText(Context context) {
+        android.content.SharedPreferences saved = context.getSharedPreferences("launcher", 0);
+        boolean sameLocale = saved.getString("phaseLocale", "").equals(
+                context.getResources().getConfiguration().getLocales().toLanguageTags());
+        if (failed(context)) return context.getString(R.string.bpp_failure, sameLocale
+                ? LauncherMessages.error(context, saved.getString("failureDetail", ""))
+                : context.getString(R.string.bpp_preparation_failed_detail));
+        if (!saved.contains("phase")) return context.getString(R.string.bpp_not_initialized);
+        if (!sameLocale) return context.getString(R.string.bpp_runtime_preparing);
+        return saved.getString("phase", context.getString(R.string.bpp_not_initialized));
+    }
+
+    public static void fail(Context context, String detail) {
+        // The trace deliberately excludes raw exception details.
+        recordPhase(context, context.getString(R.string.bootstrap_status_error),
+                detail == null ? "" : detail);
     }
 
     /** The runtime loader is showing. A process death leaves this set so the home screen can explain the return. */
@@ -140,8 +173,7 @@ public final class LauncherPreparation {
         BUSY.set(false);
         activeSession = null;
         ExitNote exit = exitNote(context, started);
-        phase(context, "初始化失败：" + (loader ? "准备运行环境时退出" : "启动游戏时进程退出")
-                + exit.suffix + "。可从「更多」导出诊断日志后重试");
+        fail(context, context.getString(R.string.bpp_interrupted, loader ? context.getString(R.string.bpp_preparation_interrupted) : context.getString(R.string.bpp_launch_interrupted), exit.suffix));
         for (String line : exit.lines) LauncherLog.note(context.getFilesDir(), line);
     }
 
@@ -170,7 +202,7 @@ public final class LauncherPreparation {
             String description = match.getDescription() == null ? "" : LauncherLog.sanitize(match.getDescription());
             if (description.equals("（空）")) description = "";
             String detail = !signal.isEmpty() ? " " + signal : description.isEmpty() ? "" : "：" + description;
-            note.suffix = "（" + LauncherLog.processExit(reason) + detail + "）";
+            note.suffix = "（" + LauncherMessages.processExit(context, reason) + detail + "）";
             note.lines = LauncherLog.crashLines(trace);
             return note;
         } catch (Exception ignored) { return note; }
@@ -318,12 +350,12 @@ public final class LauncherPreparation {
         File plugins = bep(packageName);
         LauncherRelease.check(context, release, packageName);
         if (!release.getJSONObject("game").getString("unity").equals(unity))
-            throw new IOException("游戏 Unity 版本与发行清单不符");
-        step(context, progress, "准备匹配依赖");
+            throw new IOException(context.getString(R.string.bpp_unity_version_mismatch));
+        step(context, progress, context.getString(R.string.bpp_preparation_dependencies));
         JSONArray dependencies = release.getJSONArray("dependencies");
         for (int i = 0; i < dependencies.length(); i++) {
             JSONObject dependency = dependencies.getJSONObject(i);
-            step(context, progress, "提取内置依赖 " + dependency.getString("name"));
+            step(context, progress, context.getString(R.string.bpp_dependency, dependency.getString("name")));
             File input = asset(context, dependency);
             String name = dependency.getString("name");
             File target = new File(runtime, name);
@@ -335,19 +367,19 @@ public final class LauncherPreparation {
                 verify(temp, dependency); LauncherFiles.replace(temp, target);
             }
         }
-        step(context, progress, "准备运行框架");
+        step(context, progress, context.getString(R.string.bpp_preparation_framework));
         unpack(asset(context, release.getJSONObject("framework")), plugins, true);
         unpack(asset(context, release.getJSONObject("runtime")), new File(runtime.getParentFile(), "dotnet"), false);
         if (!new File(plugins, "core/BepInEx.Unity.IL2CPP.dll").isFile() ||
                 !new File(runtime.getParentFile(), "dotnet/System.Private.CoreLib.dll").isFile())
-            throw new IOException("运行框架不完整");
+            throw new IOException(context.getString(R.string.bpp_framework_incomplete));
         // BepInEx consumes the already verified ZIP under unity-libs. Never resolve versions online.
         File config = new File(plugins, "config/BepInEx.cfg");
         String text = LauncherRelease.read(new FileInputStream(config));
         text = text.replaceAll("(?m)^UnityBaseLibrariesSource\\s*=.*$",
                 "UnityBaseLibrariesSource = " + release.getString("baseLibrariesUrl"));
         LauncherFiles.write(config, LauncherRelease.bytes(text));
-        step(context, progress, "安装插件");
+        step(context, progress, context.getString(R.string.bpp_preparation_plugin));
         JSONObject plugin = release.getJSONObject("plugin");
         File input = asset(context, plugin), target = new File(plugins, "plugins/BazaarPlusPlus.Android.dll");
         if (!LauncherFiles.valid(target, plugin.getString("sha256"), plugin.getLong("size"))) {
@@ -360,7 +392,7 @@ public final class LauncherPreparation {
                 File backup = new File(context.getFilesDir(), "previous-plugin.dll");
                 File backupTemp = new File(backup.getPath() + ".part");
                 try (InputStream in = new FileInputStream(target); OutputStream out = new FileOutputStream(backupTemp)) { copy(in, out); }
-                if (!LauncherFiles.valid(backupTemp, previousHash, target.length())) throw new IOException("保留旧插件失败");
+                if (!LauncherFiles.valid(backupTemp, previousHash, target.length())) throw new IOException(context.getString(R.string.bpp_plugin_backup_failed));
                 LauncherFiles.replace(backupTemp, backup);
             }
             LauncherFiles.replace(temp, target);
@@ -377,7 +409,7 @@ public final class LauncherPreparation {
         context.getSharedPreferences("launcher", 0).edit().putString("session", session.toString())
                 .putString("preparedRelease", release.getString("releaseId")).commit();
         activeSession = session.getString("session");
-        step(context, progress, "文件已准备，等待运行时加载");
+        step(context, progress, context.getString(R.string.bpp_preparation_files_ready));
     }
 
     public static void checkCancelled() throws IOException {
@@ -421,7 +453,7 @@ public final class LauncherPreparation {
         try {
             JSONObject session = new JSONObject(context.getSharedPreferences("launcher", 0).getString("session", "{}"));
             if (!session.getString("session").equals(activeSession))
-                return "上次启动记录已保留；下次启动将重新核对加载状态";
+                return context.getString(R.string.bpp_previous_launch_saved);
             File plugins = bep(LauncherGames.selected(context));
             JSONObject ack = new JSONObject(LauncherRelease.read(new FileInputStream(new File(plugins, "bpp-launch-loaded.json"))));
             JSONObject plugin = LauncherRelease.manifest(context).getJSONObject("plugin");
@@ -431,9 +463,9 @@ public final class LauncherPreparation {
                     session.getLong("startedAt"), ack.getLong("loadedAt"), ack.getBoolean("loaded"),
                     LauncherFiles.valid(new File(plugins, "plugins/BazaarPlusPlus.Android.dll"), plugin.getString("sha256"), plugin.getLong("size")))) {
                 context.getSharedPreferences("launcher", 0).edit().putString("lastGoodPluginSha256", plugin.getString("sha256")).apply();
-                return "本次插件已加载（游戏登录及功能验收另行确认）";
+                return context.getString(R.string.bpp_plugin_loaded);
             }
         } catch (Exception ignored) {}
-        return "已启动，加载状态待确认；首次代理生成可能需要数分钟";
+        return context.getString(R.string.bpp_plugin_unconfirmed);
     }
 }

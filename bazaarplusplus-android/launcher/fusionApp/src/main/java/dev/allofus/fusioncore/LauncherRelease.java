@@ -24,7 +24,7 @@ public final class LauncherRelease {
 
     public static JSONObject manifest(Context context) throws Exception {
         JSONObject manifest = new JSONObject(read(context.getAssets().open("launcher/release.json")));
-        if (manifest.getInt("schema") != 1) throw new IOException("不支持的发行清单");
+        if (manifest.getInt("schema") != 1) throw new IOException(context.getString(R.string.bpp_manifest_unsupported));
         return manifest;
     }
 
@@ -47,10 +47,10 @@ public final class LauncherRelease {
             JSONObject game = release.getJSONObject("game");
             if (installed.getLongVersionCode() != game.getLong("versionCode") ||
                     !game.getString("versionName").equals(installed.versionName))
-                throw new IOException("当前游戏版本尚未验证，请等待匹配的启动器版本");
+                throw new IOException(context.getString(R.string.bpp_game_version_unverified));
         }
         if (!LauncherGames.hasArm64Il2Cpp(installed.applicationInfo))
-            throw new IOException("仅支持已安装原生库的 arm64 游戏");
+            throw new IOException(context.getString(R.string.bpp_game_abi_unsupported));
     }
 
     public static byte[] bytes(String text) { return text.getBytes(StandardCharsets.UTF_8); }
