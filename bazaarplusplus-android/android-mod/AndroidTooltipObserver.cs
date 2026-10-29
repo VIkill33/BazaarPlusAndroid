@@ -47,9 +47,6 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private int _monsterScene;
     private IntPtr _dismissedMonster;
     private IntPtr _dismissedGalleryItem;
-    private Button? _enchantButton;
-    private Button? _upgradeButton;
-    private Button? _questButton;
     private ItemCard? _currentItem;
     private EventEncounterCard? _currentEvent;
     private CombatEncounterCard? _currentMonster;
@@ -58,11 +55,18 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private CardTooltipController? _currentController;
     private PreviewMode _mode;
     private static bool _reportedFailure;
+    private bool _historySuppressed;
 
-    private enum PreviewMode { Enchant, Upgrade, Quest }
+    private enum PreviewMode { Enchant, Upgrade }
 
     public void Update()
     {
+        if (AndroidHistoryPanel.AnyOpen)
+        {
+            if (!_historySuppressed) Hide();
+            _historySuppressed = true; return;
+        }
+        _historySuppressed = false;
         var holdPreview = AndroidHoldPreview.Active;
         // Monster galleries have their own backdrop/close controls and outlive
         // the native tooltip. A new hold target still retires the old gallery.
@@ -170,8 +174,13 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             : _currentMonster != null ? AndroidMonsterPreview.Build(_currentMonster, _currentCardData!)
             : _currentEvent != null ? AndroidEventPreview.Build(_currentEvent)
             : _mode == PreviewMode.Upgrade ? AndroidUpgradePreview.Build(_currentItem!)
-            : _mode == PreviewMode.Quest ? AndroidQuestRewardPreview.Build(_currentItem!)
             : AndroidEnchantPreview.Build(_currentItem!);
+        if (_currentItem != null && AndroidQuestRewardPreview.HasRewards(_currentItem))
+        {
+            var rewards = AndroidQuestRewardPreview.Build(_currentItem);
+            if (!string.IsNullOrWhiteSpace(rewards))
+                preview = string.IsNullOrWhiteSpace(preview) ? rewards : preview + "\n\n" + rewards;
+        }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.tooltip.preview_ready mode={_mode} characters={preview.Length}");
         if (string.IsNullOrWhiteSpace(preview))
         {
@@ -181,7 +190,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 preview = NativeUi.Text("No enchantment preview for this item.", "此物品暂无附魔预览。");
             else return false;
         }
-        var leftEdge = _currentItem != null && AndroidPreviewPanelSettings.LeftEdge;
+        var leftEdge = _currentItem != null && AndroidLauncherSettings.LeftEdge;
         var nativeCanvas = _currentController.GetComponentInParent<Canvas>();
         var overlayCanvas = _canvasRoot?.GetComponent<Canvas>();
         if (nativeCanvas != null && overlayCanvas != null)
@@ -219,7 +228,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         NativeUi.RichDescription(_text, monsterPreview ? string.Empty : preview);
         var scrollRect = _scroll.GetComponent<RectTransform>();
         scrollRect.anchorMin = monsterPreview ? Vector2.up : Vector2.zero;
-        scrollRect.anchorMax = monsterPreview ? Vector2.one : new Vector2(1, .9f);
+        scrollRect.anchorMax = Vector2.one;
         if (monsterPreview)
         {
             scrollRect.pivot = new Vector2(.5f, 1);
@@ -229,44 +238,17 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         else
         {
             scrollRect.pivot = new Vector2(.5f, .5f);
-            scrollRect.offsetMin = scrollRect.offsetMax = Vector2.zero;
+            scrollRect.offsetMin = Vector2.zero;
+            scrollRect.offsetMax = Vector2.zero;
         }
         var height = _text.GetPreferredValues(preview, monsterPreview ? 600f : 330f, 0).y + 32;
-        _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
-            Mathf.Max(height, monsterPreview ? 300 : 850));
+        _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(height, monsterPreview ? 300 : 0));
+        if (!monsterPreview && _currentItem == null)
+            _panel.offsetMin = new Vector2(_panel.offsetMin.x, Mathf.Max(45, 1000 - height - 12));
         _scroll.verticalNormalizedPosition = 1;
-        _enchantButton!.gameObject.SetActive(_currentItem != null);
-        _upgradeButton!.gameObject.SetActive(_currentItem != null);
-        _questButton!.gameObject.SetActive(_currentItem != null && AndroidQuestRewardPreview.HasRewards(_currentItem));
-        if (_currentItem != null)
-        {
-            _enchantButton.interactable = _mode != PreviewMode.Enchant;
-            _upgradeButton.interactable = _mode != PreviewMode.Upgrade && _currentItem.CanCardUpgrade();
-            _questButton.interactable = _mode != PreviewMode.Quest;
-        }
         _panel.gameObject.SetActive(true);
         FocusPanel = _panel;
         return true;
-    }
-
-    private void SelectMode(PreviewMode mode)
-    {
-        if (_mode == mode) return;
-        try
-        {
-            _mode = mode;
-            if (!Render())
-            {
-                _mode = PreviewMode.Enchant;
-                Render();
-            }
-        }
-        catch (Exception error)
-        {
-            _mode = PreviewMode.Enchant;
-            Plugin.PluginLog?.LogError($"[BPP][Android] event=android.tooltip.mode_failed mode={mode} exception={error}");
-            Hide();
-        }
     }
 
     private void BuildUi(CardTooltipController controller)
@@ -303,13 +285,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             var background = _panel.gameObject.AddComponent<Image>();
             background.color = new Color(.055f, .035f, .02f, .94f);
             background.raycastTarget = true;
-            _enchantButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Enchantments", "附魔"),
-                new Vector2(0, .91f), new Vector2(1f / 3f, 1), () => SelectMode(PreviewMode.Enchant));
-            _upgradeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Upgrade", "升级"),
-                new Vector2(1f / 3f, .91f), new Vector2(2f / 3f, 1), () => SelectMode(PreviewMode.Upgrade));
-            _questButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Quest rewards", "任务奖励"),
-                new Vector2(2f / 3f, .91f), Vector2.one, () => SelectMode(PreviewMode.Quest));
-            (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font, Vector2.zero, new Vector2(1, .9f));
+            (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font, Vector2.zero, Vector2.one);
             _text.fontSize = 24;
             _text.enableAutoSizing = false;
             _monsterGallery = new AndroidMonsterCardGallery(_panel, ShowMonsterDetails);
@@ -328,7 +304,6 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _monsterGallery = null;
             _monsterBackdrop = null;
             _monsterClose = null;
-            _enchantButton = _upgradeButton = _questButton = null;
             throw;
         }
     }

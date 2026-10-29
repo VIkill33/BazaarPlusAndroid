@@ -28,11 +28,11 @@
     <string name="bpp_help_collection_builds">"Collection and builds"</string>
     <string name="bpp_help_collection_builds_body">"“Card Collection” supports name and description search, filters, and tier and enchantment previews. The first load may take longer. In “Builds”, select candidates from your board, stash, or shop to find matching builds. Previews do not upgrade or enchant your items."</string>
     <string name="bpp_help_long_press">"Long press preview"</string>
-    <string name="bpp_help_long_press_body">"The “Hold” button cycles through Enchants → Upgrade → None. None keeps only the native item details. You can also select a mode under “BPP: Long press preview” in game settings. Long press shops, events, or monsters for additional information."</string>
+    <string name="bpp_help_long_press_body">"The “Hold” button cycles through Enchants → Upgrade → None. None keeps only the native item details. You can also select a mode under “BazaarPlusAndroid: Long press preview” in game settings. Long press shops, events, or monsters for additional information."</string>
     <string name="bpp_help_hold_preview">"Two-finger hold preview · Advanced mode only"</string>
-    <string name="bpp_help_hold_preview_body">"Hold “Hold to preview” with one finger and tap an item, event, or monster with another. Release to exit. The monster panel stays open: tap a card for details, or tap outside or × to close. This control is disabled in standard input mode."</string>
+    <string name="bpp_help_hold_preview_body">"Hold “Hold to preview” with one finger and tap an item, event, or monster with another. Release to exit. The monster panel stays open: tap a card for details, or tap outside or × to close. This control is hidden in standard input mode."</string>
     <string name="bpp_help_move_controls">"Move and collapse controls"</string>
-    <string name="bpp_help_move_controls_body">"Drag the Collection, Hold, or Builds button to move the group and snap it to a screen edge. Enable “BPP: Auto-hide buttons” in game settings to collapse after 5 idle seconds; tap the BPP strip to expand. “BPP: Preview panel position” places item previews at the left edge for subsequent previews. You can also change it in launcher Settings."</string>
+    <string name="bpp_help_move_controls_body">"The five buttons are Collection, Builds, Long press mode, Hold to preview, and Run history. Hide each button in game settings or launcher Settings → In-game buttons; both stay in sync. Hidden buttons leave no gap. Button style switches between icons and classic text. Drag any button to move the group and snap to an edge. Auto-hide collapses it after 5 idle seconds; tap BPA to expand. Preview panel position can also be changed in launcher Settings."</string>
     <string name="bpp_help_switch_client">"Switch installed clients"</string>
     <string name="bpp_help_target_path">"Settings → Launch target"</string>
     <string name="bpp_help_switch_client_body">"The official Bazaar client is selected by default. Tap “Choose installed game” to save another client, return home, and tap “Launch game”. “Restore official game” restores the default. Each client has separate runtime data and requires its own login."</string>
@@ -175,7 +175,7 @@
     <string name="bpp_dependency">"Extracting bundled dependency %1$s"</string>
     <string name="bpp_cpp2il">"Preparing the game for the first time. Keep this app in the foreground."</string>
     <string name="bpp_interop">"Generating game interop files"</string>
-    <string name="bpp_plugin_loading">"Loading the BazaarPlusPlus plugin"</string>
+    <string name="bpp_plugin_loading">"Loading the BazaarPlusAndroid plugin"</string>
     <string name="bpp_runtime_failed">"Runtime loading failed. Return to the launcher for diagnostics."</string>
     <string name="bpp_runtime_preparing">"Preparing runtime"</string>
     <string name="bpp_error_code_not_readonly">Could not make runtime code read-only</string>
@@ -195,4 +195,14 @@
     <string name="bpp_exit_user">Closed by user</string>
     <string name="bpp_help_footer">Independent community tool · Unofficial\nThis guide is available offline</string>
     <string name="bpp_github" translatable="false">GitHub</string>
+    <string name="bpp_history">"Run history"</string>
+    <string name="bpp_purchases">"Purchase statistics"</string>
+    <string name="bpp_dock_title">"In-game buttons"</string>
+    <string name="bpp_dock_body">"Choose which buttons appear on the left of the game. Hidden buttons leave no gap."</string>
+    <string name="bpp_dock_collection">"Card collection"</string>
+    <string name="bpp_dock_builds">"Build recommendations"</string>
+    <string name="bpp_dock_preview_mode">"Long press preview mode (Enchants / Upgrade / None)"</string>
+    <string name="bpp_dock_hold_preview">"Hold to preview (advanced input only)"</string>
+    <string name="bpp_dock_saved">"Saved automatically. Applies the next time you launch the selected game. You can also change these settings in game; both stay in sync."</string>
+    <string name="bpp_help_history_body">"Run history lists locally saved runs. Select a run to see its PvP battles and both formations. You can also browse it from the launcher home page."</string>
 </resources>

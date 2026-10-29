@@ -353,13 +353,18 @@ public final class LauncherPreparation {
             throw new IOException(context.getString(R.string.bpp_unity_version_mismatch));
         step(context, progress, context.getString(R.string.bpp_preparation_dependencies));
         JSONArray dependencies = release.getJSONArray("dependencies");
+        String unityArchiveName = null;
         for (int i = 0; i < dependencies.length(); i++) {
             JSONObject dependency = dependencies.getJSONObject(i);
             step(context, progress, context.getString(R.string.bpp_dependency, dependency.getString("name")));
             File input = asset(context, dependency);
             String name = dependency.getString("name");
             File target = new File(runtime, name);
-            if (name.endsWith(".zip")) target = new File(plugins, "unity-libs/" + name);
+            if (name.endsWith(".zip")) {
+                if (unityArchiveName != null) throw new IOException("Unity 基础库配置不唯一");
+                unityArchiveName = name;
+                target = new File(plugins, "unity-libs/" + name);
+            }
             if (!LauncherFiles.valid(target, dependency.getString("sha256"), dependency.getLong("size"))) {
                 LauncherFiles.mkdir(target.getParentFile());
                 File temp = new File(target.getPath() + ".part");
@@ -367,6 +372,7 @@ public final class LauncherPreparation {
                 verify(temp, dependency); LauncherFiles.replace(temp, target);
             }
         }
+        if (unityArchiveName == null) throw new IOException("缺少内置 Unity 基础库");
         step(context, progress, context.getString(R.string.bpp_preparation_framework));
         unpack(asset(context, release.getJSONObject("framework")), plugins, true);
         unpack(asset(context, release.getJSONObject("runtime")), new File(runtime.getParentFile(), "dotnet"), false);
@@ -376,8 +382,7 @@ public final class LauncherPreparation {
         // BepInEx consumes the already verified ZIP under unity-libs. Never resolve versions online.
         File config = new File(plugins, "config/BepInEx.cfg");
         String text = LauncherRelease.read(new FileInputStream(config));
-        text = text.replaceAll("(?m)^UnityBaseLibrariesSource\\s*=.*$",
-                "UnityBaseLibrariesSource = " + release.getString("baseLibrariesUrl"));
+        text = LauncherUnityLibraries.configure(text, unityArchiveName);
         LauncherFiles.write(config, LauncherRelease.bytes(text));
         step(context, progress, context.getString(R.string.bpp_preparation_plugin));
         JSONObject plugin = release.getJSONObject("plugin");
@@ -398,10 +403,7 @@ public final class LauncherPreparation {
             LauncherFiles.replace(temp, target);
         }
         verify(target, plugin);
-        String position = LauncherSettingsActivity.readPosition(context, packageName);
-        JSONObject settings = new JSONObject().put("schema", 1)
-                .put("previewPanelPosition", "left".equals(position) ? "left" : "default");
-        LauncherFiles.write(new File(plugins, "bpp-launcher-settings.json"), LauncherRelease.bytes(settings.toString()));
+        LauncherSettingsActivity.sync(context, packageName);
         JSONObject session = new JSONObject().put("session", UUID.randomUUID().toString())
                 .put("pluginVersion", plugin.getString("version")).put("sha256", plugin.getString("sha256"))
                 .put("startedAt", System.currentTimeMillis());

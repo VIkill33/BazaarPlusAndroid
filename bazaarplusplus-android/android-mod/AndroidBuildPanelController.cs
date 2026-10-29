@@ -19,6 +19,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private RectTransform? _panel;
     private Button? _entry;
     private Button? _previewModeButton;
+    private AndroidLongPressPreviewMode? _shownPreviewMode;
     private TextMeshProUGUI? _text;
     private RectTransform? _content;
     private ScrollRect? _scroll;
@@ -40,7 +41,6 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private readonly HashSet<Guid> _selectedCandidates = new();
     private CandidateSource _source;
     private int _candidatePage;
-    private bool _selectionInitialized;
     private bool _open;
     private int _scene = -1;
     private float _nextRefresh;
@@ -114,10 +114,11 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 new Vector2(0, .5f), new Vector2(0, .5f), () => SetOpen(true),
                 new Vector2(30, -145), new Vector2(300, -55));
             _previewModeButton = NativeUi.Button(_canvas.transform, font, PreviewModeLabel,
-                new Vector2(0, .5f), new Vector2(0, .5f), TogglePreviewMode,
-                new Vector2(30, -240), new Vector2(300, -150));
-            AndroidFloatingDock.Register(_entry, font, 1);
-            AndroidFloatingDock.Register(_previewModeButton, font, 2);
+                new Vector2(0, .5f), new Vector2(0, .5f), TogglePreviewMode);
+            AndroidFloatingDock.Register(_entry, font, 1, AndroidDockIcon.Builds, () => NativeUi.Text("Builds", "构筑"),
+                () => NativeUi.Text("Builds", "构筑推荐"));
+            AndroidFloatingDock.Register(_previewModeButton, font, 2, PreviewModeIcon(), PreviewModeLabel, PreviewModeText);
+            _shownPreviewMode = AndroidLongPressPreviewSettings.Mode;
             _panel = NativeUi.Rect("BPP.BuildPanel", _canvas.transform, Vector2.zero, Vector2.one);
             var background = _panel.gameObject.AddComponent<Image>();
             background.color = new Color(.025f, .04f, .065f, .995f);
@@ -243,12 +244,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 if (shop.Add(id)) _shopCandidates.Add((id, ResolveName(id)));
             }
         }
-        if (!_selectionInitialized)
-        {
-            _selectedCandidates.UnionWith(board);
-            _selectionInitialized = true;
-        }
-        else _selectedCandidates.IntersectWith(board.Concat(stash).Concat(shop));
+        _selectedCandidates.IntersectWith(board.Concat(stash).Concat(shop));
         UpdateCandidateButtons();
         var hero = player.Hero.ToString();
         var liveState = BuildLiveState.From(board, stash, shop);
@@ -318,7 +314,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         var template = Data.GetStatic()?.GetCardById(nativeId)?.TryCast<TCardBase>();
         var title = template?.Localization?.Title;
         return title == null ? template?.InternalName ?? id.ToString()
-            : TooltipExtensions.GetLocalizedText(title);
+            : NativeUi.TitleText(TooltipExtensions.GetLocalizedText(title));
     }
 
     private void UpdateCandidateButtons()
@@ -435,6 +431,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
 
     private void SetOpen(bool open)
     {
+        if (open && (CollectionController.AnyOpen || AndroidHistoryPanel.AnyOpen)) return;
         if (!open)
         {
             _board?.Hide();
@@ -449,7 +446,6 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         {
             _nextRefresh = 0;
             _lastDescription = null;
-            _selectionInitialized = false;
             _selectedCandidates.Clear();
             _itemDetail = null;
             _source = CandidateSource.Board;
@@ -459,23 +455,41 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
 
     private void UpdateEntryVisibility()
     {
-        var visible = !_open && !CollectionController.AnyOpen && Data.Run?.Player != null;
-        if (_entry != null) _entry.gameObject.SetActive(visible);
-        if (_previewModeButton != null) _previewModeButton.gameObject.SetActive(visible);
+        var visible = !_open && !CollectionController.AnyOpen && !AndroidHistoryPanel.AnyOpen && Data.Run?.Player != null;
+        if (_entry != null) _entry.gameObject.SetActive(visible && AndroidLauncherSettings.Shown(AndroidDockButton.Builds));
+        if (_previewModeButton == null) return;
+        _previewModeButton.gameObject.SetActive(visible && AndroidLauncherSettings.Shown(AndroidDockButton.PreviewMode));
+        // The mode can also change from the native settings dropdown.
+        if (_shownPreviewMode == AndroidLongPressPreviewSettings.Mode) return;
+        _shownPreviewMode = AndroidLongPressPreviewSettings.Mode;
+        AndroidFloatingDock.SetIcon(_previewModeButton, PreviewModeIcon());
     }
 
     private static string PreviewModeLabel() => AndroidLongPressPreviewSettings.Mode switch
+    {
+        AndroidLongPressPreviewMode.Upgrade => NativeUi.Text("Hold: Upgrade", "长按：升级"),
+        AndroidLongPressPreviewMode.None => NativeUi.Text("Hold: None", "长按：无"),
+        _ => NativeUi.Text("Hold: Enchants", "长按：附魔"),
+    };
+
+    private static string PreviewModeText() => AndroidLongPressPreviewSettings.Mode switch
     {
         AndroidLongPressPreviewMode.Upgrade => NativeUi.Text("Hold: Upgrade", "长按预览：升级"),
         AndroidLongPressPreviewMode.None => NativeUi.Text("Hold: None", "长按预览：无"),
         _ => NativeUi.Text("Hold: Enchants", "长按预览：附魔"),
     };
 
+    private static AndroidDockIcon PreviewModeIcon() => AndroidLongPressPreviewSettings.Mode switch
+    {
+        AndroidLongPressPreviewMode.Upgrade => AndroidDockIcon.PreviewUpgrade,
+        AndroidLongPressPreviewMode.None => AndroidDockIcon.PreviewNone,
+        _ => AndroidDockIcon.PreviewEnchant,
+    };
+
     private void TogglePreviewMode()
     {
         AndroidLongPressPreviewSettings.Cycle();
-        if (_previewModeButton != null)
-            _previewModeButton.GetComponentInChildren<TextMeshProUGUI>().text = PreviewModeLabel();
+        UpdateEntryVisibility();
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.tooltip.default_mode mode={AndroidLongPressPreviewSettings.Mode}");
     }
 

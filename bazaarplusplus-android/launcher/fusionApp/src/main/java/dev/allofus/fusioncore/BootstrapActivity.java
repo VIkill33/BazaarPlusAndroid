@@ -103,6 +103,12 @@ public class BootstrapActivity extends AppCompatActivity {
     }
 
     private void runBootstrapFlow(String targetPackage) {
+        try {
+            dev.allofus.fusioncore.history.HistoryRuntime.beginGame(targetPackage);
+        } catch (Exception error) {
+            failAndFinish("无法取得游戏与历史维护锁，请完全关闭启动器后重试", error);
+            return;
+        }
         LauncherPreparation.markHandoff(getApplicationContext(), true);
         Context gameContext;
         try {
@@ -177,6 +183,7 @@ public class BootstrapActivity extends AppCompatActivity {
         try {
             setPhaseStatus(getString(R.string.bootstrap_status_launching));
             setPhaseStatus(getString(R.string.bpp_preparation_connecting));
+            dev.allofus.fusioncore.history.HistoryRuntime.markNativeLoading();
             initializeFusion(config);
             setPhaseStatus(getString(R.string.bpp_preparation_initializing));
             runOnMainThread(() -> {
@@ -226,6 +233,7 @@ public class BootstrapActivity extends AppCompatActivity {
     }
 
     private void failAndFinish(String message, Throwable error) {
+        dev.allofus.fusioncore.history.HistoryRuntime.preparationFailed();
         LauncherLog.note(getApplicationContext().getFilesDir(), message);
         LauncherLog.noteThrowable(getApplicationContext().getFilesDir(), error);
         LauncherPreparation.BUSY.set(false);

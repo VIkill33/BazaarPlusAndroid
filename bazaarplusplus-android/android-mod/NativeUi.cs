@@ -13,6 +13,12 @@ internal static class NativeUi
     private static TMP_SpriteAsset[]? _spriteAssets;
     private static readonly Regex SpriteName = new("<sprite\\b[^>]*\\bname\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)'|([^\\s>]+))", RegexOptions.IgnoreCase);
 
+    // Native titles use named TMP styles whose stylesheet is absent on BPP labels.
+    // Strip only those wrappers so they cannot appear literally or leak into the body.
+    private static readonly Regex TitleStyle = new("</?style(?:\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^>]*))?\\s*>", RegexOptions.IgnoreCase);
+
+    internal static string TitleText(string text) => TitleStyle.Replace(text, string.Empty);
+
     internal static void RichDescription(TextMeshProUGUI label, string text)
     {
         var names = SpriteName.Matches(text).Select(match => match.Groups.Cast<Group>().Skip(1)

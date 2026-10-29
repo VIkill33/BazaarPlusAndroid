@@ -59,7 +59,7 @@ internal static class AndroidEnchantPreview
             && current == NativeNullableValue.Read<EEnchantmentType>(source, "get_Enchantment");
         if (!unchanged) throw new InvalidOperationException("Enchant preview changed the source item.");
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.enchant_preview.rendered template_id={source.TemplateId} candidates={candidates.Count} lines={lines.Count} elapsed_ms={clock.ElapsedMilliseconds} source_unchanged={unchanged}");
-        return lines.Count == 0 ? string.Empty : "<b>BazaarPlusPlus</b>\n" + string.Join("\n", lines);
+        return lines.Count == 0 ? string.Empty : "<b>BazaarPlusAndroid</b>\n" + string.Join("\n", lines);
     }
 
     internal static ItemCard Clone(ItemCard source, EEnchantmentType? kind, EInventorySection? section)

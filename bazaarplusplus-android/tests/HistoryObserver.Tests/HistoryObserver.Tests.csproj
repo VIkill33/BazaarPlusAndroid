@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+<ItemGroup>
+<Compile Include="../../android-mod/History/AndroidRunObserver.cs" Link="AndroidRunObserver.cs" />
+<Compile Include="../../android-mod/History/PurchaseFact.cs" Link="PurchaseFact.cs" />
+<Compile Include="../../android-mod/History/HistorySessionCore.cs" Link="HistorySessionCore.cs" />
+<Compile Include="../../android-mod/History/HistoryLimits.cs" Link="HistoryLimits.cs" />
+<Compile Include="../../android-mod/History/HistoryRunContinuity.cs" Link="HistoryRunContinuity.cs" />
+</ItemGroup>
+</Project>

@@ -2,6 +2,7 @@ using Il2CppInterop.Runtime;
 using TheBazaar;
 using TheBazaar.UI;
 using TheBazaar.Tooltips;
+using TheBazaar.UI.Tooltips;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -30,6 +31,7 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
     private int? _holderTouchId;
     internal static int Revision { get; private set; }
     internal static bool Active => _instance?._gesture.Active == true;
+    internal Button? Button => _button;
 
     internal static bool SuppressRetired(CardTooltipData data) =>
         _instance != null && !Active && _instance._ownedData?.Pointer == data.Pointer;
@@ -38,13 +40,9 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
     {
         _instance = this;
         _button = NativeUi.Button(parent, font,
-            () => PlayerPreferences.Data?.AlternativeInput == true
-                ? NativeUi.Text("Hold to preview", "按住预览") : NativeUi.Text("Advanced mode only", "仅高级模式"),
+            () => NativeUi.Text("Hold to preview", "按住预览"),
             Vector2.zero, Vector2.zero, () => { });
-        var rect = _button.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
-        rect.sizeDelta = new Vector2(270, 90);
-        rect.anchoredPosition = new Vector2(0, -285);
+        _button.gameObject.SetActive(PlayerPreferences.Data?.AlternativeInput == true);
         Bind(_button.gameObject, EventTriggerType.PointerDown, data =>
         {
             if (!_gesture.Begin(data.pointerId, _available, PlayerPreferences.Data?.AlternativeInput == true)) return;
@@ -111,6 +109,8 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
                 var preview = hit.gameObject.GetComponentInParent<CardPreviewBase>();
                 var data = card?.CurrentTooltipData?.TryCast<CardTooltipData>() ?? preview?._tooltipData;
                 var parent = Data.TooltipParentComponent;
+                // Tooltips shown by this preview overlap neighbouring cards; look through them.
+                if (data == null && IsPreviewSurface(hit.gameObject.transform)) continue;
                 if (data == null || parent == null)
                 {
                     Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.hold_preview.target_unavailable hit={hit.gameObject.name} card_controller={card != null} preview={preview != null}");
@@ -135,10 +135,19 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
         }
     }
 
+    private static bool IsPreviewSurface(Transform target)
+    {
+        var panel = AndroidTooltipObserver.FocusPanel;
+        return (panel != null && target.IsChildOf(panel))
+            || target.GetComponentInParent<CardTooltipController>() != null;
+    }
+
     public void Update()
     {
         var advanced = PlayerPreferences.Data?.AlternativeInput == true;
-        if (_button != null) _button.interactable = advanced;
+        var shown = advanced && AndroidLauncherSettings.Shown(AndroidDockButton.HoldPreview);
+        if (_button != null && _button.gameObject.activeSelf != shown)
+            _button.gameObject.SetActive(shown);
         if (Active && (!advanced || !_available || Data.IsInCombat
             || SceneManager.GetActiveScene().handle != _scene)) Stop();
         if (Active) return;

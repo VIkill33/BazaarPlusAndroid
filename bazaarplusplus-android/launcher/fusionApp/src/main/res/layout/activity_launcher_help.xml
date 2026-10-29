@@ -32,6 +32,8 @@
             <TextView style="@style/BppCaption" android:text="@string/bpp_help_long_press_body" />
             <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_hold_preview" />
             <TextView style="@style/BppCaption" android:text="@string/bpp_help_hold_preview_body" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_history" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_history_body" />
             <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_move_controls" />
             <TextView style="@style/BppCaption" android:text="@string/bpp_help_move_controls_body" />
             <TextView style="@style/BppHelpHeading" android:text="@string/bpp_help_switch_client" />

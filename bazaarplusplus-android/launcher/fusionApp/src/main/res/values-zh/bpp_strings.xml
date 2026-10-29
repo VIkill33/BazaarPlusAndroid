@@ -28,11 +28,11 @@
     <string name="bpp_help_collection_builds">"图鉴与构筑"</string>
     <string name="bpp_help_collection_builds_body">"「卡牌图鉴」支持名称与描述搜索、筛选、品质及附魔预览，首次加载可能较慢。「构筑推荐」可点选场上、仓库或商店候选，查看匹配阵容。预览不会实际升级或附魔物品。"</string>
     <string name="bpp_help_long_press">"长按预览"</string>
-    <string name="bpp_help_long_press_body">"「长按预览」按钮按「附魔 → 升级 → 无」切换；选择「无」只保留物品原生详情。游戏设置中的「BPP：长按预览」也可直接选择。商店、事件与野怪可长按查看附加信息。"</string>
+    <string name="bpp_help_long_press_body">"「长按预览」按钮按「附魔 → 升级 → 无」切换；选择「无」只保留物品原生详情。游戏设置中的「BazaarPlusAndroid：长按预览」也可直接选择。商店、事件与野怪可长按查看附加信息。"</string>
     <string name="bpp_help_hold_preview">"双指按住预览 · 仅高级模式"</string>
-    <string name="bpp_help_hold_preview_body">"一指按住「按住预览」，另一指点物品、事件或野怪查看详情，松开退出。野怪面板会保留，可点卡图查看说明，点空白或 × 关闭；标准模式下此入口禁用。"</string>
+    <string name="bpp_help_hold_preview_body">"一指按住「按住预览」，另一指点物品、事件或野怪查看详情，松开退出。野怪面板会保留，可点卡图查看说明，点空白或 × 关闭；标准输入模式下此入口隐藏，仅高级模式显示。"</string>
     <string name="bpp_help_move_controls">"调整位置与收起"</string>
-    <string name="bpp_help_move_controls_body">"拖动原有的图鉴、长按预览或构筑按钮可移动整组并吸附屏幕边缘。游戏设置可开启「BPP：按钮自动收起」，闲置 5 秒收起，点 BPP 小条展开。「BPP：预览面板位置」可将物品附加预览靠左，后续预览即生效；启动器「设置」也可调整。"</string>
+    <string name="bpp_help_move_controls_body">"左侧按钮依次为图鉴、构筑推荐、长按预览模式、按住预览和对局历史，默认全部显示。每个按钮都可在游戏设置的「BazaarPlusAndroid：…按钮」或启动器「设置 → 游戏内按钮」中单独隐藏，两边同步，隐藏的按钮不占位。「BazaarPlusAndroid：按钮样式」可切回旧版纯文字按钮。拖动任一按钮可移动整组并吸附屏幕边缘；「BazaarPlusAndroid：按钮自动收起」开启后闲置 5 秒收起，点 BPA 小条展开。「BazaarPlusAndroid：预览面板位置」可将物品附加预览靠左，启动器「设置」也可调整。"</string>
     <string name="bpp_help_switch_client">"切换本机客户端"</string>
     <string name="bpp_help_target_path">"设置 → 启动目标"</string>
     <string name="bpp_help_switch_client_body">"默认启动正版大巴扎。点「选择本机游戏」保存其他客户端，返回首页再点「启动游戏」；「恢复正版游戏」可切回默认。各客户端的运行数据独立，需分别登录。"</string>
@@ -195,4 +195,14 @@
     <string name="bpp_exit_user">被用户划掉</string>
     <string name="bpp_help_footer">独立社区工具 · 非官方出品\n本页可离线阅读</string>
     <string name="bpp_github" translatable="false">GitHub</string>
+    <string name="bpp_history">"对局历史"</string>
+    <string name="bpp_purchases">"购牌统计"</string>
+    <string name="bpp_dock_title">"游戏内按钮"</string>
+    <string name="bpp_dock_body">"选择游戏画面左侧要显示的按钮。关闭的按钮会隐藏，其余按钮自动补位。"</string>
+    <string name="bpp_dock_collection">"卡牌图鉴"</string>
+    <string name="bpp_dock_builds">"构筑推荐"</string>
+    <string name="bpp_dock_preview_mode">"长按预览模式（附魔／升级／无）"</string>
+    <string name="bpp_dock_hold_preview">"按住预览（仅高级输入模式）"</string>
+    <string name="bpp_dock_saved">"以上设置自动保存，下次启动当前目标游戏时生效；游戏内「设置」中也能修改，两边保持同步。"</string>
+    <string name="bpp_help_history_body">"「对局历史」按整局列出本机保存的记录，点开查看各次 PvP 交手和双方当时阵容；首页「对局历史」也可只读浏览。"</string>
 </resources>

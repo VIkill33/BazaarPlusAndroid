@@ -1,4 +1,7 @@
 using Il2CppInterop.Runtime;
+using Il2CppInterop.Runtime.Attributes;
+using TheBazaar;
+using TheBazaar.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -9,7 +12,20 @@ namespace BazaarPlusPlus.Android;
 
 public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
 {
-    private static readonly Vector2 CollapsedSize = new(60, 132);
+    private sealed record Style(Vector2 Button, float Gap, float HandleHeight, Vector2 Collapsed, float HandleFont, float CollapsedFont);
+    private static readonly Style IconStyle = new(new Vector2(115, 115), 10, 58, new Vector2(72, 158), 26, 34);
+    private static readonly Style TextStyle = new(new Vector2(270, 90), 5, 70, new Vector2(60, 132), 30, 28);
+
+    private sealed class Entry
+    {
+        internal required RectTransform Rect;
+        internal required TextMeshProUGUI Label;
+        internal required AndroidLocalizedText Localized;
+        internal required Image? Icon;
+        internal required Func<string> Caption;
+        internal required Func<string> Text;
+    }
+
     private static AndroidFloatingDock? _instance;
     private RectTransform? _group;
     private RectTransform? _buttons;
@@ -28,6 +44,10 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private float _along;
     private Rect _safe;
     private Vector2 _screen;
+    private int _visibleEntries;
+    private bool _textButtons;
+    private readonly SortedDictionary<int, Entry> _entries = new();
+    private Style CurrentStyle => _textButtons ? TextStyle : IconStyle;
 
     internal static bool AutoHide
     {
@@ -35,7 +55,9 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         set => AndroidDockSettings.Save(AndroidDockSettings.Current with { AutoHide = value });
     }
 
-    internal static void Register(Button button, TMP_FontAsset font, int slot)
+    // caption labels the icon tile; text is the full label of the text-only style.
+    [HideFromIl2Cpp]
+    internal static void Register(Button button, TMP_FontAsset font, int slot, AndroidDockIcon icon, Func<string> caption, Func<string> text)
     {
         if (_instance == null)
         {
@@ -47,13 +69,59 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             _instance = instance;
         }
         var dock = _instance;
-        var rect = button.GetComponent<RectTransform>();
-        rect.SetParent(dock._buttons, false);
-        rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
-        rect.pivot = new Vector2(0, 1);
-        rect.sizeDelta = new Vector2(270, 90);
-        rect.anchoredPosition = new Vector2(0, -slot * 95);
+        dock.Place(button, slot, icon, caption, text);
         dock.Bind(button);
+        dock.Layout();
+    }
+
+    [HideFromIl2Cpp]
+    private void Place(Button button, int slot, AndroidDockIcon icon, Func<string> caption, Func<string> text)
+    {
+        var rect = button.GetComponent<RectTransform>();
+        rect.SetParent(_buttons, false);
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
+        var label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        var localized = label.GetComponent<AndroidLocalizedText>();
+        if (localized == null) localized = label.gameObject.AddComponent<AndroidLocalizedText>();
+        Image? image = null;
+        var sprite = AndroidDockIcons.Get(icon);
+        if (sprite != null)
+        {
+            var art = NativeUi.Rect("BPP.DockIcon", rect, new Vector2(.2f, .3f), new Vector2(.8f, .92f));
+            image = art.gameObject.AddComponent<Image>();
+            image.sprite = sprite;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+        }
+        var entry = new Entry { Rect = rect, Label = label, Localized = localized, Icon = image, Caption = caption, Text = text };
+        _entries[slot] = entry;
+        Restyle(entry);
+    }
+
+    [HideFromIl2Cpp]
+    private void Restyle(Entry entry)
+    {
+        entry.Rect.sizeDelta = CurrentStyle.Button;
+        var icon = !_textButtons && entry.Icon != null;
+        entry.Icon?.gameObject.SetActive(icon);
+        entry.Localized.Bind(entry.Label, _textButtons ? entry.Text : entry.Caption);
+        var labelRect = entry.Label.rectTransform;
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = new Vector2(1, icon ? .3f : 1);
+        labelRect.offsetMin = icon ? new Vector2(5, 2) : new Vector2(12, 6);
+        labelRect.offsetMax = icon ? new Vector2(-5, 0) : new Vector2(-12, -6);
+        entry.Label.enableAutoSizing = !_textButtons;
+        entry.Label.fontSizeMin = 17;
+        entry.Label.fontSizeMax = 24;
+        if (_textButtons) entry.Label.fontSize = 30;
+        entry.Label.textWrappingMode = _textButtons ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+    }
+
+    internal static void SetIcon(Button button, AndroidDockIcon icon)
+    {
+        var image = button.transform.Find("BPP.DockIcon")?.GetComponent<Image>();
+        var sprite = AndroidDockIcons.Get(icon);
+        if (image != null && sprite != null) image.sprite = sprite;
     }
 
     private void Build(TMP_FontAsset font)
@@ -70,7 +138,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         _opacity = _group.gameObject.AddComponent<CanvasGroup>();
         _group.pivot = Vector2.zero;
         _buttons = NativeUi.Rect("BPP.DockButtons", _group, Vector2.zero, Vector2.one);
-        _handle = NativeUi.Button(_group, font, "BPP", Vector2.zero, Vector2.zero, () =>
+        _handle = NativeUi.Button(_group, font, "BPA", Vector2.zero, Vector2.zero, () =>
         {
             if (_dragged) return;
             _collapsed = !_collapsed;
@@ -80,6 +148,9 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         Bind(_handle);
         _holdPreview = gameObject.AddComponent<AndroidHoldPreview>();
         _holdPreview.Build(_buttons!, font);
+        _textButtons = AndroidDockSettings.Current.TextButtons;
+        Place(_holdPreview.Button!, 3, AndroidDockIcon.HoldPreview, () => NativeUi.Text("Hold", "按住预览"),
+            () => NativeUi.Text("Hold to preview", "按住预览"));
         _edge = AndroidDockSettings.Current.Edge;
         _along = AndroidDockSettings.Current.Along / 10000f;
         _autoHide = AutoHide;
@@ -134,7 +205,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         // details use either screen edge without being covered by the dock.
         _opacity!.alpha = AndroidHoldPreview.Active ? 0 : 1;
         if (AndroidHoldPreview.Active) _lastInteraction = Time.realtimeSinceStartup;
-        var visible = !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen;
+        var visible = !CollectionController.AnyOpen && !AndroidBuildPanelController.AnyOpen && !AndroidHistoryPanel.AnyOpen;
         _group.gameObject.SetActive(visible);
         _holdPreview?.SetAvailable(visible && !_collapsed);
         if (!visible)
@@ -151,7 +222,14 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             _lastInteraction = Time.realtimeSinceStartup;
             Layout();
         }
-        if (_screen != new Vector2(Screen.width, Screen.height) || _safe != Screen.safeArea) Layout();
+        if (_textButtons != AndroidDockSettings.Current.TextButtons)
+        {
+            _textButtons = AndroidDockSettings.Current.TextButtons;
+            foreach (var entry in _entries.Values) Restyle(entry);
+            Layout();
+        }
+        if (_screen != new Vector2(Screen.width, Screen.height) || _safe != Screen.safeArea
+            || _visibleEntries != VisibleEntries()) Layout();
         if (visible && _autoHide && !_collapsed && !_pointer.HasValue && !AndroidHoldPreview.Active
             && Time.realtimeSinceStartup - _lastInteraction >= 5)
         {
@@ -176,20 +254,41 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             Math.Clamp(position.y, area.yMin, Math.Max(area.yMin, area.yMax - size.y)));
     }
 
+    // Bitmask of entries their owners currently show; hidden entries leave no gap.
+    private int VisibleEntries()
+    {
+        var mask = 0;
+        foreach (var entry in _entries)
+            if (entry.Value.Rect != null && entry.Value.Rect.gameObject.activeSelf) mask |= 1 << entry.Key;
+        return mask;
+    }
+
     private void Layout()
     {
         _screen = new Vector2(Screen.width, Screen.height);
         _safe = Screen.safeArea;
-        _group!.sizeDelta = _collapsed ? CollapsedSize : new Vector2(270, _autoHide ? 450 : 375);
+        _visibleEntries = VisibleEntries();
+        var style = CurrentStyle;
+        var step = style.Button.y + style.Gap;
+        var shown = 0;
+        foreach (var entry in _entries)
+        {
+            if ((_visibleEntries & (1 << entry.Key)) == 0) continue;
+            entry.Value.Rect.anchoredPosition = new Vector2(0, -shown * step);
+            shown++;
+        }
+        var buttonHeight = Math.Max(0, shown * step - style.Gap);
+        _group!.sizeDelta = _collapsed ? style.Collapsed
+            : new Vector2(style.Button.x, buttonHeight + (_autoHide ? style.HandleHeight + style.Gap : 0));
         _buttons!.gameObject.SetActive(!_collapsed);
         _handle!.gameObject.SetActive(_collapsed || _autoHide);
         var handle = _handle.GetComponent<RectTransform>();
         handle.pivot = Vector2.zero;
-        handle.sizeDelta = _collapsed ? CollapsedSize : new Vector2(270, 70);
+        handle.sizeDelta = _collapsed ? style.Collapsed : new Vector2(style.Button.x, style.HandleHeight);
         handle.anchoredPosition = Vector2.zero;
         var label = _handle.GetComponentInChildren<TextMeshProUGUI>();
-        label.text = _collapsed ? "B\nP\nP" : NativeUi.Text("Collapse", "收起");
-        label.fontSize = _collapsed ? 28 : 30;
+        label.text = _collapsed ? "B\nP\nA" : _textButtons ? NativeUi.Text("Collapse", "收起") : NativeUi.Text("Hide", "收起");
+        label.fontSize = _collapsed ? style.CollapsedFont : style.HandleFont;
         var area = Bounds();
         var travel = new Vector2(Math.Max(0, area.width - _group.sizeDelta.x), Math.Max(0, area.height - _group.sizeDelta.y));
         _group.anchoredPosition = _edge switch

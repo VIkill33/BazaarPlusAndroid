@@ -7,6 +7,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../android-mod/AndroidPreviewPanelSettings.cs" />
+    <Compile Include="../../android-mod/History/HistoryArtworkDirectory.cs" />
   </ItemGroup>
 </Project>

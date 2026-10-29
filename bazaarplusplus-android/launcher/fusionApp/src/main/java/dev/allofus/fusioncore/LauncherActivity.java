@@ -81,10 +81,14 @@ public final class LauncherActivity extends AppCompatActivity {
             refresh();
         });
         findViewById(R.id.launcher_donate).setOnClickListener(v -> donate());
+        findViewById(R.id.launcher_history).setOnClickListener(v -> startActivity(new Intent(this, LauncherHistoryActivity.class)
+                .putExtra(LauncherHistoryActivity.TARGET, LauncherGames.selected(this))));
+        findViewById(R.id.launcher_purchases).setOnClickListener(v -> startActivity(new Intent(this, LauncherPurchaseActivity.class)
+                .putExtra(LauncherHistoryActivity.TARGET, LauncherGames.selected(this))));
         findViewById(R.id.launcher_github).setOnClickListener(v -> {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/VIkill33/BazaarPlusPlusForAndroid")));
+                        Uri.parse("https://github.com/VIkill33/BazaarPlusAndroid")));
             } catch (ActivityNotFoundException error) {
                 Toast.makeText(this, getString(R.string.bpp_link_open_failed), Toast.LENGTH_SHORT).show();
             }
@@ -163,9 +167,10 @@ public final class LauncherActivity extends AppCompatActivity {
         checks.execute(() -> {
             String details;
             try {
-                details = "BazaarPlusPlus " + BuildConfig.VERSION_NAME + getString(R.string.bpp_about_disclaimer) +
+                details = getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + getString(R.string.bpp_about_disclaimer) +
                         LauncherRelease.read(getAssets().open("launcher/NOTICE.txt")) + "\n\n" +
                         LauncherRelease.read(getAssets().open("launcher/BPP-LICENSE.txt")) + "\n\n" +
+                        LauncherRelease.read(getAssets().open("launcher/MDI-LICENSE.txt")) + "\n\n" +
                         LauncherRelease.read(getAssets().open("launcher/FusionCore-LICENSE.txt"));
             } catch (Exception error) { details = getString(R.string.bpp_licenses_read_failed); }
             final String text = details;

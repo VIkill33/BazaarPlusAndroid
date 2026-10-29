@@ -37,7 +37,7 @@ def bundle_dependencies(manifest, assets, cache):
                     if not url.startswith("https://"):
                         raise ValueError("Dependency source must use HTTPS")
                     request = urllib.request.Request(url, headers={
-                        "Accept": "application/octet-stream", "User-Agent": "BazaarPlusPlusAndroid-build"})
+                        "Accept": "application/octet-stream", "User-Agent": "BazaarPlusAndroid-build"})
                     with urllib.request.urlopen(request, timeout=60) as response, temp.open("wb") as output:
                         if response.status != 200 or not response.geturl().startswith("https://"):
                             raise ValueError("Dependency response must be HTTPS 200")
@@ -134,13 +134,20 @@ def prepare(root, upstream, plugin_dir, dependency_dir=None):
     manifest["releaseId"] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
     (asset_dir / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")
     (asset_dir / "NOTICE.txt").write_text(
-        "BazaarPlusPlus Android launcher\nBazaarPlusPlus: MIT (see BPP-LICENSE.txt).\n"
+        "BazaarPlusAndroid launcher\nBazaarPlusPlus: MIT (see BPP-LICENSE.txt).\n"
         "FusionCore: GPL-3.0, copyright its contributors (see FusionCore-LICENSE.txt).\n"
+        "In-game dock icons made by Lorc (\"Anvil impact\", \"Tied scroll\", \"Magnifying glass\") "
+        "and Skoll (\"Sight disabled\"), from https://game-icons.net, "
+        "CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/); "
+        "recoloured and outlined, see bazaarplusplus-android/assets/dock-icons/SOURCE.md.\n"
+        "Launcher home icons: Material Design Icons, copyright its contributors, Apache-2.0 "
+        "(see MDI-LICENSE.txt); paths converted to Android VectorDrawable and tinted.\n"
         "Corresponding launcher source and build inputs: bazaarplusplus-android/launcher and build_launcher.py "
-        "in https://github.com/VIkill33/BazaarPlusPlusForAndroid (supply the exact source archive with any test distribution).\n"
+        "in https://github.com/VIkill33/BazaarPlusAndroid (supply the exact source archive with any test distribution).\n"
         "BepInEx/.NET/Dobby and bundled components retain their own licenses. "
         "Third-party redistribution review remains required before public release.\n"
         "This is a local test build, not a publicly approved distribution.\n")
+    shutil.copyfile(root / "assets/launcher-icons/LICENSE", asset_dir / "MDI-LICENSE.txt")
     shutil.copyfile(launcher / "LICENSE", asset_dir / "FusionCore-LICENSE.txt")
     shutil.copyfile(root.parent / "LICENSE", asset_dir / "BPP-LICENSE.txt")
     print(f"Prepared launcher release {manifest['releaseId']}")
@@ -179,9 +186,9 @@ def main():
     verify_bundled_inputs(apk, manifest)
     output = root / "artifacts/launcher"
     output.mkdir(parents=True, exist_ok=True)
-    target = output / "BazaarPlusPlus-launcher.apk"
+    target = output / "BazaarPlusAndroid-launcher.apk"
     shutil.copyfile(apk, target)
-    (output / "BazaarPlusPlus-launcher.apk.sha256").write_text(f"{digest(target)}  {target.name}\n")
+    (output / "BazaarPlusAndroid-launcher.apk.sha256").write_text(f"{digest(target)}  {target.name}\n")
     (output / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")
     sdk = Path(env["ANDROID_HOME"])
     signers = sorted((sdk / "build-tools").glob("*/apksigner"))
@@ -195,13 +202,21 @@ def main():
     inputs = json.loads((args.plugin_dir / "build-inputs.json").read_text())
     source_paths += list(inputs["sourceInputs"])
     source_paths += ["LICENSE", "bazaarplusplus-android/build_launcher.py", "bazaarplusplus-android/build_probe.py",
+                     "bazaarplusplus-android/assets/launcher-icons/LICENSE",
+                     "bazaarplusplus-android/assets/launcher-icons/SOURCE.md",
                      "bazaarplusplus-android/toolchain.json", "bazaarplusplus-android/android-mod/BazaarPlusPlus.Android.csproj",
                      "bazaarplusplus-android/README.md", "bazaarplusplus-android/data/README.md",
                      "bazaarplusplus-android/docs/adr/0001-dedicated-launcher.md",
                      "bazaarplusplus-android/verify_launcher.py", "bazaarplusplus-android/inspect_game.py",
                      "bazaarplusplus-android/tests/test_launcher_dependencies.py",
                      "bazaarplusplus-android/tests/LauncherFilesTest.java", "bazaarplusplus-android/tests/LauncherLogTest.java",
-                     "bazaarplusplus-android/tests/test_launcher_files.py"]
+                     "bazaarplusplus-android/tests/test_launcher_files.py",
+                     "bazaarplusplus-android/tests/LauncherContextTest.java",
+                     "bazaarplusplus-android/tests/test_launcher_context.py",
+                     "bazaarplusplus-android/tests/LauncherUnityLibrariesTest.java",
+                     "bazaarplusplus-android/tests/test_launcher_unity_libraries.py",
+                     "bazaarplusplus-android/tests/UnityLibraries.Tests/Program.cs",
+                     "bazaarplusplus-android/tests/UnityLibraries.Tests/UnityLibraries.Tests.csproj"]
     with tarfile.open(output / "launcher-source.tar.gz", "w:gz") as archive:
         for relative in sorted(set(source_paths)):
             path = root.parent / relative

@@ -5,7 +5,7 @@ using BepInEx.Unity.IL2CPP;
 
 namespace BazaarPlusPlus.Android.Probe;
 
-[BepInPlugin("com.bazaarplusplus.android.probe", "BazaarPlusPlus Android Probe", "0.1.0")]
+[BepInPlugin("com.bazaarplusplus.android.probe", "BazaarPlusAndroid Probe", "0.1.0")]
 public sealed class AndroidBootstrapProbe : BasePlugin
 {
     public override void Load()

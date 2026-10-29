@@ -10,6 +10,7 @@ import android.content.res.AssetManager;
 import android.os.Build;
 import android.util.Log;
 import android.view.Display;
+import android.view.WindowManager;
 
 
 import org.jetbrains.annotations.Nullable;
@@ -143,7 +144,9 @@ public class CustomContextWrapper extends ContextWrapper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             return this.fusionContext.getDisplay();
         }
-        return null;
+        // Before API 30 Context.getDisplay is hidden, but ActivityThread still calls it
+        // during configuration changes. Use the host activity's display-aware service.
+        return ((WindowManager) fusionContext.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
     }
 
     @Override

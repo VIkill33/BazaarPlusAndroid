@@ -76,42 +76,35 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
 
         var staging = new GameObject("BPP.SettingsStaging");
         staging.SetActive(false);
-        GameObject? modeRoot = null;
-        GameObject? positionRoot = null;
-        GameObject? dockRoot = null;
+        var items = new List<Row>();
         try
         {
-            var mode = CloneRow(source, staging.transform, "BPP.LongPressSetting", out modeRoot, out var modeLabel);
-            var position = CloneRow(source, staging.transform, "BPP.PreviewPositionSetting", out positionRoot, out var positionLabel);
-            var dock = CloneRow(source, staging.transform, "BPP.DockSetting", out dockRoot, out var dockLabel);
-            var rows = new Rows(window, modeRoot, positionRoot, dockRoot, mode, position, dock, modeLabel, positionLabel, dockLabel);
-            mode.onValueChanged.AddListener(DelegateSupport.ConvertDelegate<UnityAction<int>>((int value) =>
-                Select(rows, "long_press", () => AndroidLongPressPreviewSettings.Mode = (AndroidLongPressPreviewMode)value)));
-            position.onValueChanged.AddListener(DelegateSupport.ConvertDelegate<UnityAction<int>>((int value) =>
-                Select(rows, "panel_position", () => AndroidPreviewPanelSettings.SetLeftEdge(value == 1))));
-            dock.onValueChanged.AddListener(DelegateSupport.ConvertDelegate<UnityAction<int>>((int value) =>
-                Select(rows, "dock_auto_hide", () => AndroidFloatingDock.AutoHide = value == 1)));
+            var rows = new Rows(window, items);
+            foreach (var spec in Specs)
+            {
+                var dropdown = CloneRow(source, staging.transform, spec.Name, out var root, out var label);
+                items.Add(new Row(root, dropdown, label, spec));
+                dropdown.onValueChanged.AddListener(DelegateSupport.ConvertDelegate<UnityAction<int>>((int value) =>
+                    Select(rows, spec.Log, () => spec.Write(value))));
+            }
             Refresh(rows);
-            modeRoot.transform.SetParent(source.parent, false);
-            positionRoot.transform.SetParent(source.parent, false);
-            dockRoot.transform.SetParent(source.parent, false);
-            modeRoot.transform.SetSiblingIndex(source.GetSiblingIndex() + 1);
-            positionRoot.transform.SetSiblingIndex(modeRoot.transform.GetSiblingIndex() + 1);
-            dockRoot.transform.SetSiblingIndex(positionRoot.transform.GetSiblingIndex() + 1);
-            dockRoot.SetActive(true);
-            modeRoot.SetActive(true);
-            positionRoot.SetActive(true);
+            var previous = source;
+            foreach (var row in items)
+            {
+                row.Root.transform.SetParent(source.parent, false);
+                row.Root.transform.SetSiblingIndex(previous.GetSiblingIndex() + 1);
+                previous = row.Root.transform;
+            }
+            foreach (var row in items) row.Root.SetActive(true);
             LayoutRebuilder.ForceRebuildLayoutImmediate(section);
             if (spy._scrollRect?.content != null)
                 LayoutRebuilder.ForceRebuildLayoutImmediate(spy._scrollRect.content);
-            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.settings.installed window={window.GetInstanceID()} mode={AndroidLongPressPreviewSettings.Mode} left={AndroidPreviewPanelSettings.LeftEdge}");
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.settings.installed window={window.GetInstanceID()} mode={AndroidLongPressPreviewSettings.Mode} left={AndroidLauncherSettings.LeftEdge}");
             return rows;
         }
         catch
         {
-            if (modeRoot != null) Destroy(modeRoot);
-            if (positionRoot != null) Destroy(positionRoot);
-            if (dockRoot != null) Destroy(dockRoot);
+            foreach (var row in items) if (row.Root != null) Destroy(row.Root);
             throw;
         }
         finally { Destroy(staging); }
@@ -145,7 +138,7 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
         try
         {
             save();
-            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.settings.changed setting={setting} mode={AndroidLongPressPreviewSettings.Mode} left={AndroidPreviewPanelSettings.LeftEdge}");
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.settings.changed setting={setting} mode={AndroidLongPressPreviewSettings.Mode} left={AndroidLauncherSettings.LeftEdge}");
         }
         catch (Exception error)
         {
@@ -156,20 +149,18 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
 
     private static void Refresh(Rows rows)
     {
-        var modeLabel = NativeUi.Text("BPP: Long press preview", "BPP：长按预览");
-        var positionLabel = NativeUi.Text("BPP: Preview panel position", "BPP：预览面板位置");
-        if (rows.ModeLabel.text != modeLabel || rows.PositionLabel.text != positionLabel || rows.Mode.options.Count != 3 || rows.Dock.options.Count != 2)
+        foreach (var row in rows.Items)
         {
-            rows.ModeLabel.text = modeLabel;
-            rows.PositionLabel.text = positionLabel;
-            rows.DockLabel.text = NativeUi.Text("BPP: Auto-hide buttons", "BPP：按钮自动收起");
-            SetOptions(rows.Dock, NativeUi.Text("Off", "关闭"), NativeUi.Text("After 5 seconds", "闲置5秒后收起"));
-            SetOptions(rows.Mode, NativeUi.Text("Enchants", "附魔"), NativeUi.Text("Upgrade", "升级"), NativeUi.Text("None", "无"));
-            SetOptions(rows.Position, NativeUi.Text("Default", "默认位置"), NativeUi.Text("Left edge", "靠屏幕左侧边缘"));
+            var label = row.Spec.Label();
+            var options = row.Spec.Options();
+            if (row.Label.text != label || row.Dropdown.options.Count != options.Length
+                || row.Dropdown.options[0].text != options[0])
+            {
+                row.Label.text = label;
+                SetOptions(row.Dropdown, options);
+            }
+            row.Dropdown.SetValueWithoutNotify(row.Spec.Read());
         }
-        rows.Mode.SetValueWithoutNotify((int)AndroidLongPressPreviewSettings.Mode);
-        rows.Position.SetValueWithoutNotify(AndroidPreviewPanelSettings.LeftEdge ? 1 : 0);
-        rows.Dock.SetValueWithoutNotify(AndroidFloatingDock.AutoHide ? 1 : 0);
     }
 
     private static void SetOptions(TMP_Dropdown dropdown, params string[] options)
@@ -182,14 +173,43 @@ public sealed class AndroidNativeSettings(IntPtr pointer) : MonoBehaviour(pointe
     public void OnDestroy()
     {
         foreach (var rows in _windows)
-        {
-            if (rows.ModeRoot != null) Destroy(rows.ModeRoot);
-            if (rows.PositionRoot != null) Destroy(rows.PositionRoot);
-            if (rows.DockRoot != null) Destroy(rows.DockRoot);
-        }
+            foreach (var row in rows.Items)
+                if (row.Root != null) Destroy(row.Root);
         _windows.Clear();
     }
 
-    private sealed record Rows(OptionsDialogController Window, GameObject ModeRoot, GameObject PositionRoot, GameObject DockRoot, TMP_Dropdown Mode, TMP_Dropdown Position, TMP_Dropdown Dock,
-        TextMeshProUGUI ModeLabel, TextMeshProUGUI PositionLabel, TextMeshProUGUI DockLabel);
+    private sealed record Spec(string Name, string Log, Func<string> Label, Func<string[]> Options, Func<int> Read, Action<int> Write);
+    private sealed record Row(GameObject Root, TMP_Dropdown Dropdown, TextMeshProUGUI Label, Spec Spec);
+    private sealed record Rows(OptionsDialogController Window, List<Row> Items);
+
+    private static string[] Visibility() => new[] { NativeUi.Text("Show", "显示"), NativeUi.Text("Hide", "隐藏") };
+
+    private static Spec Button(string name, string log, string english, string chinese, AndroidDockButton button) =>
+        new(name, log, () => NativeUi.Text(english, chinese), Visibility,
+            () => AndroidLauncherSettings.Shown(button) ? 0 : 1, value => AndroidLauncherSettings.SetShown(button, value == 0));
+
+    private static readonly Spec[] Specs =
+    {
+        new("BPP.LongPressSetting", "long_press", () => NativeUi.Text("BazaarPlusAndroid: Long press preview", "BazaarPlusAndroid：长按预览"),
+            () => new[] { NativeUi.Text("Enchants", "附魔"), NativeUi.Text("Upgrade", "升级"), NativeUi.Text("None", "无") },
+            () => (int)AndroidLongPressPreviewSettings.Mode, value => AndroidLongPressPreviewSettings.Mode = (AndroidLongPressPreviewMode)value),
+        new("BPP.PreviewPositionSetting", "panel_position", () => NativeUi.Text("BazaarPlusAndroid: Preview panel position", "BazaarPlusAndroid：预览面板位置"),
+            () => new[] { NativeUi.Text("Default", "默认位置"), NativeUi.Text("Left edge", "靠屏幕左侧边缘") },
+            () => AndroidLauncherSettings.LeftEdge ? 1 : 0, value => AndroidLauncherSettings.SetLeftEdge(value == 1)),
+        new("BPP.DockSetting", "dock_auto_hide", () => NativeUi.Text("BazaarPlusAndroid: Auto-hide buttons", "BazaarPlusAndroid：按钮自动收起"),
+            () => new[] { NativeUi.Text("Off", "关闭"), NativeUi.Text("After 5 seconds", "闲置5秒后收起") },
+            () => AndroidFloatingDock.AutoHide ? 1 : 0, value => AndroidFloatingDock.AutoHide = value == 1),
+        new("BPP.ButtonStyleSetting", "dock_style", () => NativeUi.Text("BazaarPlusAndroid: Button style", "BazaarPlusAndroid：按钮样式"),
+            () => new[] { NativeUi.Text("Icons", "图标"), NativeUi.Text("Text only (classic)", "纯文字（旧版）") },
+            () => AndroidDockSettings.Current.TextButtons ? 1 : 0,
+            value => AndroidDockSettings.Save(AndroidDockSettings.Current with { TextButtons = value == 1 })),
+        new("BPP.CombatTimerSetting", "combat_timer", () => NativeUi.Text("BazaarPlusAndroid: Combat timer", "BazaarPlusAndroid：战斗计时器"),
+            Visibility, () => AndroidCombatTimerSettings.Shown ? 0 : 1,
+            value => AndroidCombatTimerSettings.Save(value == 0)),
+        Button("BPP.CollectionButtonSetting", "dock_collection", "BazaarPlusAndroid: Card collection button", "BazaarPlusAndroid：卡牌图鉴按钮", AndroidDockButton.Collection),
+        Button("BPP.BuildsButtonSetting", "dock_builds", "BazaarPlusAndroid: Builds button", "BazaarPlusAndroid：构筑推荐按钮", AndroidDockButton.Builds),
+        Button("BPP.PreviewModeButtonSetting", "dock_preview_mode", "BazaarPlusAndroid: Long press mode button", "BazaarPlusAndroid：长按模式按钮", AndroidDockButton.PreviewMode),
+        Button("BPP.HoldPreviewButtonSetting", "dock_hold_preview", "BazaarPlusAndroid: Hold to preview button", "BazaarPlusAndroid：按住预览按钮", AndroidDockButton.HoldPreview),
+        Button("BPP.HistoryButtonSetting", "dock_history", "BazaarPlusAndroid: History button", "BazaarPlusAndroid：对局历史按钮", AndroidDockButton.History),
+    };
 }

@@ -1,5 +1,151 @@
 # Android 真机验证
 
+## 单场对局败场样式与完整采集文案（2026-10-26，test.14）
+
+`LauncherHistoryActivity.runRow` 仅在单场对局摘要中将败场缩为原 25sp 的四分之一（6.25sp），
+使用 `bpp_muted` 灰色，与胜场间加入五个保持胜场字号的全角空格；沿同一基线显示。
+`HistoryBattleView.groupLabel` 对完整采集返回分组名，不显示完整采集提示、张数或空阵容提示；
+部分采集、失败、未采集的提示保留。仅调整启动器视图，不改历史数据或游戏内面板。
+参考 Android README、功能清单、启动器 ADR／构建说明、桌面历史布局及当前 Java 实现。
+
+设备 `OBJVWSPNSCFQU48L`、22041216C、Android 14，系统字体 1.0；目标游戏为
+`1.0.12825-production-android-d9601ded`。测试开始位于历史对局列表，只读浏览既存记录，未启动游戏或推进对局。
+按导出 skill 使用 JDK 24 和持久签名构建并覆盖安装 `0.1.0-test.14`，Lint／签名构建通过，
+签名 `Verifies`、v2=true、`CN=BazaarPlusPlus Android Test`；内置依赖、插件摘要、已安装版本三项检查通过。
+APK SHA-256：`4f8de06015ef53ebeed08b7219ec99ab2809719d450ec748a82afe1c2bc4faae`。
+
+13 项 Python 离线回归通过，`verify_history_browser.py` 普通记录 138 项真机断言通过，
+覆盖完整采集标签无冗余文案、全部卡图入屏、横竖屏与旋转恢复、筛选及返回位置。
+人工复核单场对局截图中的败场大小、灰色及间距，以及单场对战横竖屏标签与卡图；
+字号比例和五字符间距由 spans 与全角空格实现，本轮未对像素进行自动字体测量。
+结束恢复全部英雄和原旋转设置；崩溃缓冲区最新记录早于本轮测试，无本轮新增启动器崩溃。
+启动器操作与游戏标准／高级输入模式无关；其他设备、放大字体和非完整采集状态专项仍待验证。
+
+证据位于忽略目录 `artifacts/history-score/`（`normal.log`、`normal/` 布局树／截图／138 项结果、
+`installed/verification.json`）；离线记录为 `artifacts/history-score-tests.log`。
+
+## 启动器历史列表原型实施与同行小头像（2026-10-26，test.14）
+
+根据用户选定的紧凑列表原型，在现有原生 Java 启动器内调整历史页面：日期标题嵌在真实记录行内，
+整局条目显示头像、突出胜负、可靠奖杯／状态及时间；交手列表显示天数、结果与对手。
+三级标题为「历史对局 → 单场对局 → 单场对战」，不显示概念名称。
+列表顶栏复用首页集市场景，详情缩短顶栏；英雄筛选及分页采用描边按钮。
+`HistoryBattleView` 由名称实际字体行高计算方形头像尺寸，头像与名称同行，物品与技能继续使用完整阵容宽度。
+字号放大时重新扣减文字预算；原生卡图比例、物品单行等高、技能 22dp 上限及竖屏实际内容衔接保留。
+
+参考 Android README、功能清单、启动器 ADR／构建说明、图片缓存 ADR、桌面历史实现与采集文档；
+独立只读评审核对日期分组索引、缺值语义、字体预算及异步状态。仅修改启动器视图和验收脚本，
+不调整数据库、游戏内历史或卡图缓存。完整对局信息移到摘要点击入口，单场顶部信息仍可打开采集版本。
+
+设备为 `OBJVWSPNSCFQU48L`、22041216C、Android 14；目标游戏已安装版本为
+`1.0.12825-production-android-d9601ded`。测试前处于启动器首页，游戏进程未运行。
+按导出 skill 使用 JDK 24 与持久签名构建并覆盖安装 `0.1.0-test.14`；Lint、内置依赖／插件摘要、
+已安装版本验证通过，签名 `Verifies`、v2=true、证书 `CN=BazaarPlusPlus Android Test`。
+最终 APK SHA-256：`f0532e3a749f4dac8466c4d6980d00203b7ba50a2cd0a44631593cff608fa9a0`。
+
+- Python unittest 13 项通过；`git diff --check` 及验收脚本语法检查通过。
+- `verify_history_browser.py` 普通记录 135 项、多技能记录 201 项真机断言通过；新增双方头像方形、与名称同高同行的边界断言。
+- 130% 系统字体下，多技能记录另有 201 项断言通过，覆盖横竖屏重建、所有卡图同时入屏、物品单行等高／实测原生比例、技能尺寸、采集状态、无卡牌字段弹窗、筛选及返回锚点。
+- 额外 11 项真机冒烟检查通过：两组不同日期的记录分别打开正确整局、对局／采集版本信息入口、连续刷新后返回以及概念标题缺席；另对已采集布局中的 423 个卡图节点检查 Android CLI 的交互标记，均无点击／长按动作。
+- 人工复核默认／130% 字体的阵容横竖屏与默认字体三级页面截图；文字完整，头像位于名称左侧，不挤占物品和技能列。截图人工复核不等同自动图像识别。
+- 验证只浏览本机既存记录，未启动游戏、推进战斗或更改账号；结束恢复全部英雄、字体 1.0 及原旋转设置。游戏标准／高级输入模式不影响原生启动器，本轮未回归游戏内功能。
+- 初次只读检查误写目标包名导致临时 `HistoryReadDevice` 进程报告数据库不存在；依据兼容清单确认正确目标后只读检查通过。该诊断不是启动器应用崩溃，未初始化或修改错误路径下的数据库；启动器本轮无新增崩溃。
+
+证据在忽略目录 `artifacts/history-redesign/`：`inspection.json`、`tests.log`、`installed/verification.json`、
+`normal/`、`dense/`、`font130/` 的断言、布局树和截图，`smoke-checks.json` 及 `runs.png`。
+其他设备、极短分屏窗口、更多历史数据和字体缩放级别待专项验证，不将本次单设备结果扩展为全量兼容性验收。
+
+## 启动器竖屏双方阵容间距（2026-10-26，test.14）
+
+用户确认上一版可用后反馈竖屏双方阵容距离过远。`HistoryBattleView.onMeasure` 原先将视口平分给双方，
+物品按宽度缩小后仍保留整块高度，导致己方内容下方出现大量空白。现保留原图片预算和公共高度，
+仅将对方起点改为己方技能区实际底部加小间距；横屏继续左右并列。
+参考 Android README、历史图片缓存 ADR、桌面 `HistoryPanelLayout` 和当前启动器布局；仅修改启动器排版。
+
+设备 `OBJVWSPNSCFQU48L`、22041216C、Android 14；当前目标游戏版本
+`1.0.12825-production-android-d9601ded`，测试前停在启动器首页，未运行游戏对局。
+使用导出 skill 的 JDK 24、持久签名完成 test.14 构建、Lint 和覆盖安装，签名 `Verifies`、v2=true、
+证书 `CN=BazaarPlusPlus Android Test`；内置依赖、插件摘要和已安装版本三项检查通过。
+APK SHA-256：`c1201f80b600be44ed4370794e9ed15c36c85bce060f8afa07736d5e7d38081b`。
+
+Python unittest 13 项通过。普通记录的原布局中，己方技能标签底部 y=856，对方标题顶部 y=1346，
+中间留白 490 像素；新布局对方标题顶部 y=878，中间留白缩为 22 像素（约 8dp），物品高度保持一致。
+`verify_history_browser.py` 新增竖屏内容间距断言，检查普通及多技能记录的横竖屏、旋转恢复、
+全部图片入屏、物品单行等高与原生比例、技能尺寸、筛选及返回锚点。
+本次普通记录 129 项、多技能记录 195 项设备断言全部通过；人工复核两组横竖屏截图，
+中间空白收紧，全部图片完整可见。结束恢复全部英雄和原旋转设置，未出现本日新增崩溃日志。
+
+证据位于忽略目录 `artifacts/history-spacing/`，包含修改前截图和布局树、只读 `inspection.json`、
+`tests.log`、`installed/verification.json` 以及 `normal/`、`dense/` 下的布局树、截图和验收结果。
+启动器操作不依赖游戏标准／高级输入模式；本轮仅只读浏览保存记录，未推进游戏或更改账号状态。
+其他设备、分屏小窗口及放大字体仍待专项验证。
+
+## 启动器单场历史一屏纯图片布局（2026-10-26，test.14）
+
+按用户反馈，将 `LauncherHistoryActivity` 的单场详情替换为 `HistoryBattleView` 固定视口。
+横屏左右、竖屏上下排列双方；每方物品只排一行，不显示卡名、品质文字或大边框，点击和长按均不打开详情。
+物品根据当前手机版原生 `CardPreviewItem._cardImage` 区域的实测比例排版，双方统一高度，整排宽度不足时共同等比缩小，不再把源材质 PNG 的方形宽高当作卡图比例。
+技能图标边长上限为原固定图片高度的四分之一，密集时继续缩小及换行；英雄筛选项在名称旁展示头像。
+顶部战斗信息保留对局和采集版本入口，数据库字段、原图缓存及游戏内历史不变。
+旧详情滚动容器、详情锚点、文字行、卡牌名称／边框和字段弹窗代码已删除。
+
+参考前轮游戏内历史、图片缓存边界及用户追加约束；独立只读评审覆盖安全区、列表锚点、
+异步图片绑定、等高比例和密集间隔预算。最小图片仍无法入屏时，布局先缩小间隔，再求公共图片高度。
+`HistoryBattleLayout` 拥有单行宽度、图片高度、原生卡图比例和物品／技能总预算，视图仅按结果摆放。
+此前“按 PNG 比例且没裁切”的检查未识别材质纹理与卡图区域的差异；现改用独立实测数据逐张校验最终图片边界的宽高比。小／中／大型克隆的卡图区域分别为 469.0741×935.1852、975.1852×935.1852、1509.074×944.44446；锚点偏移为零，因此比例不依赖所选参考高度。实测原始数据在 `artifacts/native-card-ratios/validated.json`。
+产品代码只修改 Java 启动器与验证脚本，未修改正式游戏插件、数据库或图片缓存。为校验真实比例，另用被忽略目录中的临时独立探针在游戏主菜单加载小／中／大型卡牌预制体，仅对克隆设置统一参考高度并读取 `_cardImage` 矩形；未继续对局或推进游戏。完成测量后已停止游戏、从设备删除探针 DLL 和临时报告。
+
+设备 `OBJVWSPNSCFQU48L`、22041216C、Android 14；启动器操作与游戏标准／高级输入设置无关。
+按导出 skill 使用 JDK 24、持久签名构建 test.14，覆盖安装成功，内置依赖／插件摘要和已安装版本校验通过。
+APK SHA-256：`ce4634de8fe6926ec0aa410a46536536e7fe71b461d6e0766be90f67826a5e90`。
+签名报告为 `Verifies`、v2=true、`CN=BazaarPlusPlus Android Test`。
+
+- Python unittest 13 项通过，包含 3,060 组不同窗口宽高、图片比例、间隔、原生小／中／大型比例、0–16 物品及 0–128 技能的混合预算规则检查；签名构建及 Lint 通过。
+- `verify_history_browser.py --expect-artwork` 对普通交手通过 100 项；增加 `--battle-sequence 12` 对技能较多的交手通过 160 项。
+- 普通交手有 4／5 件双方物品，技能均为空；密集样本有 5／6 件物品和 1／7 个技能。横屏、竖屏及旋转恢复后，单次布局树中的预期卡图数量／模板多重集合完全匹配；每张卡图边界在视口内，每方所有物品的顶部坐标一致，双方物品高度一致。
+- 技能图片边长不超过原来的四分之一，无卡牌名称／品质文字、无点击／长按详情动作、无滚动容器；四组采集状态、英雄筛选头像、空／匹配筛选、列表返回锚点及筛选恢复通过。
+- 人工复核普通和密集样本的横竖屏截图，全部物品与技能同屏可见，物品保持单行、原图比例和等高，无大空框。自动布局断言不冒充自动图像识别。
+- 用户已确认此前其他调整可用；本轮补齐单行约束并复测。脚本结束恢复全部英雄及原旋转设置；无新增启动器崩溃。
+- 未将离线极端数量案例视为真机验收；其他手机、分屏小窗口、放大字体及更多技能样本仍待专项验证。
+
+证据：忽略目录 `artifacts/history-fit/single-normal/`、`single-dense/` 下的 `passed.json`、布局树、
+`snapshot-portrait.png`、`snapshot-landscape.png`、`hero-filter.png`；`single-loading/verification.json` 为当前 APK 校验。
+离线输出为 `artifacts/history-fit-tests.log`。除静态预制体比例测量外，本轮只浏览已保存记录，没有更改对局或账号状态。
+
+## 启动器历史 UI 与本机卡图缓存（2026-10-26，test.14）
+
+参考 `android-mod/History/AndroidHistoryPanel`、`HistoryViewText`、`AndroidHistoryFormation`、
+桌面历史页面与采集契约，启动器改为英雄头像、胜场／奖杯和 PvP 对手列表；
+战斗详情保留物品槽位、体型占格及技能分组，横屏并列、竖屏上下排列，点击／长按查看图片和完整保存字段。
+游戏进程通过 `AndroidHistoryArtwork` 回填当前账号范围内的模板插画，启动器仅异步读取本机缓存。
+独立只读评审发现的暂停超时、失败重试、初始化恢复和 Sprite 图集裁切问题已修复。
+首轮真机截图发现物品材质 alpha 是着色器遮罩，直接导出 RGBA 会隐藏卡牌主体；
+最终卡图改为 RGB24，头像／奖杯保留 RGBA，并以 v2 缓存隔离旧试验图。
+
+本次设备为 `OBJVWSPNSCFQU48L`、22041216C、Android 14，正版游戏
+`1.0.12825-production-android-d9601ded`。测试前停在启动器帮助页，有两条皮格历史记录。
+按导出 skill 使用 JDK 24 和持久签名构建、覆盖安装 test.14；签名 `Verifies`、v2 为 true，
+证书为 `CN=BazaarPlusPlus Android Test`。最终 APK SHA-256：
+`db3833e76ba32ebb6dbe2371934770cae4295321c6642f1cc082d344af506762`。
+本次 `verify_launcher.py --expect-loaded` 的新会话、内置／部署 DLL 摘要及加载确认共 12 项通过，
+游戏停在主菜单，没有继续、购买、选择事件、推进战斗或新开对局。图片缓存完成后关闭游戏进程，重开启动器验证离线读取。
+
+实际检查结果：
+
+- 插件构建零警告／零错误；Python unittest 12 项、HistoryBrowse 展示规则 26 项通过。
+- `verify_history_store.py --reader` 在随机隔离目录通过 32 项，包括图片 ID 分页、去重、非法模板跳过、账号隔离及奖杯边界；不修改用户历史。
+- `verify_history_artwork.py` 按只读历史检查结果核对 112 张 PNG，覆盖物品、技能、英雄、奖杯和状态图标；来源版本哈希、尺寸和 RGB／RGBA 格式均通过。
+- 最终包 `verify_history_browser.py --expect-artwork` 21 项通过：英雄与卡图实际解码绑定、整局／交手身份、全部保存字段及属性、点击／长按、四组阵容滚动到底、返回锚点、横竖屏重建、空英雄筛选、匹配筛选及详情返回保留条件；结束恢复全部英雄和原屏幕旋转设置。
+- 人工复核最终列表、横竖屏阵容和短柄斧详情截图，英雄、裂杯／待确认图标和卡牌主体均可见，物品体型及槽位留白保持。PNG 和无障碍断言不冒充自动视觉识别。
+- 当前会话无图片加载异常、无新增原生崩溃；原框架启动钩子的既有诊断不作为本功能修复范围。
+
+证据在忽略目录 `artifacts/history-art/`：`loading/verification.json`、`reader`、
+`cache.json`、`final-browser/passed.json` 及截图、`game.log`、`crash.log`。
+重复入口为上述脚本的 `--help`；缓存校验需提供已确认的目标游戏目录及只读 inspection。
+启动器操作不依赖游戏标准／高级输入设置，本轮没有额外回归游戏内双输入模式。
+第二账号／设备、下架模板缺图、磁盘失败重试和大量历史的低内存专项仍待真机验证；
+首次升级及游戏版本变化后需进入游戏等待图片回填，当前模板插画仅供参考。
+
 ## Github 按钮正式应用身份验收（2026-10-24，test.13）
 
 在 `feat/android-launcher-github` 分支将启动器版本升至 `0.1.0-test.13`（code 13），
@@ -1185,6 +1331,132 @@ APK SHA-256：`1fb0364b7b870186001ed3dac808520721fa22460be6c00421c743c3bb15864d`
 这些专项覆盖不据此推断为全部完成。本次提交仅包含帮助页及对应文档。
 
 
+## 对局历史 M0 存储与互斥验证（2026-10-24，首轮）
+
+参考历史实施方案、桌面 `RunLogSessionManager`、`PvpBattleSnapshotCollector` 和四组快照模型，
+对照本地手机版生成代理核对 `NetMessageRunInitialized.RunId`、
+`NetMessageCombatSim.MessageId`、`CombatSimHandler.Simulate`、`Data.Run` 与
+`ClientCache.Profile`。UI 只核对现有源码及实际游戏首页；历史页面尚未实现。
+独立只读评审补充游戏存活锁、账号身份和量化采集预算，修正隔离验证的并发读时点。
+
+环境：设备 `OBJVWSPNSCFQU48L`，Redmi 22041216C，Android 14；两个客户端均为
+`1.0.12825-production-android-d9601ded`，包名分别为 `com.tempogames.thebazaar` 和
+`com.lookingin.bazaar.mod`。启动器为本轮工作区构建的 `0.1.0-test.10`，包含先前已有的
+未提交启动链修改，不将其归为历史功能改动。此次为存储与启动链验证，不依赖输入模式；
+标准／高级历史 UI、PvP／PvE 和卡牌数值均未验收。
+
+### 已验证
+
+- Python 离线回归 10 项、插件构建（零警告）、BuildCorpus 与 EnchantPolicy 测试通过。
+  签名构建通过，`apksigner` 为 `Verifies`，v2 为 true，证书为
+  `CN=BazaarPlusPlus Android Test`。具体源码和插件摘要由构建记录持有。
+- 初次临时探针经 Unity AndroidJNI 代理在 .NET 后台调用时触发原生 SIGSEGV；
+  已删除该桥实现，改用启动器独立 JNI ABI。之后按库名加载失败，按绝对路径加载得到
+  无 JVM 的独立库实例；改为启动器发布进程内已初始化入口，见 ADR-0002。
+- LookingIN 目标下两次后台 JNI 调用各自创建随机命名的隔离 SQLite 库，
+  校验提交、外键拒绝、写事务未提交期间独立读取已提交版本、回滚与关闭重开。
+  返回请求 UUID、目标包名、实际目录与能力标记均自动断言通过；Java 非法 UUID 异常
+  成功传回 C#。两次隔离存储验证耗时为 156 ms、287 ms；不是业务写入延迟或帧预算。
+  隔离文件已清理，目录只保留访问锁，未创建 `history.sqlite`。
+- 真实游戏租约持有时，从独立 Android `app_process` 尝试同一目标，退出码为 3；
+  完全停止启动器后同目录退出码为 0。另在独立测试目录启动持锁进程，竞争者退出 3，
+  杀死持锁进程后竞争者退出 0；测试目录与 DEX 已清理。JVM 测试另覆盖同进程重入、
+  同目录别名、不同目标、重入失败后原锁仍有效及 I/O 错误不误报为占用。
+  重复检查入口为 `verify_history_access.py --help` 与 `tests/device/HistoryLockDevice.java`。
+- 读取账号缓存时观察到先为全零 UUID，稍后才有有效账号；恢复现有对局可读到 Run ID。
+  全零身份不能作为已确认作用域。未执行账号切换，也未证明消息 ID 在重复投递或重连后稳定。
+- 临时战斗观察器使用加载器现有原生 hook 接口成功安装；直接使用 Harmony 时被
+  `MonoMod.Core.Platforms.Systems.AndroidSystem` 创建 `/data/.cache` 的权限错误阻断。
+  未因此改写框架、系统 HOME 或拷贝桌面程序集。安装成功只证明挂钩可建立，不证明已采集战斗。
+
+### 尚未通过的门槛
+
+两个客户端读到同一账号。正版恢复的是已有排位局，未购买、选择事件／野怪或推进战斗；
+测试客户端首页同样只有「继续」入口，未提供休闲新局入口。用户授权范围为推进休闲对局，
+因此本轮不推进或结束该排位，也不为测试弃局；用户随后选择保留排位，仅完成不推进对局的部分。
+尚缺实际 PvP／PvE 的战斗前四组快照与结果、可靠战斗身份、账号切换及采集耗时／队列预算。
+M0 整体未完成，未进入 M1–M4，自动保存、浏览、双方阵容、异常恢复、导出与导入均未实现。
+未提交为已验收功能。第二台设备及原 Android 9 设备均未测试。
+
+证据在被忽略的 `artifacts/history-m0/`：`python-tests.log`、`build.log`、
+`corpus-tests.log`、`enchant-tests.log`、`storage.json`、`final-probe.log`、
+`probe-session.json`、`device-lock-running-mod.json`、`device-lock-after-stop-mod.json`、
+`device-lock-death-recovery.json`、`crash.txt` 和截图。截图均为人工复核，
+不声称有自动视觉断言。临时采集源码只保留在此忽略目录，未装配到正式插件入口。
+
+最终构建复测：正版目标的新会话／插件／APK 摘要等 12 项 `verify_launcher` 断言全部通过。
+同一版 JNI 隔离测试再次通过，耗时 141 ms、161 ms；证据为 `final-loaded/verification.json`、
+`final-storage.json` 与 `final-official-probe.log`。本轮两目标均能确认后台 Java 调用与目录归属，
+尚未验证账号切换。停止游戏后第一次紧接重开首页的锁检查仍返回占用，按互斥规则保守拒绝；
+再次确认测试进程退出后，`final-lock-released-retry.json` 的独立进程取得锁断言通过，
+不以首页可见作为已关闭证据。
+
+临时 HistoryProbe DLL 及其设备侧输出已从两个客户端撤下，测试进程已停止，默认启动目标恢复正版。
+未清除、迁移或覆盖用户历史／游戏账号数据。最终验证包 APK SHA-256 为
+`fc1a6610c17f1eb94d7f77c7b02b2695888d84640bcbd74cacde51f437fe5643`；
+插件 SHA-256 为 `babaabcdf64d204abeb6874ed55ce3bdf146dcfc6f1173fa7696fbd3ee42bdde`。
+此包用于 M0 验证，历史功能仍不可用；不据此宣称原 Android 9 故障或整个方案已通过。
+
+### 休闲对局采集续测与定稿（2026-10-24）
+
+用户完成原排位后，明确选择普通模式，新建 `Unranked` 对局，并在重启后恢复同一
+Run ID。仅推进已授权的休闲局。临时探针对 `CombatSimHandler.Simulate` 的原生入口
+复制托管 DTO；原调用始终继续，序列化和文件写入在后台执行。
+
+第一天 PvE 的 `Data.CurrentState.StateName` 为 `Combat`，小时为 3；四组均采集成功，
+我方物品／技能数量为 2／0，对方为 4／1，合计 190 项属性，DTO 为 5,224 UTF-8 字节。
+胜者为 `Player`，原模拟消息处理成功并进入 `ReplayState`。第一天 PvP 为
+`PVPCombat`、小时为 6，数量为 3／0／5／0，合计 252 项属性，DTO 为 6,495 字节；
+胜者为 `Opponent`，处理结束后天数变为 2、胜负计数为 0／1。两场都保留品质、体型、
+实例／模板身份、位置、附魔、标签和属性；空技能组为成功采集的空数组。
+
+首轮采集耗时分别为 72.9503 ms、26.264 ms，尚未达到可交付性能结论；增加逐卡预热后
+仍须复测战斗采集。原生卡牌 `Name` 实测为空，需要从模板本地化标题保存名称回退；
+PvE 对方英雄为 `Common`，必须另外保存怪物模板身份，不能以该英雄字段代替怪物名称。
+
+PvE 可取得 `CurrentEncounterId`，PvP 对应字段为空。点击原生重放会再次进入
+`Simulate`，消息 ID 与刚结束的 PvP 相同，但当前天数／小时已变为 2／0；因此不能
+用采集时的天数／小时识别新战斗。正式观察器必须在 `ReplayState` 排除回放，且原始
+战斗身份不能依赖尚未证明跨重连稳定的短消息 ID。该身份策略仍须补齐并验证。
+
+临时桥压力验证同时发起 16 个请求：容量 4，接受 4、明确拒绝 12；已接受调用结束后
+再次调用成功。该结果证明有界桥的拒绝和恢复，不代表尚未实现的业务单写队列已经通过。
+证据为忽略目录中的 `casual-battles.jsonl`、`casual-observations.jsonl`、
+`casual-first-verification.json` 及 PvE／PvP 截图。自动断言覆盖同一休闲 Run、四组状态、
+PvP 胜负计数和重放消息关系；卡面截图为人工复核，不是自动视觉识别。
+
+增强探针重启期间另一任务覆盖安装不含历史桥的 test.11，当前输出出现 native host
+unavailable；未把该次会话计为历史验证通过。用户随后授权本任务独占手机。
+依导出 skill 构建临时 `0.1.0-test.11-history-m0`（code 11），避免降级或清除数据；
+该版本号仅用于本次忽略目录验证产物，源文件版本已恢复。本次新会话加载 12 项断言通过，
+探针 SHA-256 与设备一致，JNI 和原生钩子均重新确认生效。
+
+增强采集第二天 PvE：数量 3／0／5／1、252 项属性、6,887 字节，快照 14.8132 ms；
+第二天 PvP：数量 4／0／5／1、280 项属性、7,658 字节，快照 14.1516 ms。
+后者完整入口（含回放判断、元数据、任务投递）为 27.2342 ms，不能把仅快照计时写成
+完整入口。两场结果均由原模拟 Task 的 `RanToCompletion` 和窗口绑定消息再次确认；
+所有已采集卡牌名称非空，包括中文名称。PvE 沙尘暴教学会暂停模拟，点击教学后正常
+结束；因此不能把展示耗时视为数据库或采集延迟。重放实测记录 `replay_skipped`，
+不新增采集行。预热首卡 40–45 ms、后续 1–8 ms；性能预算及边界由 ADR-0002 定稿。
+
+另核对 PvE `CurrentEncounterId` 等于该怪物 `BoardManager` 日志中的 TemplateId；
+战斗开始时 `GetCurrentEncounter()` 可返回空，模板身份应保留原始字段，不能依赖当时
+仍有原生 encounter 实例。独立评审通过本地窗口 UUID、持久序号、completed 去重证据及
+跨进程身份歧义隔离规则；这些是 M1 实现要求，不是业务恢复已经通过的证明。
+第二账号不可用，真实切换移入 M4 保留待验证，不退出或替换用户登录。
+
+自动断言验证增强 PvE／PvP 四组、中文回退非空、Task 结果、压力拒绝与恢复、回放排除。
+证据追加 `casual-results.jsonl`、`casual-pressure.json`、`casual-final-log.txt`、
+`pve2-log.txt`、`casual-loaded/` 及 `validation-build/`。临时包 SHA-256：
+`9d4c0b00de88e938693e07f955cb230a8f02dd37170d00dd2fb2e3c6608e7a43`。
+测试结束停止游戏，删除设备临时探针和其输出，确认两目标插件目录均无该 DLL，恢复原
+test.11 APK 并自动核对设备与源 APK 摘要相同，证据为 `test11-restored.json`。
+没有清除账号、游戏进度或历史目录。
+
+至此 M0 采集／存储基线和设计定稿闭环，进入 M1；自动记录、浏览、阵容、恢复和文件
+交换仍未实现。原 Android 9、第二设备、真实账号切换、大阵容及业务故障恢复均未验收。
+
+
 ## Android 9 初始化读取兼容修复（2026-10-24，待原设备验收）
 
 用户提供的 test.10 诊断中，小米 9、Android API 28、arm64、正版客户端
@@ -1259,6 +1531,577 @@ MANAGE_GAME_MODE 权限等错误及一次登录 401，随后自动进入主菜�
 提交前另对暂存区快照执行离线回归，9 项全部通过；该快照不包含工作区历史互斥测试，因此与完整工作区的 10 项计数不同。
 
 
+## 对局历史 M1 事务存储与规则（2026-10-24）
+
+目标为 `OBJVWSPNSCFQU48L`、22041216C、Android 14。沿用 M0 的 Java 系统 SQLite、
+独立 JNI 和游戏进程租约，不引入桌面 SQLite 依赖。`HistoryStore` 拥有 schema、作用域、
+Run、持久窗口、四组快照及幂等证据；`HistorySessionCore` 负责原始观察窗口和晚回调规则。
+
+`verify_history_store.py` 编译实际生产 Java 存储代码，通过独立 `app_process` 在随机 UUID 的
+`/sdcard/BppHistoryM1Check/` 下验证，与游戏数据完全分开。34 项断言通过：schema／WAL、
+四组快照原子提交、外键失败回滚与同请求重试、重复 original／结果、冲突隔离、同时间多场、
+旧序号通知、身份失效、重启待确认、同 Run 续接与新 Run 替换、账号隔离和本会话暂存归属、
+进度前移且短消息改变时禁止重新授予 partial，以及较新、未知、损坏库保留原字节。
+
+空间不足注入使用写连接的 SQLite 页上限，实际触发 `SQLITE_FULL`；原战斗及四组快照保留，
+序号不前进，恢复上限后同请求成功。早期注入首先落在 WAL 读连接，未触发预期错误；固定写连接后，
+又发现 SQLite 自行回滚导致 `endTransaction` 的后续异常掩盖原始错误。`finishTransaction` 现在
+保留原始错误，将清理错误附加为 suppressed，修复后整套断言通过。不把受控页上限等同于
+真实填满设备存储，也没有为测试填满手机。
+
+同脚本的 `--kill-transaction` 使用隔离目录，在外层未提交事务内调用实际 `HistoryStore.write`，
+打印已到达边界后对该测试 PID 执行 SIGKILL；新进程重新取得租约、打开同库，6 项断言通过：
+已提交父 Run 身份保留、未弃局、整场未提交 opening 全部丢弃、序号和 checkpoint 未消耗、
+完整性及外键通过。没有在生产代码添加暂停或故障开关。这项是 SQLite 事务边界测试，
+实际游戏强制停止的验收单独记录，不用它代替游戏结算与生命周期验证。
+
+C# 的 `HistorySession.Tests`、`HistoryBridge.Tests` 通过。后者直接链接生产 Bridge，验证单写
+顺序、容量满显式拒绝、前置失败阻断后续、显式恢复、DTO camelCase 与中文／补充字符。
+生产插件及签名 APK 构建通过；证书及 v2 校验通过。临时验证包使用已安装 test.13 的同版号，
+原安装 APK 已只读备份；该临时包不作正式发布。当前 APK、校验、详细输出均在被忽略的
+`artifacts/history-m1/`，其中 `store-device-final.json` 和 `store-sigkill.json` 是通过证据。
+
+本条仅验收事务存储、桥与纯规则。实际采集器、可见失败／重试、整局正常结算和游戏强杀恢复
+仍在独立验收，历史浏览与备份尚未提供；真实第二账号及 Android 9／第二设备仍待验证。
+
+
+## 对局历史 M2：启动器只读浏览（2026-10-25）
+
+本条只验收启动器浏览，不代表 M1 完整对局或 M2 游戏内面板完成。设备为
+`OBJVWSPNSCFQU48L`、22041216C、Android 14；启动器原生触屏页，竖屏 1080×2460、
+横屏 2460×1080。使用实际休闲皮格对局已保存的 7 场记录，其中第 3 场因先前强杀只有
+战斗前快照，必须显示“结果未记录”；第 1 场有部分／失败组，不补写或猜测缺失数据。
+
+`HistoryReader` 仅以 OPEN_READONLY 打开既有库，不调用会创建目录的 Utilities 路径方法，
+无库、较新版本和损坏分别处理；corruption handler 保留原文件。列表分页使用时间＋ID，
+战斗使用天／小时／持久序号，列表只投影必要元数据，选中战斗才用单 SELECT 读取四组快照。
+Scope 由宿主固定：启动器显示本机档案，游戏读取预留账号或本会话 pending 限制，不能通过
+请求 ID、archive 筛选或 continuation token 越权。没有在此阶段接入游戏内读取桥。
+
+`verify_history_store.py --reader` 在随机隔离 UUID 目录运行实际生产 Reader，16 项通过：
+46 个同时间整局、43 场同小时战斗多页无重复或固定总数上限、新插入不扰动旧 continuation、
+显式首页刷新、账号／pending 会话和直接 ID 限制、四组状态与中文补充字符、写事务期间 WAL
+读已提交事实、目标不匹配拒绝，以及较新／损坏文件保持原字节。无库浏览不创建目录。
+
+`LauncherHistoryActivity` 固定进入时的目标游戏；单线程只保留一个等待查询，版本拒绝旧结果。
+翻页成功才提交 token，失败保留列表并重试原目标页。头部进入列表滚动，避免横屏说明挤空内容；
+旋转保存当前页、选择和滚动锚点，详情重新读取，不将大快照放进 Activity 保存状态。
+真机发现旧 onBackPressed 覆盖未接管当前 Android 系统返回，改用生命周期绑定的返回 dispatcher。
+
+可重复入口 `verify_history_browser.py` 从已打开的启动器历史列表开始，与
+`verify_history_store.py --inspect-game-root` 的只读事实对照；不启动游戏或修改历史。
+16 项自动断言通过：真实整局与战斗计数、卡牌 ID／品质／体型／类型及全部实例属性、长按相同卡牌、四组状态
+和所有已存卡名滚动至末尾、未知结果换选、系统返回与精确列表锚点、横竖屏重建及返回整局列表。
+首次滚动脚本速度过快跳过中间卡牌，减慢手势并保留视口重叠后重测；不把首次失败计为通过。
+截图人工复核，文本／保存值和返回路径有自动断言，不宣称自动视觉比对。
+
+首次前后比较的“最后观察时间”跨越较早游戏会话而不一致，未计为只读完整性通过。随后确认无
+游戏加载进程，重新取 before 基线、执行浏览验证、取 after，整个 summary（含最后观察时间、
+整局元数据、7 场及 28 行快照和生产 Reader 响应）相等。浏览未改变这些已保存业务字段。
+
+10 项 Python 离线回归、Java 8／Android API 编译、签名 APK 构建及启动器包的 3 项只读校验通过。
+当前验证包为临时同版号 `0.1.0-test.13-history-m1`，APK SHA-256：
+`6609c0a9134a1db6a7dab413b2c1663cff2eccdb977f577a6ba3e5aec33438ca`；设备 base.apk 摘要一致，
+签名 Verifies、v2 true、CN=BazaarPlusPlus Android Test。首页沿用已安装 test.13 的 Github 入口，
+不因新增历史而回退该按钮；没有发布或推送。本包包含工作区原有启动链修改，不把浏览验收视作
+这些修改的验收，也不以本条的 3 项包校验替代游戏启动的 12 项新会话校验。
+
+证据在被忽略的 `artifacts/history-m1/`：`reader-device.json`、`reader-controlled-before.json`、
+`reader-controlled-after.json`、`reader-final-integrity.json`、`browser-ui-controlled/` 和
+`browser-launcher-verification/`。M1 正常结束及完整一局、M2 游戏内原生卡图／互斥／两种游戏输入、
+启动器真实多页与故障 UI、空阵容 UI、切换另一目标数据、第二账号和第二设备仍待验证；
+Reader 隔离分页／故障测试不替代这些 UI 或真实账号验收。
+
+
+## 2026-10-25：整局正常结算、游戏内历史与历史阵容
+
+本轮按用户要求优先完成正常记录和历史查看，进一步异常恢复专项后置。设备仍为 Redmi 22041216C／Android 14，官方客户端 1.0.12825，2460×1080；只推进已授权的普通对局。原安装 test.13 已留存，验收使用临时 history-m1 包；APK、日志、账号事实与截图仅保留在忽略的 `artifacts/history-m1/`。
+
+- `History/AndroidRunObserver` 观察可靠账号、原生对局与阶段；`AndroidHistoryNativeCapture` 在实际 Simulate 前复制四组阵容，任务正常完成后另存结果；主线程只投影快照，后台执行序列化和 SQLite。Replay 不建立新战斗。`HistoryRunContinuity` 只在明确回放／结算阶段保留同身份的最后可靠进度，不能因原生对象消失推算结算或把缺失进度写零。
+- 前一普通对局已正常进入 EndRunDefeatState，数据库为 completed、结束时间非空、0 胜 7 负、11 个唯一战斗序号；从第 3 天开始记录的事实在界面明确标注。此局中一场只有开局而无结果，界面显示“结果未记录”。这不是从第 1 天开始的完整验收。
+- 最新游戏内 `AndroidHistoryPanel` 提供当前账号的历史列表、整局详情及选中战斗阵容，按开始时间／稳定 ID 分页；独立有界读取不占写入失败状态。关闭重开保留选择，从阵容返回整局可继续滚动到第 11 场。场景／战斗进入关闭和请求身份检查已实现；真实第二账号切换尚未验收。
+- `AndroidHistoryFormation` 使用保存的位置／体型排布双方物品与技能，独立合成实例和属性字典；不会把真实对局卡牌传给预览。初次实机发现原生预览零尺寸造成黑块／放大，已按现有阵容实现初始化尺寸并按完整外框缩放。另发现 SetUp 重建模板默认属性，现于其完成后恢复独立 clientCard 的已存属性并重新初始化 gem；第 10 场帝王之刃显示 Toxic、伤害 80、施毒 8，与快照一致，不再显示模板 50／0。
+- 标准模式点击打开只读保存字段，详情长文本可滚动到底并关闭；高级模式长按打开、松手关闭。物品、技能、附魔、四组完整性与旧局列表／整局／阵容已做截图人工复核；不能称为自动视觉识别。输入偏好已恢复原高级模式。历史保存字段为事实，当前模板描述仍仅供参考。
+- 新普通对局从第 1 天起记录，首场 PvE 和 PvP 均正常获胜，两个窗口分别恰好一条，已进入第 2 天。读取对比断言旧局 11 场／44 组快照的全部输出字段不变，见 `game-history-normal-integrity.json`；新局尚未完成，不能宣称开局到整局结算已验收。
+- 当前插件编译 0 警告／0 错误；正常展示 6 项纯规则断言和串行读取／待处理选择替换／Unicode 测试通过。最新包 `game-history-values-loaded/verification.json` 的 12 项新会话与摘要校验均通过。截图包含 `history-values-enchanted-formation.png`、`history-values-advanced-held.png`／`released.png`、`history-standard-fields.png`／`bottom.png`；只读事实见 `game-history-values-records.json`，正常结算见 `normal-end-*`。
+
+限制：当前未实测排位推进，不推断排位完整验收；段位／评分尚未采集；原生对象清空后的结算分支只有既有纯规则／存储证据，未在此轮强制制造。部分冷采集曾超过主线程目标预算并留下部分阵容，界面如实区分；完整性能门槛仍未通过。游戏内多页真实账号、第二设备、备份交换及异常恢复专项仍待后续完成。
+
+
+## 2026-10-25：按整局浏览 PvP 历史与原生卡图
+
+按用户选择的方案 2 继续游戏内历史，参考桌面 `HistoryPanelView`、`PvpBattleSnapshotCollector`、Android ADR-0002 及既有三层浏览。当前实现保留稳定 Run 分组及按需快照读取，每局仅展示 PvP 交手，列表、计数和直接详情查询均排除旧 PvE。新 PvP opening 增加对手名称；旧记录缺名明确显示“玩家名称未记录”，不从当前对手补写。
+
+野怪战斗未被其他核心功能依赖。`AndroidHistoryNativeCapture` 只在 PvP 原始模拟采集，`HistorySessionCore`／观察器忽略 PvE；`HistoryStore.begin` 对旧调用方的 PvE 请求直接返回 ignored，不保存快照、窗口、幂等证据或诊断载荷，也不消耗序号和检查点。整局身份、阶段、进度及结束状态仍独立观察；旧 PvE 数据不删除。没有重开 schema 或迁移旧库。
+
+设备为 `OBJVWSPNSCFQU48L`、Redmi 22041216C／Android 14，官方游戏 1.0.12825、2460×1080。从已有普通局的野怪选择阶段恢复到大厅，仅浏览既有记录和切换输入偏好，没有选择野怪、推进战斗或新开对局。使用 test.14 验证包；包内也含工作区原有启动链修改，本次历史验收不代表那些改动全部验收。
+
+实际观察与修复：
+
+- 游戏内显示两整局：当前局 6 场 PvP、上一局 5 场 PvP；正常结束、待确认续接及中途开始记录提示可见。新会话、磁盘／包内／加载摘要等 12 项校验通过，见 `artifacts/history-m1/pvp-last-loaded/verification.json`。
+- 首／末 PvP 的双方物品卡图、技能图标及保存字段已查看。发现 `Socket_0` 被当作一基槽位换算，保险箱与短柄斧、对方首件物品重叠；对照手机版生成代理 `EContainerSocketId` 后，提取 `HistoryFormationLayout.ItemSlot` 按零基位置排布，最后构建截图确认物品逐个可见且保留体型占格。
+- 原生卡牌材质没有 RectMask2D 裁切能力；滚动时只显示完整进入视口的原生卡图，名称和点击区域继续用普通遮罩。末场对方七个技能可滚动至第二行，原生图不覆盖底栏。截图为人工复核，不宣称自动视觉断言。
+- 标准模式点击打开保存字段并关闭；高级模式长按显示、松开关闭；完成后恢复高级模式。返回 PvP 列表、换选首末战斗、关闭重开保留选择已有本轮观察。真实账号多页及更多输入时序仍待专项覆盖。
+- `pvp-last-integrity.json` 对照修改前后全部 92 行战斗／快照读取结果（含原始 opening、四组 payload、结果与身份），完全一致；恢复标记属于启动生命周期，不与保存战斗内容混为只读不变断言。
+
+验证：插件编译零警告／零错误；10 项 Python 回归、HistorySession／HistoryObserver／HistoryBridge 测试及 10 项展示／槽位规则断言通过。真机隔离生产 SQLite 存储 40 项、Reader 19 项通过，覆盖 PvE 零写入、后续 PvP 窗口可用、混合旧库过滤、分页、身份隔离及文件保护。启动器现有文字浏览同步新查询语义，16 项 UI／字段断言及浏览前后全部读取字段一致通过，未增加启动器物品图片方案。
+
+证据均在忽略的 `artifacts/history-m1/`：`pvp-store.json`、`pvp-reader.json`、`pvp-browser-ui/`、`pvp-browser-integrity.json`、`pvp-last-loaded/`、`pvp-last-runs.png`、`pvp-last-battles.png`、`pvp-last-formation.png`、`pvp-last-bottom.png`、`pvp-last-standard-detail.png` 及输入模式相关截图。早期隔离存储测试因 fixture 名称断言仍使用旧“中文怪物”而失败，修正为 PvP fixture 名称后全套 40 项通过，不把首轮失败记为通过。
+
+边界：没有为本轮测试推进实际战斗；新版本实战对手名称、野怪跳过后连续 PvP 采集到正常结算仍待验证。旧记录缺失结果、缺名和部分阵容不会补造；原生描述依赖当前游戏模板。真实多账号／多设备、排位实战、备份交换和进一步异常恢复专项仍未完成。本地修改区分已验证的浏览／布局与待验证的新实战采集，不标记完整历史功能全部验收。
+
+
+## 2026-10-25：构筑候选默认不选
+
+参考桌面 panels 架构及 AndroidBuildPanelController.Refresh／SetOpen，移除首次刷新自动并入场上物品的逻辑；每次打开候选为空，刷新只剔除已不在场上／仓库／商店的选择。用户确认三个初始修复全部自测通过。本次 Redmi 22041216C／Android 14、官方游戏 1.0.12825、2460×1080 新会话 12 项加载校验通过，人工复核场上五种物品均未勾选、候选 0→1 及关闭重开归零。未购买、领奖或推进战斗，标准模式专项与其他屏幕比例未在本轮自动复测。
+
+Python 10 项、BuildCorpus／EnchantPolicy 及插件编译（零警告／零错误）通过。证据：忽略目录 artifacts/feedback-fixes/loaded/、build-default.png、build-selected.png、build-reopened.png；截图为人工复核。测试包含工作区原有启动链修改，不将本轮结果视作那些修改的全面验收。
+
+
+## 2026-10-25：推荐构筑附魔名称标签
+
+参考桌面 text 架构与 AndroidBuildBoard.Select／AndroidBuildPanelController.ResolveName，构筑文字标题经 NativeUi.TitleText 移除原生 TMP style 包装；名称文字及其余富文本保持原有内容，不在无对应样式表的 BPP 标签上输出游戏专用 style。范围覆盖推荐物品详情标题、推荐清单及候选名称。用户确认该修复自测通过；本次真机选中短柄斧后打开带 Obsidian 附魔的皮格健身房详情，日志记录 card_selected，截图保存在 artifacts/feedback-fixes/build-enchanted-title.png（附加预览遮住部分详情，不将此图单独视为完整文字视觉验收）。
+
+沿用本轮新构建编译、10 项 Python、BuildCorpus／EnchantPolicy 和 12 项新会话摘要校验；不修改桌面共享源码。其他语言与全部附魔名称未逐个复核。
+
+
+## 2026-10-25：移除预览顶部标签（用户自测通过）
+
+用户确认最初三项修复自测全部通过，随后要求直接删除升级、附魔和任务奖励三个标签，并覆盖安装后自行验证。AndroidTooltipObserver 不再创建标签或预留顶部空白；附魔／升级继续由现有长按偏好控制，任务奖励正文合并在当前物品预览之后，避免删除入口时丢失奖励信息。事件和等级奖励弹窗按正文高度收紧，长内容仍滚动，野怪布局保留原规则。参考桌面 previews 架构和现有 AndroidQuestRewardPreview；未更改游戏 API 或共享桌面代码。
+
+最终无标签构建的离线结果及覆盖安装证据见忽略目录 artifacts/feedback-fixes/；本轮按用户要求不继续游戏内自动操作，由用户自行验证；覆盖安装后用户确认“可以了，提交代码”。未逐项提供双输入模式、全部奖励正文或数值对照结果，不据此扩大专项验收范围。较早 final-loaded 的 12 项通过对应尚保留任务奖励按钮的中间构建，不能冒充最终构建真机验收。原有启动链工作区修改不属于本次修复验收范围。
+
+最终构建插件零警告／零错误、10 项 Python 回归及签名校验通过。已在设备 OBJVWSPNSCFQU48L 覆盖安装 0.1.0-test.14，安装包内置依赖、插件摘要及安装版本三项校验通过；设备 base.apk SHA-256 与本地一致：`26b24765e766b4b9cf7958866c787ecd3c8c8a0744340f4ef7b6ba3f9bb1eda4`。安装证据为 artifacts/feedback-fixes/no-tabs-installed/。代理未启动最终版本进入游戏；覆盖安装后用户确认自测通过。
+
+
+## 2026-10-25：历史方案 1 头像与胜场奖杯（用户真机验证通过）
+
+仅修改游戏内入口：`AndroidHistoryPanel` 分离英雄图、时间／模式、胜场和状态；
+`AndroidHistoryArt` 在主线程轮询原生头像与四档奖杯，复用仓库三格状态徽章显示裂杯、白旗和沙漏。
+`HistoryViewText` 仅对完整、可靠的已结束进度判定最终奖杯；0–3 胜显示裂杯。
+中断不推断投降，真实旧档案仍缺少可靠投降采集证据。
+
+离线：插件编译零警告／零错误，28 项展示与分级断言、HistorySession／HistoryObserver／HistoryBridge
+测试通过，10 项 Python 回归通过。首次验证构建的新会话／包内／磁盘／加载摘要 12 项通过；
+当前截图已看到两条真实记录和原生英雄图，其中 0 胜行缺杯，随后已补裂杯并重新构建。
+最终验证包覆盖安装后，用户确认“可以了，验证通过”。本次界面及演示战绩验收记为用户真机验证通过；
+用户未逐项报告的双输入模式、多设备、多账号或实际投降采集不据此扩大验收范围。
+最终 APK 版本为 `0.1.0-test.14`，SHA-256：
+`04ff1cc5800c2e55c1b02efd17235f971d0c23373b7fa1de3aecd7510cc498ab`。
+
+按用户要求提供独立演示 fixture `tests/fixtures/history-preview.json`，覆盖 0、3、4、7、10 胜，
+含黄金、零负钻石、明确模拟投降、进行中及四种对手英雄。
+仅在 `BepInEx/config/BazaarPlusPlus.Android/history-preview.json` 存在时显示「演示战绩」开关；
+演示使用独立 Page，不调用历史读写桥，底部明确标注演示数据，点击「真实记录」可返回。
+删除该配置后重启可隐藏演示入口。此测试 fixture 不修改真实数据库。
+设备为 OBJVWSPNSCFQU48L／Redmi 22041216C／Android 14，游戏 1.0.12825，2460×1080。
+本轮仅恢复已有普通局、浏览页面，没有选择野怪或推进战斗。
+
+
+## 2026-10-25：英雄筛选卡片、历史筛选与演示入口清理（用户反馈通过）
+
+参考 `docs/design.md`、桌面 Collection／History 实现及 Android 已有头像列表。
+`AndroidChoicePopup.ShowHeroes` 为图鉴与游戏内历史共用的三列头像＋本地化名称选择面板，
+增大触控高度，使用高亮与「已选」文字表达当前条件；全部／通用选项使用文字占位。
+原 `AndroidHistoryArt` 移至公共适配器 `android-mod/AndroidUiArt.cs`，保留主线程轮询、
+Global 资源加载及关闭后解绑，避免筛选面板依赖历史视图内部实现。
+`AndroidHistoryPanel.LoadPage` 将英雄条件传给 `HistoryReader.runs`，在 SQL 查询分页前筛选；
+切换条件清空旧页游标，详情返回保留条件，账号作用域变化重置条件。
+删除 `history-preview.json` 演示 fixture、复制配置、专用 fixture 断言及游戏内演示入口；
+保留正式展示规则的独立断言，旧设备配置不再被读取。
+
+按用户“尽管写代码，验证我自己来”的要求，本次未执行编译、测试、打包、部署或真机操作。
+待用户覆盖：头像与名称同时显示、全部／通用／各英雄选中反馈、滚动与关闭重开、历史跨页筛选、
+无结果提示、切换中旧请求晚完成、详情返回条件保留，以及标准／高级两种输入模式。
+历史筛选涉及启动器 Java Reader，验证包需同时包含本次启动器与插件代码。
+
+用户随后要求覆盖安装并启动游戏。本轮已重新编译插件（零警告／零错误），按 APK 导出 skill
+构建签名包，v2 签名通过，证书为 `CN=BazaarPlusPlus Android Test`。
+在 OBJVWSPNSCFQU48L 上 `adb install -r` 成功，通过首页「启动游戏」启动，
+`verify_launcher.py --expect-loaded` 的 12 项会话／摘要检查全部通过。
+启动截图显示游戏加载至 94%，功能交互留给用户验证；未进入新对局或进行筛选验收。
+APK 版本 `0.1.0-test.14`，SHA-256：
+`64ab1ade914a102b6843bf5e02d733f89bd5ae2c0ff5767c8a8beab15d83011c`。
+证据：忽略目录 `artifacts/hero-filter-launch-evidence/`、`artifacts/hero-filter-launched.png`。
+
+覆盖安装后用户反馈“不错”，要求先提交本次修改；未逐项报告的专项覆盖保持待验证。
+
+
+## 2026-10-25：商店／训练师头像筛选卡片（2026-10-26 用户确认通过）
+
+先提交上一轮英雄与历史筛选修改：`3bd8b834`。
+本轮参考桌面 `EncounterPortraitSpriteProvider.LoadPortraitCoreAsync`，来源目录已有
+`CollectionSourceEntry.PortraitTemplateId`，通过模板 `ArtKey` 加载 `EncounterAssetDataSO`，
+读取其 `portraitTextureReference`。已检查本机 Android 生成代理，字段类型为 Unity Sprite，
+与桌面读取路径一致；这仅确认 API 签名，不证明每位商人的实际资源可用。
+
+`AndroidChoicePopup.ShowCards` 复用英雄选择的三列大卡片、名称与选中标记；
+`CollectionController.ChooseSource` 保留原有英雄可见性、来源筛选和跟随商店逻辑，
+为商人／训练师添加头像绑定。全部来源与跟随当前商店保留文字占位。
+`AndroidUiArt` 在主线程轮询遭遇资源加载，每帧最多发起两次资源读取，使用 Global 作用域；
+关闭选择框即解绑，加载失败时保留文字并按已有间隔重试。
+
+沿用用户自行验证的约定，本轮未编译、测试、打包、覆盖安装或操作游戏。
+待验证：各商人及训练师图片、全部／跟随选择状态、相同名称的不同来源、
+切换英雄后可见来源、列表滚动、快速关闭重开及两种输入模式。
+
+用户随后要求覆盖安装并启动。插件重新编译零警告／零错误，签名 APK 构建与 v2 校验通过；
+在 OBJVWSPNSCFQU48L 上覆盖安装成功，经启动器「启动游戏」启动，新会话／插件摘要等
+12 项加载检查全部通过。截图显示游戏加载至 94%；商人图片与筛选交互留给用户验证。
+APK 版本 `0.1.0-test.14`，SHA-256：
+`055b2f8ca7f485a4bee476679eb9402ea01026f05db039444485608a0e3bb5dd`。
+证据：忽略目录 `artifacts/source-filter-launch-evidence/`、`artifacts/source-filter-launched.png`。
+
+2026-10-26 用户反馈“可以了，提交代码”，本轮商人筛选改动记为用户真机验证通过；
+未逐项报告的全部商人／训练师、相同名称来源及双输入模式专项不扩大为全部覆盖。
+
+
+## 2026-10-26：移除顶部历史状态提示条（用户自测通过）
+
+按用户要求，`AndroidRunObserver.Update` 不再创建或更新顶部历史提示条，
+删除 `BuildStatus`、提示文字及其专用 UI 状态；等待、记录、保存和异常等状态均不显示。
+历史采集、写入、日志及有序重试逻辑保留；原重试测试改为直接调用内部 `Retry`。
+参考 Android README、功能清单、既有真机记录及桌面 capture 架构说明与 Android 观察器源码。
+
+插件已通过 `build_probe.py --mod` 编译（零警告、零错误），
+`HistoryObserver.Tests` 既有身份隔离、重复采集、有序重试与结束状态连续性检查通过。
+新插件位于忽略目录 `artifacts/mod/BazaarPlusPlus.Android.dll`。
+10 项 Python 离线回归通过。按用户要求，界面验收由用户自行完成。
+
+后续按用户要求构建并覆盖安装至 Redmi 22041216C（`OBJVWSPNSCFQU48L`）：
+`adb install -r` 返回 Success，已安装 base.apk 摘要与新构建一致。
+版本 `0.1.0-test.14`，APK SHA-256 为 `e8b4bf04f8ec24495b30b2f3cd5bcece1545ae767c852c5d9a23b9eff668fac8`；
+v2 签名及内置最新插件摘要核对通过。本包含工作区已有启动器兼容性修改。
+本次代理只覆盖安装，未启动游戏或执行界面验收。
+2026-10-26 用户反馈“可以了，提交代码”，本次提示条移除记为用户自测通过；
+未逐项报告的状态切换与双输入模式专项不扩大为全部覆盖。
+
+
+## 按住预览入口仅高级模式显示（2026-10-26，待验证）
+
+`AndroidHoldPreview.Build`／`Update` 按当前输入模式隐藏或显示入口，标准输入模式不再显示禁用按钮；`AndroidFloatingDock.Layout` 同步收紧排列及高度，历史入口上移，切回高级模式恢复。参考现有输入／预览架构和按钮组实现，未改共享桌面预览规则。
+
+按用户要求跳过编译、离线测试、部署与真机验证。本次没有设备操作或新增验收证据，既往标准模式禁用状态的验证不代表本次隐藏行为通过。待验证：标准模式入口不可见、高级模式恢复、运行时切换、历史入口排列及自动收起／拖动吸边。
+
+
+## 2026-10-26：图标入口、按钮样式与历史入口开关（用户真机确认通过）
+
+`AndroidFloatingDock` 的入口改为 115×115 图标按钮（参考 1080 屏高），按当前可见入口重排、不留空位；
+`AndroidDockIcons` 读取嵌入的图标 PNG。长按模式按钮恢复，图标与文字随附魔／升级／无切换，
+游戏设置中修改长按预览时同步。`AndroidNativeSettings` 新增「BPP：按钮样式」（图标／纯文字旧版 270×90）
+和「BPP：对局历史按钮」（显示／隐藏），`AndroidDockSettings` 以可选字段保存，旧文件默认图标样式并显示历史。
+图标来源与 CC BY 3.0 署名见 `assets/dock-icons/SOURCE.md`，`build_launcher.py` 将署名写入启动器许可页 `NOTICE.txt`。
+
+插件经 `build_probe.py --mod` 编译零警告、零错误；DockSettings（含新字段解析与保存）、HoldPreview、
+LongPressSettings 测试通过。签名 APK `0.1.0-test.14` 的 `apksigner` 校验通过（v2，`CN=BazaarPlusPlus Android Test`），
+内置插件摘要与构建一致，`NOTICE.txt` 含图标署名；覆盖安装至 Redmi 22041216C（`OBJVWSPNSCFQU48L`）返回 Success，
+最终 APK SHA-256 为 `dc1f19c0cfafd3204d06e5b5be9ff3aa67ba1270608c804bef81fcac199e77a8`。
+代理未启动游戏或执行界面断言，`verify_floating_dock.py` 仅同步了新尺寸、未在本次运行。
+用户在设备上查看后确认通过；未逐项报告的标准／高级模式、四边吸附、自动收起、纯文字样式与历史隐藏组合不扩大为全部覆盖。
+
+
+## 2026-10-26：按住预览可穿过已打开的预览面板（用户真机确认通过）
+
+问题：按住预览期间，另一根手指点击被附加预览面板（`BPP.EnchantPreview`）或原生详情遮住的物品／事件时，
+`AndroidHoldPreview.Preview` 只取首个非遮罩命中，命中面板后记录 `target_unavailable` 并放弃，须松手后才能再选。
+修正：新增 `AndroidHoldPreview.IsPreviewSurface`，命中位于 `AndroidTooltipObserver.FocusPanel` 或
+`CardTooltipController` 下且无法解析卡牌时继续检查下一命中；其他菜单与界面仍阻挡；野怪浮层内的卡图仍可直接解析。
+
+插件经 `build_probe.py --mod` 编译零警告、零错误，HoldPreview 与 PreviewTooltips 测试通过。
+签名 APK `0.1.0-test.14` 的 `apksigner` 校验通过（v2，`CN=BazaarPlusPlus Android Test`），
+APK SHA-256 为 `ae8218d0331533e0d2fd1083f543ee2e01e8a1a859e2c1ba2c1bd56109939146`，内置插件 SHA-256 `77df0f18c265a108f4488c3ffe0d06a47e74046fe14a078ce76c767a45c39346`；
+覆盖安装至 Redmi 22041216C（`OBJVWSPNSCFQU48L`）返回 Success。代理未执行界面操作。
+用户在高级模式真机测试后确认通过；野怪浮层下方目标与连续多次穿透切换未单独报告，不扩大为全部覆盖。
+构建日志：忽略目录 `artifacts/hold-preview-passthrough-build.log`、`artifacts/launcher-apk-build.log`。
+
+## 2026-10-26：入口按钮独立显示／隐藏与启动器同步（用户真机确认通过）
+
+`AndroidLauncherSettings`（取代 `AndroidPreviewPanelSettings`）在 `bpp-launcher-settings.json` 中新增
+`hiddenDockButtons`（collection、builds、previewMode、holdPreview、history），缺省或空数组即全部显示；
+插件与启动器 `LauncherSettingsActivity`／`LauncherPreparation` 均读取已有对象后合并写入，保留未知字段。
+游戏原生设置以五行「BPP：…按钮」（显示／隐藏）取代原历史按钮行，启动器设置页新增「游戏内按钮」五个开关；
+原 `dock.json` 的 `showHistory` 移除，旧值不迁移。帮助页补充按钮显示、样式与对局历史说明，删除“尚无历史”的过时表述。
+
+插件编译通过；`LauncherSettings.Tests`（原 `PreviewPanelSettings.Tests`）、DockSettings、HoldPreview、
+LongPressSettings 与 10 项 Python 回归通过。签名包 apksigner 校验通过，覆盖安装到 Redmi 22041216C 后用户确认验证通过；
+未逐项报告的双输入模式、启动器与游戏内交替修改等组合不扩大为全部覆盖。
+
+## Android 9 配置变化空 Display 修复（2026-10-24，test.11）
+
+用户提供 `bazaarplusplus-launcher-log8.json`：小米 9、API 28、arm64、正版游戏
+`1.0.12825-production-android-d9601ded` 两次启动均越过准备与 Unity 原生接口注册，
+随后主线程在 `ActivityThread.performConfigurationChangedForActivity` 因
+`Display.getDisplayId()` 的接收对象为空退出。诊断不包含完整系统 logcat。
+
+已对照启动器 ADR-0001、BUILDING、现有初始化验证记录、`GameRuntime.prepare`、
+`CustomContextWrapper.getDisplay` 和 `FusionConfigActivity.onConfigurationChanged`。
+[Android 9 系统源码](https://android.googlesource.com/platform/frameworks/base/+/android-9.0.0_r1/core/java/android/app/ActivityThread.java)
+在配置变化流程直接调用 `activity.getDisplay().getDisplayId()`；原包装层在 API 30 以下
+返回 null，替换 Activity base context 后该返回值进入系统流程。此处早于游戏自身的
+配置回调，现有 Unity 原生接口保护无法处理这个空值。
+
+修复仅适配宿主显示对象：API 26–29 使用宿主原 Activity context 的
+`WindowManager.getDefaultDisplay`，API 30 及以上继续转发宿主 `getDisplay`。
+不使用游戏包 context 或固定 display 0，不吞掉系统异常，不修改游戏 API／插件业务。
+测试包版本升至 test.11；插件由独立 worktree 的已提交源码重新构建，未带入原目录
+尚未提交的历史桥功能。此次未改变游戏内交互。
+
+离线与构建验证：
+
+- Python 回归 10 项通过。新增测试编译并执行生产 `CustomContextWrapper`，
+  使用 JVM Android API doubles 覆盖 API 26、28、29、30、34，模拟 Activity 包装层的
+  虚调用，验证重复配置查询返回宿主显示对象，旧分支不调用 API 30 公共接口。
+  游戏与宿主使用不同的非零 display ID，防止错误转发或固定默认屏幕。
+  原实现运行同一测试失败；这是分支行为测试，不是 Android 9 系统或 MIUI 真机验证。
+- 插件使用固定框架和现有 Android 生成代理重新构建，0 警告、0 错误。
+- 使用导出 skill、JDK 24 与原测试签名打包；assembleRelease、lintVitalRelease 及
+  APK 内置依赖校验通过。签名 Verifies、v2 true，证书 CN=BazaarPlusPlus Android Test。
+  未重新运行完整 lintDebug，不代表既有工程 Lint 问题已解决。
+- APK SHA-256：`7915e7eceedd4945df1eeb9864e5ad116899c5034fb4afd6b42e0491a8afbe89`。
+  releaseId：`700a0aab6641b286d46c51064858251091e48b289b3b000afcbbe05af14352c1`。
+
+当前 Android 14 设备回归：
+
+- 设备 `OBJVWSPNSCFQU48L`、22041216C、API 34，正版游戏版本同上，横屏 2460×1080。
+  测试前在游戏主菜单；覆盖安装 test.11 成功，设备已安装 APK 摘要与本机修复包一致。
+- 通过 Android CLI 按启动按钮资源 ID 发起新会话。初次检查正确拒绝旧握手；加载完成后
+  `verify_launcher.py --expect-loaded --not-before-ms` 的 12 项断言全部通过，包括新会话、
+  插件摘要、当前会话事件和游戏代理。本次插件摘要为
+  `da7fda9b59d4f91e991af1dd84263388d560e04a7608b8d77a7e6f243f653e24`。
+- 最终截图人工确认主菜单、继续按钮与 BPP 收起入口可见，PID 32644 保持存活。
+  当前进程日志未发现 FATAL EXCEPTION、Fatal signal、NullPointerException 或 NoSuchMethodError。
+  日志仍有 Unity 辅助功能方法、MANAGE_GAME_MODE 权限、自动登录 401 及设备原有独立
+  History M0 Probe 的 native host unavailable 错误；未宣称游戏日志无错误或历史功能通过。
+- 本轮只测启动链，未切换或验收标准／高级输入模式，未点击继续或操作对局，未清除账号数据，
+  未验证完整修复与全新无缓存初始化。Android 14 结果不能替代 API 28 分支的真机验收。
+
+本次证据位于被忽略的 `artifacts/display-context-fix/`；签名构建记录在
+`artifacts/launcher-apk-build.log`，测试包及签名报告在 `artifacts/launcher/`。
+原小米 9 未连接，须使用 test.11 重试初始化及启动，确认不再出现空 Display 配置异常，
+并重新收集诊断以发现是否有下一处兼容问题。此轮原 Android 9 专项验收未完成；后续用户反馈与提交授权见 test.12 节，不将概括反馈扩展为小米 9 全部路径通过。
+
+
+## Unity 基础库 ZIP 消费文件名修复（2026-10-24，test.12，用户验证通过）
+
+用户提供 `bazaarplusplus-launcher-log (3).json`：test.11、API 37、arm64、正版游戏
+`1.0.12825-production-android-d9601ded`，已进入 BepInEx Preloader。在提取 Unity
+基础程序集时先报 `InvalidDataException: End of Central Directory record could not be found`，
+之后继续初始化 Chainloader，最终 SIGABRT，栈落在 libcoreclr.so。记录的页面大小为 4096，
+不能据此归因于 16 KB 页。诊断没有设备型号、完整 ZIP 路径、实际坏文件摘要或完整托管调用栈。
+
+参考启动器 ADR-0001、BUILDING、既有内置依赖验收、`LauncherPreparation.prepare`、
+固定框架 `BepInEx.Unity.IL2CPP.dll` 的 `Il2CppInteropManager.DownloadUnityAssemblies` IL，
+并与 [BepInExFusion 源码](https://github.com/All-Of-Us-Mods/BepInExFusion/blob/master/Runtimes/Unity/BepInEx.Unity.IL2CPP/Il2CppInteropManager.cs)
+交叉核对。IL 所用 DLL 已逐字节比对本工程固定框架 ZIP 内文件，避免仅凭可变上游源码推断。
+它从配置提取来源 URL 的 AbsolutePath，再取 GetFileName，与 unity-libs 组合、检查 Exists，
+最后 OpenRead 并交给 ZipArchive；已有同名文件不会重新下载或校验。
+
+原准备流程安装并校验 `6000.3.11.zip`，却把来源 URL 写成末尾为 `Managed.zip` 的地址。
+框架因此消费另一份 Managed.zip；缺失时尝试下载，已有损坏缓存时直接报 ZIP 中央目录错误。
+既有真机记录保留了已生成代理，不能证明首次代理生成实际消费过正确 ZIP。
+该缺陷可确定复现，并与此次首个错误吻合；脱敏日志不能确认用户实际坏文件内容，
+也不能证明后续 libcoreclr 中止没有独立原因。
+
+修复沿用现有依赖校验与原子安装，将实际 ZIP descriptor 的 name 传给
+`LauncherUnityLibraries.configure`，只在 IL2CPP 节更新 UnityBaseLibrariesSource 为本地文件名；
+缺少键或节时补齐，其他配置保留，拒绝 URL、越界路径及非 ZIP 名称。
+清单缺少或包含多个基础库 ZIP 时在准备阶段拒绝继续，不让框架选择未校验来源。
+原 Managed.zip 不再被读取，不删除它或账号、游戏持久数据；来源 URL 保留供构建及追溯。
+本包继续包含 test.11 的旧版 Android Display 修复。
+
+离线验证：
+
+- Python 回归 11 项通过，包括生产 Java 配置方法的已有 URL／坏缓存、无代理、缺少配置键／节、
+  CRLF、空配置、重复执行、其他节同名键和非法来源检查。原 URL 配置在同一夹具选择
+  损坏 Managed.zip，复现 ZIP 失败；修复后选择已安装 ZIP 并成功解压。
+- Java 夹具由 `LauncherUnityLibrariesTest` 导出，替换为 compatibility.json 固定摘要的真实 ZIP；
+  `.NET 10` 的 `UnityLibraries.Tests` 按已核对的消费者文件名规则读取，旧配置复现相同的
+  End of Central Directory 错误，新配置成功读完全部 77 个条目；未依赖已有 interop 目录。
+  这是桌面 .NET ZIP 消费边界回归，未运行 Android 上的完整 BepInEx／Cpp2IL。
+- 构建导出的对应源码包补入两次崩溃修复的 Java、Python、C# 回归测试。
+
+test.12 签名构建：
+
+- 使用导出 skill、JDK 24 与原测试签名；为避免干扰其他测试任务，使用独立 Gradle daemon
+  目录，仅复用受锁保护的依赖缓存。assembleRelease、lintVitalRelease、内置依赖核验通过。
+- 签名 Verifies、v2 true，证书 CN=BazaarPlusPlus Android Test；未执行完整 lintDebug。
+- APK SHA-256：`72103b91eb94b44c967cd5afc15ee81632983b29b9cd36b10a9c17d54cbf7a51`。
+  releaseId：`b901cd3ffcf6933c51636ba3e5e4ea1f6db77c15c08f1778a3ffd9dabd0f70f2`。
+- 测试包、清单、签名报告与对应源码包另存于 `artifacts/interop-zip-fix/test12/`，
+  旧包备份位于同级 `test11/`；下载目录另存带 test.12 名称及 .111 后缀的副本，原 test.11 副本摘要未变。
+
+用户明确要求不覆盖本机安装包，当前手机正在进行其他测试：本次未使用 ADB、Android CLI，
+未安装、停止、重启或操作手机应用。原 API 37 用户设备未连接，完整初始化、代理生成、
+插件握手、游戏主菜单及后续原生中止是否消失在此轮构建结束时仍待复测。后续用户反馈如下。
+
+证据在被忽略的 `artifacts/interop-zip-fix/`：`pinned-consumer-il.txt`、`offline-tests.log`、
+`dotnet-consumer.log`、`consumer-fixture/`；测试源码为 `tests/LauncherUnityLibrariesTest.java`、
+`tests/test_launcher_unity_libraries.py` 和 `tests/UnityLibraries.Tests/`。
+
+
+### 用户验收与提交授权（2026-10-24）
+
+用户收到下载目录的「修复测试版本2」test.12 包后，在本会话明确反馈：
+“可以了，用户验证通过，提交吧”。该副本已确认与上述 test.12 APK 的 SHA-256 一致。
+据此记录本次启动崩溃修复经用户验证通过，并执行本地提交。
+
+此前补充的两份 test.10 日志分别来自 API 36 和 API 35，均有三次基础库联网下载超时，
+随后代理生成失败及相同的 libcoreclr SIGABRT 栈，支持与 test.12 修正的基础库来源缺陷同类。
+用户本次反馈未逐台列出验证设备、步骤或新的诊断，因此不声称 API 28／35／36／37
+全部逐机验收完成，也不新增自动握手、游戏功能、全新初始化或完整修复的验证结论。
+本次验收来源为用户反馈；本机手机继续保持其他测试任务，不重新安装或操作。
+
+
+## 2026-10-26：BazaarPlusAndroid 更名
+
+参考启动器 ADR-0001、BUILDING、插件设置文档与当前 `LauncherActivity`、
+`AndroidNativeSettings`、`AndroidFloatingDock` 实现，仅调整产品名称与链接。
+项目中英文说明、三种应用名资源、启动器首页／帮助／许可、插件与探针显示名、
+游戏内设置、附魔预览标题、折叠入口和构建／发布附件统一品牌；折叠入口使用 BPA。
+上游 BazaarPlusPlus 署名、签名证书、应用 ID、插件 GUID／程序集、JNI 类路径、
+数据目录与配置键保持兼容。此前验证记录保留当时实际名称。
+GitHub 仓库已在现有登录会话中更名为 `VIkill33/BazaarPlusAndroid`，
+仓库 About 说明、项目链接及本地 android remote 已更新；未推送源码或发布 Release。
+
+离线与构建：Python unittest 12 项通过，Android 插件／探针编译零警告、零错误；
+JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
+发布校验器验证新附件命名通过，并以实际签名包验证历史附件命名兼容路径。
+最终 APK `0.1.0-test.14` SHA-256：
+`656c2539174d9d80eb7b97edbaab42f5eeb9073fcc59342d59944e43c3a0b9c0`。
+签名 Verifies、v2 true，沿用 `CN=BazaarPlusPlus Android Test`。
+
+本次设备：22041216C（xaga），Android 14，官方游戏
+`1.0.12825-production-android-d9601ded`；测试前停留启动器首页。
+覆盖安装保留原有应用数据。Android CLI 获取布局与截图，断言首页和帮助页含新名称，
+人工复核两页标题完整显示；帮助页通过文字定位打开。最终链接更新后再次构建并覆盖安装，
+从启动器启动游戏，独立新会话、当前 APK／插件摘要及加载时序等 12 项断言全部通过。
+首次采集发生于运行环境准备期间，仅旧握手可见，未计为通过；初始化完成后重采全部通过。
+未新开或推进对局、购买、上传或清除数据。
+
+证据：被忽略的 `artifacts/rename/` 下的首页／帮助布局及截图、
+`evidence/verification.json`、加载日志、`final-release/` 的发行校验输入；
+`artifacts/rename-tests.log`、`artifacts/rename-build.log`、`artifacts/launcher-apk-build.log`。
+进入游戏大厅后打开设置，截图人工复核长按预览、预览位置、自动收起、按钮样式及
+五个入口开关均显示新品牌且未截断；原生游戏字体按既有样式显示为大写英文，未修改设置值。
+设置页证据为 `settings-brand.png`、`settings-buttons.png`。
+附魔标题和 BPA 折叠条的逐项视觉验收，以及双输入模式、横屏启动器与放大字体组合
+仍待覆盖；不扩展为这些路径均已真机通过。
+
+
+## 2026-10-26：启动器首页第二版按钮网格
+
+参考 `docs/design/launcher-home-grid.png` 与 `LauncherActivity`／`activity_launcher.xml` 原实现。
+保留集市背景、品牌、启动前状态、既有点击处理；仅首页使用全宽启动按钮、两行三列带图标按钮与全宽更多入口，其他页面样式不变。
+
+- 设备：`OBJVWSPNSCFQU48L`，Redmi 22041216C，Android 14，1080×2460，440dpi，字体初始为 1.0。起始前台为启动器历史页；本次没有启动或操作游戏对局，不涉及游戏双输入模式。
+- 离线：`python3 -m unittest discover -s bazaarplusplus-android/tests -v`，13 项通过；签名构建通过，签名报告 `Verifies`、v2 为 true，证书 `CN=BazaarPlusPlus Android Test`。本机签名包覆盖安装成功，版本仍为 `0.1.0-test.14`。
+- 原生入口：八个按钮均有可访问文本，首轮布局树断言全部可见、触控高度不低于 48dp；历史／设置／帮助进入预期 Activity，打赏打开可关闭弹窗，Github 打开外部处理应用，更多打开原菜单，许可弹窗可读取新增图标来源与许可证。重新检查完成后恢复可启动状态。
+- 最终尺寸：网格最小高度由初版 76dp 收紧至 64dp，竖屏及 130% 字体下按钮标签完整、排列一致，截图人工复核通过；页脚可滚动查看。
+- 横屏：确认实际截图为 2460×1080 后，通过 ADB 滑动至按钮区，六个按钮与更多入口完整无重叠，人工复核通过。Android CLI 布局／滚动服务会令设备回到竖屏，因此其命名为 landscape 的布局 JSON 不作为横屏证据；本轮横屏以 `home-grid-landscape-adb-buttons.png` 为准。系统 uiautomator 未生成预期 XML，不记为树断言通过。
+- 测试结束恢复字体 1.0、自动旋转 1 与原 user_rotation 0，并回到竖屏主页。崩溃缓冲区所见记录为 10 月 23 日历史记录，本次未见新增启动器崩溃。
+
+证据（均位于被忽略的 `artifacts/`）：`launcher-home-tests.log`、`launcher-apk-build.log`、`launcher/signing-report.txt`、`launcher/home-grid-checks/results.txt`、`launcher/home-grid-final.png`、`launcher/home-grid-font130-buttons.png`、`launcher/home-grid-landscape-adb-buttons.png`、`launcher/home-grid-comparison-final.png` 与 `launcher/home-grid-buttons-final.png`。
+
+范围限制：本次验证启动器 UI，没有点击启动游戏、执行修复／退出、修改游戏设置、支付或提交外部内容。更大字体、第二设备与分屏待验证。
+
+
+## 2026-10-26：启动器购牌统计第二版卡图排行
+
+参考用户选定的[第二版原型](design/launcher-purchase-gallery.md)、启动器 ADR-0001、图片缓存 ADR-0003、现有 `LauncherPurchaseActivity`、`HistoryReader.purchases` 和 `HistoryArtwork`。本次仅实现原生页面与卡片展示，复用工作区已有购牌采集和查询，不修改其数据契约，不验证游戏内新购牌采集闭环。
+
+- 实现：集市页头、英雄筛选、累计数据、排行／明细标签；首名横向突出，其余双列，次数条以当前筛选榜首为基准；卡片点击详情、分页、刷新、缺图与空数据提示。窄屏及 130% 字体单列；所有内容可滚动。旋转与字体变化按逻辑卡牌位置恢复，保留英雄、视图、页码、读取时间边界与次数条基准。
+- 离线：Python unittest discover 共 20 项通过；完整启动器签名构建通过，`apksigner` 为 `Verifies`、v2=true，证书 DN 为 `CN=BazaarPlusPlus Android Test`。原生页面使用生产 Java 源码，独立应用的两个编译接缝仅为 `LauncherHistoryActivity.TARGET` 常量及原样提取的窗口 inset 方法。
+- 设备：`OBJVWSPNSCFQU48L`，Redmi 22041216C，Android 14，1080×2460、440dpi，初始字体 1.0、自动旋转 1、user_rotation 0；测试前正式应用停在已有皮格对局的选择界面，未执行购买、推进战斗或改动账号数据。本轮只在独立应用 `dev.bpp.purchasepreview` 中操作，不覆盖安装正式应用。
+- 数据：隔离目录 `BppPurchaseUiValidation/dev.bpp.purchasepreview` 的合成 SQLite 样本，443 次购买、2,782 金币、23 种卡牌、2 局；23 种中 22 种复制现有本机模板图片，一种故意缺图。样本名称为测试文案，与复制图片的题材不构成语义验收证据；不读取、写入或迁移正式购牌库。
+- 断言：21 项原生布局／交互检查通过，涵盖累计数值、双列第二张卡的正确详情、页尾数值与页数、第二页第 21–23 名和奇数尾项、缺图提示、第 23 名详情、旋转页码恢复、英雄空数据、Vanessa 筛选、明细选中态与单笔详情、130% 字体单列、刷新保留筛选。另以第 4 名为首个可见项验证双列切单列仍保持第 4 名，通过。
+- 视觉：首轮发现 FrameLayout 的背景固有高度撑大页头，改为按字体计算高度；修正灰色默认按钮边框、卡片留白及首页竖图在短页头中的裁切。最终与原型并排人工复核，保留真实每页 20 条数据和现有主题 token；原型只展示五条的页尾位置、生成插画、金属旗形名次标记不视为数据或素材来源。截图人工复核不是自动视觉断言。
+- 证据：`artifacts/purchase-ui/` 中的 `offline-tests.log`、`device-tests.log`、`checks.json`、`regroup-tests.log`、`gallery-portrait-final.png`、`gallery-landscape.png`、`gallery-font130.png`、`comparison-final.png` 及 `preview/design-qa.md`。可复现入口为同目录 `build-preview.py`、`prepare-fixture.py`、`verify.py`、`verify-regroup.py`；只允许这些入口的隔离测试目录，不将样本写入正式游戏。
+- 边界：正式应用身份下的入口跳转与真实购牌内容、新购牌到统计的完整链路、其他 Android 版本／设备、系统字体大于 130% 仍待验证。正式 APK 已导出为 `artifacts/purchase-ui/BazaarPlusAndroid-purchase-gallery.apk`；本轮未覆盖安装，以保留进行中的对局。页面依赖工作区已有但尚未提交的购牌基础改动，未将这些改动混入本次本地提交。
+
+测试收尾：独立验证应用已卸载，字体 1.0、自动旋转 1 与 user_rotation 0 已恢复；验证应用在崩溃缓冲区中无记录。
+
+
+## 2026-10-26：购牌卡图回填遗漏修复（用户自测通过）
+
+参考 Android README、功能清单、图片缓存 ADR-0003、桌面历史与卡图实现及当前购牌采集路径。
+`HistoryReader.artwork` 原先只扫描 PvP 快照，购买后出售、合成或未带入战斗的牌可能只存在于 `card_purchases`，无法进入图片导出队列。
+现按宿主确定的账号／暂存会话合并两类来源，每类独立分页并保留已耗尽来源的游标；同页去重，非法模板跳过，旧版无购买表的数据库继续读取快照。
+`AndroidHistoryArtwork` 同步传递和重置购买游标，沿用现有原生插画、品质边框导出及后台落盘机制。
+
+- 离线：Python unittest 20 项通过；固定工具链插件编译通过；签名构建通过，签名报告 Verifies、v2=true，证书为 CN=BazaarPlusPlus Android Test；`git diff --check` 通过。
+- 用户提出“先不要实机验证”前，已启动的隔离 `verify_history_store.py --reader` 在 Android 14 设备 `OBJVWSPNSCFQU48L` 完成 99 项断言：包含 47 条购买记录跨页、仅有购买记录的模板、同页去重、非法模板、账号／暂存会话隔离、旧版无购牌表以及原历史读取契约。数据仅写入本次随机隔离目录，成功后由脚本清理，未写入正式历史库。
+- 用户要求暂停后停止自动设备验收；随后按用户明确指令覆盖安装同一签名修复包 test.14，ADB 返回 Success。APK SHA-256 为 `e6cb8b83a59a6211f37a7781d86fb661ffe8cfc8bd50a8c4fe0fada4c73ddcfd`。安装后由用户自行验证，用户反馈“已验证，提交代码”。未继续自动操作游戏；隔离 SQLite 断言不等同自动图片导出验证。
+- 用户已确认本次修复自测通过；未逐项提供卡牌样本、输入模式、跨账号／游戏版本或失败重试过程，不扩大为全部边界均已验收。
+- 证据：忽略目录 `artifacts/purchase-art-fix/` 的 `offline-tests.log`、`build.log`、`reader.log` 与 `reader/`；签名包构建日志在 `artifacts/launcher-apk-build.log`。
+- 本次提交包含图片回填及编译所需的购牌存储／查询依赖和回归测试；工作区其他购牌采集、页面与战斗计时器改动保持原状，不混入本次提交。
+
+
+## 战斗计时器拖动与四边吸附（2026-10-26，用户自测通过）
+
+本次以 `android-mod/AndroidFloatingDock.cs` 的 `Bind`、`Bounds`、`Snap` 为交互参考，
+在 `AndroidCombatTimer` 中启用独立触摸拖动，松手吸附到最近的物理屏幕边缘，上下保留安全区域。
+默认底部居中，边缘及沿边比例保存到原有 `combat-timer.json`，显示设置与位置互相保留；
+旧配置缺少位置时回退到底部居中。屏幕、安全区域或 Canvas 缩放变化后重新布局，
+失焦或隐藏时结束当前拖动；多指仅接受当前持有指针。计时帧来源与战斗生命周期不变。
+
+离线结果：`CombatTimer.Tests` 37 项检查通过，覆盖旧配置兼容、位置保存与读取、范围限制、
+显示切换保留位置和写入失败保护；Python unittest 20 项通过（Java 编译保留既有 source/target 8 过时警告）。
+`build_probe.py --mod` 使用本机固定框架及 Android interop 编译通过，零警告／零错误；
+构建日志位于被忽略的 `artifacts/mod/combat-timer-drag-build.log`，输入摘要为 `artifacts/mod/build-inputs.json`。
+
+实现阶段按用户要求跳过代理实机验证，未部署、启动游戏或操作设备，也未新增设备截图。
+随后用户确认“已验证，直接提交”，本次功能记为用户自测通过。用户未逐项报告设备、输入模式、
+多指、隐藏／失焦、重启位置恢复及分辨率变化等覆盖范围，不扩大为所有边界已通过。
+本次提交包含计时器及其必要的帧观察、设置和生命周期接入，其他购牌采集与启动器页面改动保留在工作区。
+
+## 2026-10-26：购牌统计互斥胶囊与单行缩小
+
+参考 Android README、功能清单、启动器 ADR-0001、图片缓存 ADR-0003、桌面历史／采集文档与模板读取实现，以及现有 `LauncherPurchaseActivity`、`HistoryReader.purchases` 和 `PurchaseSql.page`。仅修改启动器原生筛选与只读查询，不修改插件采集或数据库结构。
+
+- 交互：英雄条件之下提供全部、近三日、近七日、小型、中型、大型六个互斥选项；排行、明细和汇总共用同一条件，切换回第一页并重置次数条基准，刷新保留条件，旋转／字体变化恢复选中项。按用户补充要求改为单行，按钮宽高约为最初两行版的一半（面积约四分之一），高度 24dp。
+- 数据：近三日／七日以页面刷新截止时刻向前取 72／168 小时，包含起止边界；体型从目标目录 `PersistentData/prod/cache/GameData.db` 的 `cards` 只读解析当前 Item 模板，以严格校验的 UUID 过滤历史。技能及当前目录不含的模板不纳入体型结果。缺目录、损坏或读取中发生变更时明确提示，可使用全部和时间筛选，不把查询失败伪装成零条记录。
+- 离线：Python unittest 22 项通过，覆盖英雄／时间交集及边界、英雄／体型交集、技能排除、汇总和列表一致、空集合与 SQL 字面量 UUID 校验；签名构建及 APK 内置输入校验通过，`Verifies`、v2=true，证书 `CN=BazaarPlusPlus Android Test`。应用版本 test.14，最终 APK SHA-256 `85a14ccbb6d5c6dcc08c439f6f1b10d1cd64e91be3cf2ece67262d236d9b4c54`。
+- 真机：`OBJVWSPNSCFQU48L`（22041216C／Android 14），测试前仅启动器进程存在。最终签名包覆盖安装成功，从首页「购牌统计」进入，读取真实历史及 WAL 快照核对：全部 28 次／43 金币，所有英雄及 Pygmalien 下逐项核对六种条件，六胶囊始终仅一个选中；明细、旋转和 130% 字体保持条件。最终版共 42 项真机断言通过，其中另断言六按钮同一行、每个布局面积为初版约四分之一。截图人工复核，未宣称自动文字裁切识别。
+- 证据：忽略目录 `artifacts/purchase-filters/` 内的 `actual-device.log`、`actual-checks.json`、`verify-actual.py`、`final-one-row.png`、`actual-landscape.png`、`actual-font130.png` 及逐条件布局；离线日志为 `artifacts/purchase-filter-offline.log`，构建日志为 `artifacts/launcher-apk-build.log`。
+- 边界：只验证启动器，不启动游戏、不推进或变更对局、不部署插件。当前真实购买都位于近三日内；另以 Android 14 独立验证应用读取隔离的 443 条购买样本，共 45 项断言通过：近三日 149 条、近七日 345 条，六种条件与 Vanessa 取交集、明细保持条件、空英雄结果、缺少本机目录明确提示且时间筛选仍可用。隔离数据仅写入 `BppPurchaseUiValidation`，未写入正式游戏目录；复现入口和日志为 `artifacts/purchase-filters/verify-fixture.py`、`fixture-device.log`、`fixture-ui/fixture-checks.json`。测试结束卸载独立验证应用，恢复字体 1.0 与自动旋转 1，返回正式启动器购牌页。其他设备、Android 旧版、分屏和更大字体待验证。体型表示本机当前模板分类，并非购买时快照。
+
+本次未创建本地提交：购牌页面与入口、卡片及相关说明在任务开始时已含未提交改动，新胶囊直接扩展该页面；未将既有改动与本次筛选变更混合暂存。
+
+
+## 2026-10-26：购牌图标占位底色统一
+
+参考启动器 ADR-0001、图片缓存 ADR-0003、`PurchaseCardView` 与 `LauncherPurchaseActivity.tabState`。图标容器由页面近黑底色 `bpp_background` 改用与卡片按钮主体、未选中按钮共用的 `bpp_surface`；复用原有缓存与图片比例，不修改图片、购买记录或查询。
+
+- 离线：22 项 Python unittest 通过；按导出 skill 完成签名构建与 APK 内置输入核对，签名 v2=true。APK SHA-256：`0fa3165d93c90a1725e633352ea0d95241dd7c677ff565b03ebd12a672202f99`。
+- 真机：`OBJVWSPNSCFQU48L`，Redmi 22041216C／Android 14，字体 1.0、竖屏；开始时启动器在前台。覆盖安装返回 Success，从首页「购牌统计」进入真实历史，切换排行与明细，再返回排行。截图人工复核：小型物品左右留白与卡片主体连成一体，明细缺图提示保留且底色一致。未启动游戏或改变对局。本次未完成自动像素断言（系统 Python 缺少 Pillow），不宣称自动视觉断言通过。
+- 证据：忽略目录 `artifacts/` 内的 `purchase-background-tests.log`、`purchase-background-build.log`、`purchase-background-ranking.png/json` 和 `purchase-background-recent.png/json`；签名报告为 `artifacts/launcher/signing-report.txt`。
+- 边界：本次只核对当前设备、默认字体竖屏下的颜色；横屏、放大字体及第二设备未专项复测。本次未创建本地提交：`PurchaseCardView.java` 在任务开始时即为未跟踪文件，相关购牌功能与文档也已有未提交改动，避免将既有实现混入单行颜色修复提交。
+
+
+## 2026-10-26：购牌相关改动统一验收与提交
+
+用户确认上述未提交改动“这些都验证了，一起提交”。购牌采集、启动器入口与卡图排行、时间／体型筛选、图标占位底色及配套测试、文档按用户自测通过记录，并统一纳入本地提交。用户未补充逐项设备与操作证据，保留前述自动验证的实际范围，不扩大为所有设备和边界均已覆盖。构筑目录刷新文件仅为待实现设计方案，随本次提交保存，不表示方案已经实现。
+
+
+## 历史与购牌缓存相册排除（2026-10-28，新增防收录真机通过）
+
+参考 Android README、功能清单、ADR-0003、桌面 capture 架构与现有图片导出和读取实现。历史与购牌共用共享存储的 PNG，原实现未创建媒体排除标记，系统扫描可将卡图收录到相册。
+
+`HistoryArtworkDirectory.Prepare` 先在 `BepInEx/history-art/` 创建 `.nomedia` 再创建版本目录，覆盖新缓存、已有缓存及旧版本子树；标记失败由现有异常处理延迟重试，不进入导出。原 PNG 路径及启动器读取方式保留。
+
+离线结果：Python 回归全部 22 项通过；`HistoryArtworkDirectory.Tests` 执行生产代码的 8 项断言通过，覆盖新建标记、读取路径、旧缓存补标记、当前及旧版本图片字节保留、重复初始化、版本切换、标记失败阻止初始化；固定框架与 Android interop 的 `build_probe.py --mod` 构建通过，插件零警告／零错误。证据在忽略目录 `artifacts/history-art/nomedia-python-tests.log`、`nomedia-directory-tests.log`、`nomedia-build.log`，源码和 DLL 摘要见 `artifacts/mod/build-inputs.json`。
+
+最初无设备；随后用户要求开始真机验证，连接 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14，游戏 `1.0.12825-production-android-d9601ded`，1080×2460、440dpi）。开始时手机为系统桌面，游戏未运行；新启动后进入已有账号大厅，高级输入模式入口可见，未继续对局、购买、选择事件或推进战斗。
+
+- 按仓库导出 skill 使用 JDK 24 和既有测试签名构建、覆盖安装 `0.2.0`（code 15），签名 v2=true、DN 正确；APK SHA-256：`33b5d06a80c3ecc8a3d49279f6bb53e5018c11cb8faae379f674c0cfb1bd017d`。此版本号在任务开始前已由工作区修改，不纳入本次修复提交。
+- 当前包新会话、包内／请求／实际加载 DLL 摘要等 12 项检查通过；生产插件自动创建空的根 `.nomedia`。新会话无新增 crash 缓冲区记录，无图片初始化或写入失败事件。
+- 媒体与完整性 9 项断言通过：558 张原 PNG 摘要全部不变；修复前指定旧图可由系统扫描收录，标记生成后重新扫描不进入系统图片查询；在 v1、v2 版本目录分别写入新的唯一探针 PNG，调用系统扫描后均不进入图片库且字节可正常读取，探针随后清理。复现入口：忽略目录 `artifacts/history-art/nomedia-device/verify-media.py`，依赖同目录修复前摘要和旧图索引基线，专用于本轮设备；该脚本只创建并清理唯一命名的探针副本。
+- 在仅保留根标记时，额外保留一张本轮新写入的 PNG，发送小米相册的定向扫描通知后观察其照片列表；新增时间戳未出现在可见照片节点中，系统图片查询同样无此探针，验证后清理。证据为 `gallery-new-probe-checks.json`、`new-probe-media-query.txt` 与 `gallery-new-probe-after.png`；此项仅覆盖本轮观察窗口，不扩展为所有相册版本。
+- 正式启动器的购牌排行与购买明细卡图显示正常，真实摘要为 156 次购买／349 金币；截图人工复核，不宣称自动视觉识别。
+- 小米相册仍显示此前收录的正式缓存图片，详情页确认路径属于当前 `history-art/v2`；重开相册及定向扫描通知未立即清退。临时在实际版本目录补标记的兼容性试验也未清退旧图，实验标记已撤销，最终设备仅保留生产代码创建的根标记。用户随后明确“已有的图就别管了”，因此旧相册记录清退退出本次验收范围，未删除图片或清除相册数据，也不宣称已解决旧缩略图。
+
+真机证据在忽略目录 `artifacts/history-art/nomedia-device/`：`loading/verification.json`、`baseline.json`、`before-png-sha256.txt`／`after-png-sha256.txt`、`scan-before.txt`／`scan-after.txt`、`media-checks.json`、`runtime-checks.json`、`plugin.log`、`crash.log`、购牌页及相册截图／布局。签名和构建证据在 `artifacts/launcher/signing-report.txt` 与 `artifacts/launcher-apk-build.log`。按用户最新范围，当前设备的新增防收录与购牌显示通过；未验证其他厂商／旧版 Android，也未通过新购买触发原生图片重新导出。
+
 ## 启动器与插件英文支持（2026-10-29，离线通过，真机待验证）
 
 依据桌面 `docs/architecture/text.md` 的 `LocalizedTextSet`／`L`、Android 的
@@ -1331,3 +2174,27 @@ Java 源码和中英文资源，排除 ARM64 `.so`，加入明确标记为 `emul
 其中系统截图只证明模拟器的 System UI 无响应，不是产品页面验收截图。
 后续仍需在具备硬件虚拟化的稳定模拟器验证启动器，游戏内插件另需 ARM64 游戏环境；
 本次尝试不改变上一节的离线通过与真机待验证状态。
+
+## 2026-10-29：主线分支整合（离线通过，未做真机验收）
+
+按用户要求将 `fix/android9-launcher-init`（`719409f`）和 `docs/branch-workflow`
+合入最新 `main`（合并前 `06fb88b`），保留双方提交历史。
+冲突整合保留主线的中英文资源、准备失败状态与语言缓存失效逻辑，以及修复分支的
+历史租约、Unity 本地依赖配置、首页网格和按钮显示设置。
+预览标签已由修复分支移除，不恢复旧标签及其布局；语言切换清理继续保留。
+首页新增入口、按钮显示设置及更新后的帮助文字同步提供中英文资源；
+历史与购牌详情仍未完整本地化，不把此次整合描述为全部功能英文验收通过。
+
+本次实际执行并通过：
+
+- `python3 -m unittest discover -s bazaarplusplus-android/tests -v`：23 项通过。
+  使用环境已有 JDK；首次未配置 JDK 路径导致的失败不计为通过。
+- Gradle `:fusionApp:compileDebugJavaWithJavac :fusionApp:processDebugResources --offline`：通过。
+- 使用 `dotnet run --project` 执行 `Localization.Tests`、`BuildCorpus.Tests`、
+  `PreviewTooltips.Tests`、`LauncherSettings.Tests`、`DockSettings.Tests`、`HoldPreview.Tests`、
+  `LongPressSettings.Tests`、`HistoryBridge.Tests`、`HistoryBrowse.Tests`、`HistoryObserver.Tests`、
+  `HistorySession.Tests`、`HistoryArtworkDirectory.Tests`、`CombatTimer.Tests`：全部通过。
+- 暂存区 `git diff --cached --check` 通过，冲突标记检查通过。
+
+本次仅整合分支，未运行 Lint、完整插件构建、签名打包、设备安装或真机测试；
+当前环境没有 Android 生成代理目录，既有待验证项继续保留，历史设备记录不代表本次验收。

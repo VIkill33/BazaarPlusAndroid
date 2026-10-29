@@ -33,7 +33,26 @@
                 android:layout_height="wrap_content" android:minHeight="56dp" android:text="@string/bpp_preview_position_left"
                 android:textColor="@color/bpp_text" />
         </RadioGroup>
-        <TextView style="@style/BppCaption" android:text="@string/bpp_preview_position_saved"
+        <TextView style="@style/BppText" android:text="@string/bpp_dock_title" android:textSize="20sp"
+            android:layout_marginTop="32dp" android:accessibilityHeading="true" />
+        <TextView style="@style/BppCaption" android:text="@string/bpp_dock_body"
+            android:layout_marginTop="8dp" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_collection"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:layout_marginTop="16dp" android:text="@string/bpp_dock_collection" android:textColor="@color/bpp_text" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_builds"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:text="@string/bpp_dock_builds" android:textColor="@color/bpp_text" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_preview_mode"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:text="@string/bpp_dock_preview_mode" android:textColor="@color/bpp_text" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_hold_preview"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:text="@string/bpp_dock_hold_preview" android:textColor="@color/bpp_text" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_history"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:text="@string/bpp_history" android:textColor="@color/bpp_text" />
+        <TextView style="@style/BppCaption" android:text="@string/bpp_dock_saved"
             android:layout_marginTop="16dp" />
     </LinearLayout>
 </ScrollView>

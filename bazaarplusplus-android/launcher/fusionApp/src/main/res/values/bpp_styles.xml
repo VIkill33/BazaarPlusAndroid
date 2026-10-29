@@ -46,4 +46,37 @@
         <item name="android:textStyle">bold</item>
         <item name="cornerRadius">14dp</item>
     </style>
+    <!-- Home-only variants keep secondary screens on their existing button styles. -->
+    <style name="BppHomePrimary" parent="BppPrimaryButton">
+        <item name="android:paddingHorizontal">20dp</item>
+        <item name="android:drawablePadding">8dp</item>
+    </style>
+    <style name="BppHomeTile" parent="BppButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:minHeight">64dp</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:paddingHorizontal">4dp</item>
+        <item name="android:paddingVertical">6dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="backgroundTint">@color/bpp_surface</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="iconTint">@color/bpp_text</item>
+        <item name="iconSize">24dp</item>
+        <item name="iconPadding">6dp</item>
+        <item name="iconGravity">textTop</item>
+    </style>
+    <style name="BppHomeMore" parent="BppButton">
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="backgroundTint">@color/bpp_surface</item>
+        <item name="iconTint">@color/bpp_text</item>
+        <item name="iconSize">22dp</item>
+        <item name="iconPadding">12dp</item>
+        <item name="iconGravity">textStart</item>
+    </style>
 </resources>

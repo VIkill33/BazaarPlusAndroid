@@ -14,7 +14,10 @@ import zipfile
 def verify(directory, tag):
     if not re.fullmatch(r"v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?", tag):
         raise ValueError("Expected an Android version tag such as v0.1.0-test.13")
-    name = f"BazaarPlusPlus-Android-{tag}"
+    name = f"BazaarPlusAndroid-{tag}"
+    # Releases published before the rename retain their original asset names.
+    if not (directory / f"{name}.apk").is_file():
+        name = f"BazaarPlusPlus-Android-{tag}"
     apk = directory / f"{name}.apk"
     checksum = (directory / f"{name}.apk.sha256").read_text().split()
     if len(checksum) != 2 or checksum[1] != apk.name:

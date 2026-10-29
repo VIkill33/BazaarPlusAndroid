@@ -6,7 +6,7 @@ using System.Net.Http;
 
 namespace BazaarPlusPlus.Android;
 
-[BepInPlugin("com.bazaarplusplus.android", "BazaarPlusPlus Android", Plugin.Version)]
+[BepInPlugin("com.bazaarplusplus.android", "BazaarPlusAndroid", Plugin.Version)]
 public sealed class Plugin : BasePlugin
 {
     public const string Version = "0.1.1";
@@ -22,9 +22,13 @@ public sealed class Plugin : BasePlugin
         Il2CppInterop.Runtime.Injection.ClassInjector.RegisterTypeInIl2Cpp<AndroidHoldPreview>();
         AddComponent<AndroidNativeSettings>();
         AddComponent<NativePreviewCleanup>();
+        AddComponent<AndroidRunObserver>();
+        AddComponent<AndroidCombatTimer>();
         AddComponent<CollectionController>();
         AddComponent<AndroidTooltipObserver>();
         AddComponent<AndroidBuildPanelController>();
+        AddComponent<AndroidHistoryPanel>();
+        AddComponent<AndroidHistoryArtwork>();
         BuildRepository = new AndroidBuildRepository(
             new HttpClient { Timeout = TimeSpan.FromSeconds(10) },
             Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.Android", "builds.json"),

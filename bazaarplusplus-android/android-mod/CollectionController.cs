@@ -109,7 +109,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             var scene = SceneManager.GetActiveScene().handle;
             if (_scene != -1 && scene != _scene) SetOpen(false);
             _scene = scene;
-            if (_entry != null) _entry.gameObject.SetActive(!_open && !AndroidBuildPanelController.AnyOpen);
+            if (_entry != null) _entry.gameObject.SetActive(EntryVisible);
             if (_open && !_catalog.Ready && _catalog.Error == null && Data.IsManagerCreated())
                 _catalog.Start(Data.GetStatic());
             if (_catalog.Tick())
@@ -122,6 +122,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 _nextContextRead = Time.realtimeSinceStartup + 1;
                 if (ReadContext()) Changed();
             }
+            _choices?.Tick();
             _thumbnails.Tick();
             try { TickPreview(); }
             catch (Exception error)
@@ -167,7 +168,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _entry = NativeUi.Button(_canvas.transform, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"),
             new Vector2(0, .5f), new Vector2(0, .5f), () => SetOpen(true),
             new Vector2(30, -45), new Vector2(300, 45));
-        AndroidFloatingDock.Register(_entry, font, 0);
+        AndroidFloatingDock.Register(_entry, font, 0, AndroidDockIcon.Collection, () => NativeUi.Text("Cards", "图鉴"),
+            () => NativeUi.Text("Card Collection", "卡牌图鉴"));
         _panel = NativeUi.Rect("BPP.Collection", _canvas.transform, Vector2.zero, Vector2.one);
         var background = _panel.gameObject.AddComponent<Image>();
         background.color = new Color(.025f, .04f, .065f, .995f);
@@ -222,12 +224,12 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
 
     private void ChooseHero()
     {
-        var options = new List<(string, Action)> { (NativeUi.Text("All heroes", "全部英雄"), () =>
-        { if (!_filter.AllHeroesSelected) _filter.ToggleAllHeroes(); Changed(); }) };
-        foreach (var hero in _heroes)
-            options.Add((HeroName(hero), () =>
-            { if (_filter.AllHeroesSelected || _filter.EffectiveHero != hero) _filter.ToggleHero(hero); Changed(); }));
-        _choices?.Show(NativeUi.Text("Hero", "英雄"), options);
+        _choices?.ShowHeroes(_heroes, _filter.AllHeroesSelected ? null : _filter.EffectiveHero, hero =>
+        {
+            if (!hero.HasValue) { if (!_filter.AllHeroesSelected) _filter.ToggleAllHeroes(); }
+            else if (_filter.AllHeroesSelected || _filter.EffectiveHero != hero.Value) _filter.ToggleHero(hero.Value);
+            Changed();
+        });
     }
 
     private void ChooseTier()
@@ -258,10 +260,16 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             (NativeUi.Text("Follow current shop", "跟随当前商店"), () => { _followSource = true; ReadContext(); Changed(); }),
             (NativeUi.Text("All sources", "全部来源"), () => { _followSource = false; _source = null; Changed(); }),
         };
+        var artwork = new List<string?> { null, null };
+        var selected = _followSource ? 0 : _source == null ? 1 : -1;
         var kind = _filter.ActiveType == ECardType.Item ? CollectionSourceKind.Merchant : CollectionSourceKind.Trainer;
         foreach (var source in _sources.Where(source => source.Kind == kind && source.IsVisibleForHero(SourceHero())))
+        {
+            if (!_followSource && _source?.SourceKey == source.SourceKey) selected = options.Count;
             options.Add((SourceName(source), () => { _followSource = false; _source = source; Changed(); }));
-        _choices?.Show(NativeUi.Text("Shop / Trainer", "商店／训练师"), options);
+            artwork.Add(AndroidUiArt.Source(source.PortraitTemplateId));
+        }
+        _choices?.ShowCards(NativeUi.Text("Shop / Trainer", "商店／训练师"), options, artwork, selected);
     }
 
     private void ChooseDay() => _choices?.Show(NativeUi.Text("Day filter", "天数筛选"),
@@ -304,8 +312,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         return !ReferenceEquals(previousSource, _source) || previousDay != _day || previousTier != _dayTiers?.MaximumTier;
     }
 
-    private static string HeroName(EHero hero) => hero == EHero.Common
-        ? NativeUi.Text("Common", "通用") : TheBazaar.Utilities.LocalizableShared.GetLocalizedHero(hero);
+    private static string HeroName(EHero hero) => AndroidChoicePopup.HeroName(hero);
 
     private static string TierName(ETier tier) => tier switch
     {
@@ -602,12 +609,16 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (_description != null) _description.text = string.Empty;
     }
 
+    private bool EntryVisible => !_open && !AndroidBuildPanelController.AnyOpen && !AndroidHistoryPanel.AnyOpen
+        && AndroidLauncherSettings.Shown(AndroidDockButton.Collection);
+
     private void SetOpen(bool open)
     {
+        if (open && (AndroidBuildPanelController.AnyOpen || AndroidHistoryPanel.AnyOpen)) return;
         _open = open;
         AnyOpen = open;
         _panel?.gameObject.SetActive(open);
-        _entry?.gameObject.SetActive(!open && !AndroidBuildPanelController.AnyOpen);
+        _entry?.gameObject.SetActive(EntryVisible);
         _choices?.Close();
         if (!open) { ClearPreview(); _thumbnails.Hide(); }
         else
@@ -630,7 +641,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     public void OnDestroy()
     {
         AnyOpen = false;
-        _choices?.Close();
+        _choices?.Dispose();
         _thumbnails.Hide();
         ClearPreview();
         RetireRequest();

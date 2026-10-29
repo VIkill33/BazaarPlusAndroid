@@ -36,8 +36,8 @@ python3 bazaarplusplus-android/build_launcher.py --prepare-only --upstream /path
 ## GitHub Release 校验
 
 签名 APK 在本机按导出规范构建并完成实机验收后，上传到本项目 GitHub Release。
-附件命名为 `BazaarPlusPlus-Android-<tag>.apk`、同名 `.apk.sha256`、
-`BazaarPlusPlus-Android-<tag>-source.tar.gz` 和 `release.json`。
+附件命名为 `BazaarPlusAndroid-<tag>.apk`、同名 `.apk.sha256`、
+`BazaarPlusAndroid-<tag>-source.tar.gz` 和 `release.json`。
 
 `.github/workflows/release.yml` 的 Android Release 在发布 Release 后校验附件，
 也可手动传入已发布的 tag 执行。校验包括 APK SHA-256、内置清单与依赖摘要，以及

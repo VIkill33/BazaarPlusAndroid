@@ -17,19 +17,19 @@
             </LinearLayout>
             <TextView android:id="@+id/launcher_status" style="@style/BppCaption" android:textSize="12sp" android:gravity="center" android:layout_marginTop="14dp" />
             <ImageView android:layout_width="match_parent" android:layout_height="16dp" android:layout_marginTop="16dp" android:src="@drawable/bpp_divider" android:contentDescription="@null" />
-            <androidx.appcompat.widget.AppCompatButton android:id="@+id/launcher_primary" style="@style/BppPrimaryButton" android:text="@string/bpp_home_checking_action" android:enabled="false" />
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="12dp" android:baselineAligned="false">
-                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_refresh" style="@style/BppButton" android:layout_width="0dp" android:layout_weight="1" android:text="@string/bpp_check_again" android:textSize="14sp" app:icon="@drawable/bpp_refresh" app:iconTint="@color/bpp_text" app:iconGravity="textStart" android:paddingHorizontal="8dp" />
-                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_help" style="@style/BppButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="12dp" android:text="@string/bpp_help" android:textSize="14sp" app:icon="@drawable/bpp_help" app:iconTint="@color/bpp_text" app:iconGravity="textStart" android:paddingHorizontal="8dp" />
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/launcher_primary" style="@style/BppHomePrimary" android:text="@string/bpp_home_checking_action" android:enabled="false" android:drawableEnd="@drawable/bpp_home_chevron_right" android:drawableTint="#2A170E" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp" android:baselineAligned="false">
+                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_history" style="@style/BppHomeTile" android:text="@string/bpp_history" app:icon="@drawable/bpp_home_history" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_settings" style="@style/BppHomeTile" android:layout_marginStart="8dp" android:text="@string/bpp_settings" app:icon="@drawable/bpp_home_cog_outline" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_help" style="@style/BppHomeTile" android:layout_marginStart="8dp" android:text="@string/bpp_help" app:icon="@drawable/bpp_help" />
             </LinearLayout>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp" android:baselineAligned="false">
-                <androidx.appcompat.widget.AppCompatButton android:id="@+id/launcher_donate" style="@style/BppPrimaryButton"
-                    android:layout_width="0dp" android:layout_weight="1" android:layout_marginTop="0dp" android:minHeight="56dp" android:textSize="17sp" android:text="@string/bpp_donate" />
-                <androidx.appcompat.widget.AppCompatButton android:id="@+id/launcher_github" style="@style/BppPrimaryButton"
-                    android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="12dp" android:layout_marginTop="0dp" android:minHeight="56dp" android:textSize="17sp" android:text="@string/bpp_github" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_refresh" style="@style/BppHomeTile" android:text="@string/bpp_check_again" app:icon="@drawable/bpp_refresh" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_donate" style="@style/BppHomeTile" android:layout_marginStart="8dp" android:text="@string/bpp_donate" app:icon="@drawable/bpp_home_heart_outline" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_github" style="@style/BppHomeTile" android:layout_marginStart="8dp" android:text="Github" app:icon="@drawable/bpp_home_github" />
             </LinearLayout>
-            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_settings" style="@style/BppButton" android:text="@string/bpp_settings" android:layout_marginTop="8dp" />
-            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_more" style="@style/BppButton" android:text="@string/bpp_more" android:layout_marginTop="8dp" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_purchases" style="@style/BppHomeMore" android:text="@string/bpp_purchases" app:icon="@drawable/bpp_home_history" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_more" style="@style/BppHomeMore" android:text="@string/bpp_more" app:icon="@drawable/bpp_home_wrench_outline" />
             <TextView style="@style/BppCaption" android:text="@string/bpp_community_disclaimer" android:textSize="12sp" android:gravity="center" android:layout_marginTop="28dp" />
             <TextView android:id="@+id/launcher_credit" style="@style/BppCaption" android:text="@string/bpp_credit_plain" android:textSize="12sp" android:gravity="center" android:layout_marginTop="4dp" />
             <TextView android:id="@+id/launcher_version" style="@style/BppCaption" android:textSize="11sp" android:gravity="center" android:layout_marginTop="4dp" />
