@@ -43,7 +43,10 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 - Except for the Android per-feature local commit workflow below, commit only when the user asks, after reviewing your own diff: done when you can name every file in the commit and why it is there. Revert formatter-only edits to files outside your change.
 - Commit messages and PR titles use Conventional Commits, `<type>(<scope>): <description>`. The scope is the project or feature area; root tooling uses `dev` or `release`.
 - End every PR body with a `Release Notes:` line, one blank line, then one bullet per user-visible change starting with Added, Fixed, or Improved. Use `- N/A` when nothing is user-visible.
-- `master` is protected. The wrap-up flow is: commit on a branch, `gh pr create`, merge, delete merged branches.
+- `main` is this repository's integration branch. Fetch `origin` before starting a task and create a task branch from the latest `origin/main`, unless the user specifies another base. Commit on the task branch; committing directly to `main` requires an explicit user instruction.
+- Name task branches `<type>/<short-kebab-topic>`, for example `feat/android-localization`, `fix/android-launcher-crash`, or `docs/branch-workflow`. Keep each branch scoped to one independently reviewable task.
+- Push the task branch when authorized. When a PR is authorized, use `main` as its base unless the user specifies otherwise. A request to commit or push does not itself authorize merging. Merge through the PR with required checks satisfied, and describe any known failed, blocked, or unexecuted validation in its body.
+- After an authorized merge, verify that `origin/main` contains the task commits, switch the local checkout to the updated `main`, and delete only the merged task branch locally and remotely. Preserve unrelated branches and other contributors' work; do not force-push shared history.
 
 ## Changing code
 
