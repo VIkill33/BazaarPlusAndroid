@@ -18,6 +18,21 @@ Require(label.Writes == writes, "Unchanged text must not dirty TMP every frame")
 language = "en";
 binding.Update();
 Require(label.text == "Card Collection", "Language switch back to English");
+foreach (var code in new[] { "en-US", "en_GB", "EN", "fr-FR", "ja-JP" })
+{
+    language = code;
+    binding.Update();
+    Require(label.text == "Card Collection", $"English fallback for {code}");
+}
+var previewCopy = new LocalizedTextSet("Quest rewards", "任务奖励");
+binding.Bind(label, () => L.Resolve(previewCopy));
+foreach (var (code, expected) in new[] { ("zh-CN", "任务奖励"), ("en-US", "Quest rewards"),
+    ("zh_Hans", "任务奖励"), ("en-GB", "Quest rewards") })
+{
+    language = code;
+    binding.Update();
+    Require(label.text == expected, $"Preview label refresh for {code}");
+}
 var mode = "Enchants";
 binding.Bind(label, () => mode);
 mode = "Upgrade";

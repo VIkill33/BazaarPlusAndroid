@@ -48,7 +48,7 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
             LauncherGames.select(this, LauncherRelease.GAME);
             showTarget();
             showPosition();
-            Toast.makeText(this, "已恢复正版大巴扎。回到首页后点「启动游戏」。", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.bpp_official_target_restored), Toast.LENGTH_LONG).show();
         });
         RadioGroup position = findViewById(R.id.preview_position);
         showPosition();
@@ -61,7 +61,7 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
                         LauncherRelease.bytes(settings.toString()));
                 getSharedPreferences(PREFERENCES, 0).edit().putString(POSITION, value).commit();
             } catch (Exception error) {
-                Toast.makeText(this, "保存失败，请重试", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.bpp_settings_save_failed), Toast.LENGTH_LONG).show();
                 recreate();
             }
         });
@@ -85,13 +85,13 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         TextView current = findViewById(R.id.target_current);
         boolean custom = LauncherGames.custom(this);
         String target = LauncherGames.selected(this);
-        if (!custom) current.setText("当前：正版大巴扎（默认）");
+        if (!custom) current.setText(getString(R.string.bpp_official_target_current));
         else {
             String label = target;
             try {
                 label = LauncherGames.label(getPackageManager(), getPackageManager().getApplicationInfo(target, 0));
             } catch (Exception ignored) {}
-            current.setText("当前：" + label + "\n" + target);
+            current.setText(getString(R.string.bpp_current_target, label, target));
         }
         findViewById(R.id.target_reset).setVisibility(custom ? View.VISIBLE : View.GONE);
     }

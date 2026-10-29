@@ -25,6 +25,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private const float PreviewWidth = 370;
 
     private float _nextScan;
+    private string? _language;
     private bool _wasHoldPreview;
     private int _holdRevision;
     private IntPtr _lastCard;
@@ -78,6 +79,13 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         _nextScan = Time.realtimeSinceStartup + .25f;
         try
         {
+            var language = PlayerPreferences.Data?.LanguageCode;
+            if (_language != language)
+            {
+                _language = language;
+                // Retire native descriptions and in-flight gallery cards in the old language.
+                Hide();
+            }
             if (_monsterPinned && (Data.IsInCombat || SceneManager.GetActiveScene().handle != _monsterScene))
                 Hide();
             var visible = false;
@@ -295,11 +303,11 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             var background = _panel.gameObject.AddComponent<Image>();
             background.color = new Color(.055f, .035f, .02f, .94f);
             background.raycastTarget = true;
-            _enchantButton = NativeUi.Button(_panel, font, NativeUi.Text("Enchantments", "附魔"),
+            _enchantButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Enchantments", "附魔"),
                 new Vector2(0, .91f), new Vector2(1f / 3f, 1), () => SelectMode(PreviewMode.Enchant));
-            _upgradeButton = NativeUi.Button(_panel, font, NativeUi.Text("Upgrade", "升级"),
+            _upgradeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Upgrade", "升级"),
                 new Vector2(1f / 3f, .91f), new Vector2(2f / 3f, 1), () => SelectMode(PreviewMode.Upgrade));
-            _questButton = NativeUi.Button(_panel, font, NativeUi.Text("Quest rewards", "任务奖励"),
+            _questButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Quest rewards", "任务奖励"),
                 new Vector2(2f / 3f, .91f), Vector2.one, () => SelectMode(PreviewMode.Quest));
             (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font, Vector2.zero, new Vector2(1, .9f));
             _text.fontSize = 24;

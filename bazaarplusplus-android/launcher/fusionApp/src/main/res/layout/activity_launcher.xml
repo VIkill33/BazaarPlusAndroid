@@ -5,33 +5,33 @@
     <FrameLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="700dp">
         <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/bpp_market_background" android:scaleType="centerCrop" android:contentDescription="@null" android:importantForAccessibility="no" />
         <LinearLayout android:id="@+id/launcher_body" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_gravity="center_horizontal" android:orientation="vertical" android:paddingHorizontal="24dp" android:paddingTop="20dp" android:paddingBottom="24dp">
-            <TextView style="@style/BppText" android:text="BazaarPlusPlus" android:fontFamily="serif" android:gravity="center" android:textSize="30sp" android:accessibilityHeading="true" />
+            <TextView style="@style/BppText" android:text="@string/app_name" android:fontFamily="serif" android:gravity="center" android:textSize="30sp" android:accessibilityHeading="true" />
             <ImageView android:layout_width="180dp" android:layout_height="16dp" android:layout_gravity="center_horizontal" android:layout_marginTop="8dp" android:src="@drawable/bpp_divider" android:contentDescription="@null" />
             <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:minHeight="280dp" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center" android:layout_marginTop="20dp">
                 <ImageView android:id="@+id/launcher_state_icon" android:layout_width="52dp" android:layout_height="52dp" android:layout_marginEnd="16dp" android:src="@drawable/bpp_help" android:tint="@color/bpp_accent" android:contentDescription="@null" />
                 <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical">
-                    <TextView android:id="@+id/launcher_state_title" style="@style/BppText" android:text="正在检查环境" android:textSize="26sp" android:textStyle="bold" android:accessibilityLiveRegion="polite" android:accessibilityHeading="true" />
-                    <TextView android:id="@+id/launcher_state_hint" style="@style/BppCaption" android:text="请稍候，即将完成启动前检查" android:layout_marginTop="4dp" />
+                    <TextView android:id="@+id/launcher_state_title" style="@style/BppText" android:text="@string/bpp_home_checking_title" android:textSize="26sp" android:textStyle="bold" android:accessibilityLiveRegion="polite" android:accessibilityHeading="true" />
+                    <TextView android:id="@+id/launcher_state_hint" style="@style/BppCaption" android:text="@string/bpp_home_checking_hint" android:layout_marginTop="4dp" />
                 </LinearLayout>
             </LinearLayout>
             <TextView android:id="@+id/launcher_status" style="@style/BppCaption" android:textSize="12sp" android:gravity="center" android:layout_marginTop="14dp" />
             <ImageView android:layout_width="match_parent" android:layout_height="16dp" android:layout_marginTop="16dp" android:src="@drawable/bpp_divider" android:contentDescription="@null" />
-            <androidx.appcompat.widget.AppCompatButton android:id="@+id/launcher_primary" style="@style/BppPrimaryButton" android:text="正在检查…" android:enabled="false" />
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/launcher_primary" style="@style/BppPrimaryButton" android:text="@string/bpp_home_checking_action" android:enabled="false" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="12dp" android:baselineAligned="false">
-                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_refresh" style="@style/BppButton" android:layout_width="0dp" android:layout_weight="1" android:text="重新检查" android:textSize="14sp" app:icon="@drawable/bpp_refresh" app:iconTint="@color/bpp_text" app:iconGravity="textStart" android:paddingHorizontal="8dp" />
-                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_help" style="@style/BppButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="12dp" android:text="帮助" android:textSize="14sp" app:icon="@drawable/bpp_help" app:iconTint="@color/bpp_text" app:iconGravity="textStart" android:paddingHorizontal="8dp" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_refresh" style="@style/BppButton" android:layout_width="0dp" android:layout_weight="1" android:text="@string/bpp_check_again" android:textSize="14sp" app:icon="@drawable/bpp_refresh" app:iconTint="@color/bpp_text" app:iconGravity="textStart" android:paddingHorizontal="8dp" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/launcher_help" style="@style/BppButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="12dp" android:text="@string/bpp_help" android:textSize="14sp" app:icon="@drawable/bpp_help" app:iconTint="@color/bpp_text" app:iconGravity="textStart" android:paddingHorizontal="8dp" />
             </LinearLayout>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp" android:baselineAligned="false">
                 <androidx.appcompat.widget.AppCompatButton android:id="@+id/launcher_donate" style="@style/BppPrimaryButton"
-                    android:layout_width="0dp" android:layout_weight="1" android:layout_marginTop="0dp" android:minHeight="56dp" android:textSize="17sp" android:text="打赏作者" />
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_marginTop="0dp" android:minHeight="56dp" android:textSize="17sp" android:text="@string/bpp_donate" />
                 <androidx.appcompat.widget.AppCompatButton android:id="@+id/launcher_github" style="@style/BppPrimaryButton"
-                    android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="12dp" android:layout_marginTop="0dp" android:minHeight="56dp" android:textSize="17sp" android:text="Github" />
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="12dp" android:layout_marginTop="0dp" android:minHeight="56dp" android:textSize="17sp" android:text="@string/bpp_github" />
             </LinearLayout>
-            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_settings" style="@style/BppButton" android:text="设置" android:layout_marginTop="8dp" />
-            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_more" style="@style/BppButton" android:text="更多：修复与许可" android:layout_marginTop="8dp" />
-            <TextView style="@style/BppCaption" android:text="独立社区工具 · 非官方出品" android:textSize="12sp" android:gravity="center" android:layout_marginTop="28dp" />
-            <TextView android:id="@+id/launcher_credit" style="@style/BppCaption" android:text="本插件基于原版 BazaarPlusPlus 开发" android:textSize="12sp" android:gravity="center" android:layout_marginTop="4dp" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_settings" style="@style/BppButton" android:text="@string/bpp_settings" android:layout_marginTop="8dp" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/launcher_more" style="@style/BppButton" android:text="@string/bpp_more" android:layout_marginTop="8dp" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_community_disclaimer" android:textSize="12sp" android:gravity="center" android:layout_marginTop="28dp" />
+            <TextView android:id="@+id/launcher_credit" style="@style/BppCaption" android:text="@string/bpp_credit_plain" android:textSize="12sp" android:gravity="center" android:layout_marginTop="4dp" />
             <TextView android:id="@+id/launcher_version" style="@style/BppCaption" android:textSize="11sp" android:gravity="center" android:layout_marginTop="4dp" />
         </LinearLayout>
     </FrameLayout>
