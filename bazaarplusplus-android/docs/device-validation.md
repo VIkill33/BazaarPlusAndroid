@@ -1303,3 +1303,31 @@ Lint 报告、编译资源转储、插件构建失败及无设备检查日志。
 附魔／升级／任务奖励标签、原生卡与详情语言，并覆盖保留的野怪面板和异步加载中切换。
 检查长英文、横屏滚动及放大字体，确认旧语言预览无残留，原物品品质和附魔未改变；
 不通过购买、选事件或推进战斗取得场景。
+
+
+## 英文本地化模拟器尝试（2026-10-29，环境受阻）
+
+按用户要求，在云环境安装 Android Emulator 和 AOSP 系统镜像，测试源码基于
+`be66422`。宿主为 x86_64，无 `/dev/kvm`，`emulator -accel-check` 返回
+“KVM requires a CPU that supports vmx or svm”，因此以 `-accel off` 软件执行。
+
+为验证启动器界面，通过临时 Gradle init script 构建 debug 测试 APK：使用当前
+Java 源码和中英文资源，排除 ARM64 `.so`，加入明确标记为 `emulator-ui-test-only`
+的测试清单和许可占位。此包不是可发行启动器，不包含可运行的游戏加载链或插件。
+未改动产品构建配置或签名材料，也未安装游戏、登录账号或执行游戏操作。
+
+- Android 11／API 30／x86_64：首次启动及降低核心数后的重试均无法稳定安装测试包。
+  观察到系统 `DeadSystemException`、包服务 `DEAD_OBJECT`／`Broken pipe`，
+  没有执行完成的应用断言；已停止此实例。
+- Android 9／API 28／x86：测试 APK 与仪器测试探针安装成功；系统出现
+  “System UI isn’t responding”，日志记录 `ANR in com.android.systemui`。
+  应用首次启动等待超时；资源与失败状态探针在 240 秒内未返回断言结果，
+  Android CLI 布局服务安装未完成，未取得有效产品页面截图。不能据此标记
+  英文页面、语言切换或重试路径通过。
+
+证据位于被忽略的 `artifacts/emulator-localization/`：AVD／构建与安装日志、
+软件模拟器启动日志、`test-run.log`／`test28-run.log`、`watchdog28.log`、
+`system28-screen.png` 及临时测试探针源码／脚本。
+其中系统截图只证明模拟器的 System UI 无响应，不是产品页面验收截图。
+后续仍需在具备硬件虚拟化的稳定模拟器验证启动器，游戏内插件另需 ARM64 游戏环境；
+本次尝试不改变上一节的离线通过与真机待验证状态。
