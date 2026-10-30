@@ -53,8 +53,14 @@ test('release.yml reads exactly the names the table lists, each at its scope', (
   const names = run(['names']);
   assert.equal(names.status, 0, names.stderr);
   assert.deepEqual(names.stdout.trim().split('\n').sort(), tableNames('names').sort());
-  assert.deepEqual(referenced('secrets'), tableNames('secrets').sort());
-  assert.deepEqual(referenced('vars'), tableNames('variables').sort());
+  if (text.startsWith('name: Android Release')) {
+    // Android verification uses GitHub's token and has no desktop signing stage.
+    assert.deepEqual(referenced('secrets'), []);
+    assert.deepEqual(referenced('vars'), []);
+  } else {
+    assert.deepEqual(referenced('secrets'), tableNames('secrets').sort());
+    assert.deepEqual(referenced('vars'), tableNames('variables').sort());
+  }
   assert.deepEqual(Object.keys(values).sort(), tableNames('names').sort());
   assert.doesNotMatch(text, /TAURI_SIGNING_PRIVATE_KEY_PASSWORD|BPP_R2_|BPP_GAME_LIBS_R2_/);
 });
