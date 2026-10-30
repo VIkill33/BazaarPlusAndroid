@@ -2138,6 +2138,12 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 为验证缓存优先，临时写入由官方内置快照裁剪并重新生成索引的有效测试缓存：100 条皮格马利翁阵容、生成日 2026-10-27、统计截止日 2026-10-26；C# 解析测试先确认合法，设备文件 SHA-256 `402c2968ab958532a973ad00e8eda2b1f023f1be370afa0e682ea962ed335b8e`。重新启动的会话 `fc3140fc-bae9-4f21-acf9-0c8a0ead64d3` 记录 `cache_loaded count=100` 和 `skipped_fresh`，没有启动网络请求；面板截图显示新日期。手动刷新又请求线上数据并以 `reason=truncated` 拒绝 3 条响应，缓存 SHA-256 不变。测试缓存随后按摘要核对后删除；最后会话 `d9697616-1b5b-479e-860b-2b2c9bf10d8a` 再次加载 5,689 条内置数据并拒绝线上缩水响应。手机原有旋转设置 `1/0` 与亮屏设置 `2` 已恢复。
 
 证据截图与临时数据在被忽略的 `bazaarplusplus-android/artifacts/build-refresh/`：`build-panel-lobby.png`、`build-panel-refreshed.png`、`cache-panel.png`、`cache-panel-refreshed.png`、`final-game.png`；启动日志在设备实际 BepInEx 目录。真机已覆盖缓存择优、未过期跳过联网、手动刷新、缩水响应保护和日期／失败提示。真实合格新窗口的在线采纳、缓存过期后的后台替换、断网、两种输入模式及对局中的十格阵容仍待专项验收。本次测试 APK 包含工作区其他未提交的历史卡图改动，不能把本轮构筑结果扩大为它们的验收。
+## 2026-10-30：图标入口金框调整至 1.2 倍并强化文字
+
+设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C、Android 14），游戏 `1.0.12825-production-android-d9601ded`；已有账号主菜单，高级输入模式，未进入对局。按用户反馈将原生 `Btn_Rnd_Frame_TUI` 显示尺寸调整为最初 86×86 的 1.2 倍（103.2×103.2），图标矩形与圆框中心使用同一坐标；按钮短名称、纯文字样式和收起手柄的文字加粗，并增加 2×2 黑色阴影。图标按钮布局收紧至 115×140，短名称保留在框下。
+
+23 项 Python 回归通过；固定框架与 Android interop 的 `build_probe.py --mod` 编译零警告、零错误，持久签名 APK 构建与覆盖安装通过。新会话 `419e7f48-bfaf-405a-a6e6-6566d58c457e` 的加载记录与设备 DLL SHA-256 同为 `c9d3f1e2c2efae8f7456a4b511f644d826d22e122201a015c426901003c15d26`，日志出现 `android.dock.ready`。高级模式主菜单截图人工复核四个可见入口：图标位于金框中心，文字加粗且有黑色阴影、没有与金框相叠；拖动到左侧后完整入屏。点击图鉴可打开面板，关闭后入口恢复。证据在忽略目录 `artifacts/dock-frame-1p2-final.png`、`dock-frame-1p2-click.png`、`dock-frame-1p2-tests.log`、`dock-frame-1p2-build.log`、`dock-frame-1p2-apk-build.log`，摘要见 `artifacts/mod/build-inputs.json`。纯文字样式、自动收起及五个入口全显未专项复测。
+
 ## 2026-10-30：图标入口原生金框放大至 1.5 倍
 
 设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C、Android 14），游戏 `1.0.12825-production-android-d9601ded`；开始时为已登录主菜单，高级输入模式，未进入对局。`AndroidFloatingDock` 将 `Btn_Rnd_Frame_TUI` 的显示尺寸由 86×86 改为 129×129；图标维持原尺寸，文字移到圆框下方，按钮高度与间距随之调整。图标按钮的完整四项在主菜单可见，圆框与文字没有相互遮挡；拖动到顶部后重新截图检查，浮动组仍可吸边。顶部位置会覆盖游戏左上角部分资料区，用户可继续拖动浮动组。

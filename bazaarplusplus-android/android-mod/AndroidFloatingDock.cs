@@ -12,8 +12,9 @@ namespace BazaarPlusPlus.Android;
 
 public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
 {
+    private const float IconFrameSize = 86f * 1.2f;
     private sealed record Style(Vector2 Button, float Gap, float HandleHeight, Vector2 Collapsed, float HandleFont, float CollapsedFont);
-    private static readonly Style IconStyle = new(new Vector2(129, 165), 10, 58, new Vector2(72, 158), 26, 34);
+    private static readonly Style IconStyle = new(new Vector2(115, 140), 10, 58, new Vector2(72, 158), 26, 34);
     private static readonly Style TextStyle = new(new Vector2(270, 90), 5, 70, new Vector2(60, 132), 30, 28);
 
     private sealed class Entry
@@ -84,12 +85,13 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         rect.SetParent(_buttons, false);
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
         var label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        StyleButtonText(label);
         var localized = label.GetComponent<AndroidLocalizedText>();
         if (localized == null) localized = label.gameObject.AddComponent<AndroidLocalizedText>();
         Image? image = null;
         var frameRect = NativeUi.Rect("BPP.DockFrame", rect, new Vector2(.5f, 1), new Vector2(.5f, 1));
         frameRect.pivot = new Vector2(.5f, 1);
-        frameRect.sizeDelta = new Vector2(129, 129);
+        frameRect.sizeDelta = new Vector2(IconFrameSize, IconFrameSize);
         frameRect.anchoredPosition = new Vector2(0, -2);
         frameRect.SetAsFirstSibling();
         var frameImage = frameRect.gameObject.AddComponent<Image>();
@@ -99,9 +101,9 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         if (sprite != null)
         {
             var art = NativeUi.Rect("BPP.DockIcon", rect, new Vector2(.5f, 1), new Vector2(.5f, 1));
-            art.pivot = new Vector2(.5f, 1);
+            art.pivot = new Vector2(.5f, .5f);
             art.sizeDelta = new Vector2(69, 71);
-            art.anchoredPosition = new Vector2(0, -9);
+            art.anchoredPosition = new Vector2(0, -2 - IconFrameSize / 2);
             image = art.gameObject.AddComponent<Image>();
             image.sprite = sprite;
             image.preserveAspect = true;
@@ -137,6 +139,15 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         entry.Label.textWrappingMode = _textButtons ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
     }
 
+    private static void StyleButtonText(TextMeshProUGUI label)
+    {
+        label.fontStyle |= FontStyles.Bold;
+        var shadow = label.GetComponent<Shadow>() ?? label.gameObject.AddComponent<Shadow>();
+        shadow.effectColor = Color.black;
+        shadow.effectDistance = new Vector2(2, -2);
+        shadow.useGraphicAlpha = false;
+    }
+
     internal static void SetIcon(Button button, AndroidDockIcon icon)
     {
         var image = button.transform.Find("BPP.DockIcon")?.GetComponent<Image>();
@@ -165,6 +176,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             _lastInteraction = Time.realtimeSinceStartup;
             Layout();
         });
+        StyleButtonText(_handle.GetComponentInChildren<TextMeshProUGUI>());
         Bind(_handle);
         _holdPreview = gameObject.AddComponent<AndroidHoldPreview>();
         _holdPreview.Build(_buttons!, font);
