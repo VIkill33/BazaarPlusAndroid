@@ -87,6 +87,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     {
         try
         {
+            AndroidPanelButtonSkin.Tick();
             if (string.IsNullOrWhiteSpace(PlayerPreferences.Data?.LanguageCode)) return;
             if (_canvas == null)
             {
@@ -212,6 +213,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         (_description, _descriptionContent, _descriptionScroll) = NativeUi.ScrollText(_panel, font,
             new Vector2(.64f, .04f), new Vector2(.97f, .35f));
         if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
+        foreach (var button in _panel.GetComponentsInChildren<Button>(true))
+            AndroidPanelButtonSkin.Register(button);
         _filter.ToggleAllHeroes();
         SetOpen(false);
         _uiBuilt = true;
@@ -352,6 +355,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (_skillsButton != null) _skillsButton.GetComponent<Image>().color = AndroidLauncherSettings.MarketPanels
             ? !items ? AndroidMarketPanelTheme.Selected : AndroidMarketPanelTheme.Surface
             : !items ? new Color(.28f, .35f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
+        AndroidPanelButtonSkin.SetSelected(_itemsButton, items);
+        AndroidPanelButtonSkin.SetSelected(_skillsButton, !items);
         if (_source != null && !_source.AppliesToHero(SourceHero()) && !_followSource) _source = null;
         var source = _source != null && (_source.Kind == CollectionSourceKind.Merchant) == items ? _source : null;
         var poolHero = SourceHero();

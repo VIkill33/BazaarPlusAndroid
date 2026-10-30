@@ -54,6 +54,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     {
         try
         {
+            AndroidPanelButtonSkin.Tick();
             if (_open)
             {
                 _board?.Tick();
@@ -171,6 +172,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _text.fontSize = 29;
             _text.enableAutoSizing = false;
             if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
+            foreach (var button in _panel.GetComponentsInChildren<Button>(true))
+                AndroidPanelButtonSkin.Register(button);
             SetOpen(false);
         }
         catch
@@ -351,6 +354,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             button.GetComponent<Image>().color = AndroidLauncherSettings.MarketPanels
                 ? selected ? AndroidMarketPanelTheme.Selected : AndroidMarketPanelTheme.Surface
                 : selected ? new Color(.19f, .32f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
+            AndroidPanelButtonSkin.SetSelected(button, selected);
             button.gameObject.SetActive(true);
             _candidateCards.Show(button, candidate.Id, captionHeight: .22f);
             marker.transform.parent.SetAsLastSibling();
