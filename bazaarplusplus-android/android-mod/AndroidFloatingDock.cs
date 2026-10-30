@@ -13,7 +13,7 @@ namespace BazaarPlusPlus.Android;
 public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
 {
     private sealed record Style(Vector2 Button, float Gap, float HandleHeight, Vector2 Collapsed, float HandleFont, float CollapsedFont);
-    private static readonly Style IconStyle = new(new Vector2(115, 115), 10, 58, new Vector2(72, 158), 26, 34);
+    private static readonly Style IconStyle = new(new Vector2(129, 165), 10, 58, new Vector2(72, 158), 26, 34);
     private static readonly Style TextStyle = new(new Vector2(270, 90), 5, 70, new Vector2(60, 132), 30, 28);
 
     private sealed class Entry
@@ -89,7 +89,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         Image? image = null;
         var frameRect = NativeUi.Rect("BPP.DockFrame", rect, new Vector2(.5f, 1), new Vector2(.5f, 1));
         frameRect.pivot = new Vector2(.5f, 1);
-        frameRect.sizeDelta = new Vector2(86, 86);
+        frameRect.sizeDelta = new Vector2(129, 129);
         frameRect.anchoredPosition = new Vector2(0, -2);
         frameRect.SetAsFirstSibling();
         var frameImage = frameRect.gameObject.AddComponent<Image>();
@@ -98,7 +98,10 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         var sprite = AndroidDockIcons.Get(icon);
         if (sprite != null)
         {
-            var art = NativeUi.Rect("BPP.DockIcon", rect, new Vector2(.2f, .3f), new Vector2(.8f, .92f));
+            var art = NativeUi.Rect("BPP.DockIcon", rect, new Vector2(.5f, 1), new Vector2(.5f, 1));
+            art.pivot = new Vector2(.5f, 1);
+            art.sizeDelta = new Vector2(69, 71);
+            art.anchoredPosition = new Vector2(0, -9);
             image = art.gameObject.AddComponent<Image>();
             image.sprite = sprite;
             image.preserveAspect = true;
@@ -124,9 +127,9 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         entry.Localized.Bind(entry.Label, _textButtons ? entry.Text : entry.Caption);
         var labelRect = entry.Label.rectTransform;
         labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = new Vector2(1, icon ? .3f : 1);
-        labelRect.offsetMin = icon ? new Vector2(5, 2) : new Vector2(12, 6);
-        labelRect.offsetMax = icon ? new Vector2(-5, 0) : new Vector2(-12, -6);
+        labelRect.anchorMax = new Vector2(1, icon ? 0 : 1);
+        labelRect.offsetMin = icon ? new Vector2(5, 0) : new Vector2(12, 6);
+        labelRect.offsetMax = icon ? new Vector2(-5, 30) : new Vector2(-12, -6);
         entry.Label.enableAutoSizing = !_textButtons;
         entry.Label.fontSizeMin = 17;
         entry.Label.fontSizeMax = 24;
