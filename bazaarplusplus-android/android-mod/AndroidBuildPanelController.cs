@@ -45,6 +45,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private int _scene = -1;
     private float _nextRefresh;
     private int _failures;
+    private string? _language;
     private string? _lastDescription;
     private string? _itemDetail;
 
@@ -66,6 +67,16 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 var font = NotoFontFallbackRuntime._loadedSansPrimary;
                 if (font == null) return;
                 BuildUi(font);
+            }
+            var language = PlayerPreferences.Data.LanguageCode;
+            if (_language != language)
+            {
+                _language = language;
+                _itemDetail = null;
+                _lastDescription = null;
+                _board?.Hide();
+                _candidateCards.Hide();
+                _nextRefresh = 0;
             }
             var scene = SceneManager.GetActiveScene().handle;
             if (_scene != -1 && scene != _scene) SetOpen(false);

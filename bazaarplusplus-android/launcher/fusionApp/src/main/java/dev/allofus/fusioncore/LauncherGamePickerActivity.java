@@ -63,7 +63,7 @@ public final class LauncherGamePickerActivity extends AppCompatActivity {
             try { found = LauncherGames.installed(this); }
             catch (Exception error) {
                 found = List.of();
-                failure = "暂时无法读取已安装应用，请稍后重试。";
+                failure = getString(R.string.bpp_games_scan_failed);
             }
             List<LauncherGames.Choice> ready = found;
             String message = failure;
@@ -71,8 +71,8 @@ public final class LauncherGamePickerActivity extends AppCompatActivity {
                 if (isFinishing() || isDestroyed()) return;
                 progress.setVisibility(View.GONE);
                 if (message != null) status.setText(message);
-                else if (ready.isEmpty()) status.setText("没有找到其他符合要求的已安装游戏。正版仍可在第一项选回。");
-                else status.setText("另有 " + ready.size() + " 个符合要求的游戏。点选后回到首页再启动。");
+                else if (ready.isEmpty()) status.setText(getString(R.string.bpp_games_empty));
+                else status.setText(getString(R.string.bpp_game_count, ready.size()));
                 games.addAll(ready);
                 adapter.notifyDataSetChanged();
             });
@@ -81,26 +81,26 @@ public final class LauncherGamePickerActivity extends AppCompatActivity {
 
     private LauncherGames.Choice official() {
         PackageManager manager = getPackageManager();
-        String version = "未安装";
+        String version = getString(R.string.bpp_game_not_installed);
         Drawable icon = manager.getDefaultActivityIcon();
         try {
             PackageInfo info = manager.getPackageInfo(LauncherRelease.GAME, 0);
             long code = info.getLongVersionCode();
-            String name = info.versionName == null || info.versionName.isEmpty() ? "未知" : info.versionName;
+            String name = info.versionName == null || info.versionName.isEmpty() ? getString(R.string.bpp_unknown) : info.versionName;
             version = Utilities.formatVersionText(name, code);
             icon = manager.getApplicationIcon(LauncherRelease.GAME);
         } catch (Exception ignored) {}
-        return new LauncherGames.Choice(LauncherRelease.GAME, "正版大巴扎（默认）", version, icon);
+        return new LauncherGames.Choice(LauncherRelease.GAME, getString(R.string.bpp_official_game_label), version, icon);
     }
 
     private void choose(String packageName) {
         if (!LauncherGames.select(this, packageName)) {
-            Toast.makeText(this, "这款游戏目前不符合要求", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.bpp_game_ineligible), Toast.LENGTH_LONG).show();
             return;
         }
         Toast.makeText(this, LauncherRelease.GAME.equals(packageName)
-                ? "已恢复正版大巴扎。回到首页后点「启动游戏」。"
-                : "已保存。回到首页后点「启动游戏」。", Toast.LENGTH_LONG).show();
+                ? getString(R.string.bpp_official_target_restored)
+                : getString(R.string.bpp_game_selection_saved), Toast.LENGTH_LONG).show();
         finish();
     }
 

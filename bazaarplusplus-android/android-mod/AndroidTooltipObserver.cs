@@ -25,6 +25,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private const float PreviewWidth = 370;
 
     private float _nextScan;
+    private string? _language;
     private bool _wasHoldPreview;
     private int _holdRevision;
     private IntPtr _lastCard;
@@ -82,6 +83,13 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         _nextScan = Time.realtimeSinceStartup + .25f;
         try
         {
+            var language = PlayerPreferences.Data?.LanguageCode;
+            if (_language != language)
+            {
+                _language = language;
+                // Retire native descriptions and in-flight gallery cards in the old language.
+                Hide();
+            }
             if (_monsterPinned && (Data.IsInCombat || SceneManager.GetActiveScene().handle != _monsterScene))
                 Hide();
             var visible = false;

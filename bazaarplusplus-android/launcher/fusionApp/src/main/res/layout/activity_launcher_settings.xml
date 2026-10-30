@@ -5,32 +5,32 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:padding="24dp">
         <com.google.android.material.button.MaterialButton android:id="@+id/settings_back"
-            style="@style/BppButton" android:layout_width="wrap_content" android:text="返回" />
-        <TextView style="@style/BppText" android:text="设置" android:textSize="28sp"
+            style="@style/BppButton" android:layout_width="wrap_content" android:text="@string/bpp_back" />
+        <TextView style="@style/BppText" android:text="@string/bpp_settings" android:textSize="28sp"
             android:textStyle="bold" android:layout_marginTop="24dp" android:accessibilityHeading="true" />
-        <TextView style="@style/BppText" android:text="启动目标" android:textSize="20sp"
+        <TextView style="@style/BppText" android:text="@string/bpp_launch_target" android:textSize="20sp"
             android:layout_marginTop="32dp" android:accessibilityHeading="true" />
         <TextView style="@style/BppCaption"
-            android:text="默认启动正版大巴扎。也可选择本机已安装、带桌面入口且已提取 arm64 IL2CPP 原生库的游戏。保存后，首页「启动游戏」会启动当前选择。"
+            android:text="@string/bpp_launch_target_description"
             android:layout_marginTop="8dp" />
-        <TextView android:id="@+id/target_current" style="@style/BppText" android:text="当前：正版大巴扎（默认）"
+        <TextView android:id="@+id/target_current" style="@style/BppText" android:text="@string/bpp_official_target_current"
             android:layout_marginTop="12dp" android:textIsSelectable="true" />
         <com.google.android.material.button.MaterialButton android:id="@+id/target_choose"
-            style="@style/BppButton" android:text="选择本机游戏" android:layout_marginTop="12dp" />
+            style="@style/BppButton" android:text="@string/bpp_choose_installed_game" android:layout_marginTop="12dp" />
         <com.google.android.material.button.MaterialButton android:id="@+id/target_reset"
-            style="@style/BppButton" android:text="恢复正版游戏" android:layout_marginTop="8dp"
+            style="@style/BppButton" android:text="@string/bpp_restore_official_game" android:layout_marginTop="8dp"
             android:visibility="gone" />
-        <TextView style="@style/BppText" android:text="附魔／升级面板位置" android:textSize="20sp"
+        <TextView style="@style/BppText" android:text="@string/bpp_preview_position_title" android:textSize="20sp"
             android:layout_marginTop="32dp" android:accessibilityHeading="true" />
-        <TextView style="@style/BppCaption" android:text="选择长按物品时附加预览面板的展示位置。"
+        <TextView style="@style/BppCaption" android:text="@string/bpp_preview_position_description"
             android:layout_marginTop="8dp" />
         <RadioGroup android:id="@+id/preview_position" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="16dp">
             <RadioButton android:id="@+id/preview_position_default" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:minHeight="56dp" android:text="默认位置"
+                android:layout_height="wrap_content" android:minHeight="56dp" android:text="@string/bpp_preview_position_default"
                 android:textColor="@color/bpp_text" />
             <RadioButton android:id="@+id/preview_position_left" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:minHeight="56dp" android:text="靠屏幕左侧边缘"
+                android:layout_height="wrap_content" android:minHeight="56dp" android:text="@string/bpp_preview_position_left"
                 android:textColor="@color/bpp_text" />
         </RadioGroup>
         <TextView style="@style/BppText" android:text="图鉴与构筑页面样式" android:textSize="20sp"
@@ -40,26 +40,26 @@
         <androidx.appcompat.widget.SwitchCompat android:id="@+id/market_panels"
             android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
             android:layout_marginTop="16dp" android:text="使用新样式" android:textColor="@color/bpp_text" />
-        <TextView style="@style/BppText" android:text="游戏内按钮" android:textSize="20sp"
+        <TextView style="@style/BppText" android:text="@string/bpp_dock_title" android:textSize="20sp"
             android:layout_marginTop="32dp" android:accessibilityHeading="true" />
-        <TextView style="@style/BppCaption" android:text="选择游戏画面左侧要显示的按钮。关闭的按钮会隐藏，其余按钮自动补位。"
+        <TextView style="@style/BppCaption" android:text="@string/bpp_dock_body"
             android:layout_marginTop="8dp" />
         <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_collection"
             android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
-            android:layout_marginTop="16dp" android:text="卡牌图鉴" android:textColor="@color/bpp_text" />
+            android:layout_marginTop="16dp" android:text="@string/bpp_dock_collection" android:textColor="@color/bpp_text" />
         <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_builds"
             android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
-            android:text="构筑推荐" android:textColor="@color/bpp_text" />
+            android:text="@string/bpp_dock_builds" android:textColor="@color/bpp_text" />
         <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_preview_mode"
             android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
-            android:text="长按预览模式（附魔／升级／无）" android:textColor="@color/bpp_text" />
+            android:text="@string/bpp_dock_preview_mode" android:textColor="@color/bpp_text" />
         <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_hold_preview"
             android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
-            android:text="按住预览（仅高级输入模式）" android:textColor="@color/bpp_text" />
+            android:text="@string/bpp_dock_hold_preview" android:textColor="@color/bpp_text" />
         <androidx.appcompat.widget.SwitchCompat android:id="@+id/dock_history"
             android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
-            android:text="对局历史" android:textColor="@color/bpp_text" />
-        <TextView style="@style/BppCaption" android:text="以上设置自动保存，下次启动当前目标游戏时生效；游戏内「设置」中也能修改，两边保持同步。"
+            android:text="@string/bpp_history" android:textColor="@color/bpp_text" />
+        <TextView style="@style/BppCaption" android:text="@string/bpp_dock_saved"
             android:layout_marginTop="16dp" />
     </LinearLayout>
 </ScrollView>

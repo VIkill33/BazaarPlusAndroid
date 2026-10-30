@@ -71,11 +71,11 @@ public class JniBridge {
     public static void SetLoadingText(Activity activity, String text) {
         LauncherLog.note(activity.getFilesDir(), "加载状态 " + (text == null ? "" : text));
         String lower = text == null ? "" : text.toLowerCase(Locale.ROOT);
-        final String userText = lower.contains("cpp2il") ? "首次准备游戏运行环境，请保持应用在前台"
-                : lower.contains("interop") ? "正在生成游戏适配文件"
-                : lower.contains("plugin") ? "正在加载集市增强插件"
-                : lower.contains("fail") || lower.contains("error") ? "运行环境加载失败，请返回启动器查看诊断"
-                : "正在准备运行环境";
+        final int userText = lower.contains("cpp2il") ? R.string.bpp_cpp2il
+                : lower.contains("interop") ? R.string.bpp_interop
+                : lower.contains("plugin") ? R.string.bpp_plugin_loading
+                : lower.contains("fail") || lower.contains("error") ? R.string.bpp_runtime_failed
+                : R.string.bpp_runtime_preparing;
         activity.runOnUiThread(() -> {
             TextView view = activity.findViewById(R.id.loadingText);
             if (view == null) {
@@ -83,7 +83,7 @@ public class JniBridge {
                 return;
             }
 
-            view.setText(userText);
+            view.setText(activity.getString(userText));
             View loader = activity.findViewById(R.id.loader);
             if (loader != null && loader.getVisibility() == View.VISIBLE) LauncherPreparation.markLoader(activity, true);
             Log.i(TAG, "Set loading text to "+text);
@@ -105,7 +105,7 @@ public class JniBridge {
                     String timeString = String.format(Locale.getDefault(),
                             " (%02d:%02d)", minutes, seconds);
 
-                    view.setText(userText + timeString);
+                    view.setText(activity.getString(userText) + timeString);
 
                     handler.postDelayed(this, 1000);
                 }

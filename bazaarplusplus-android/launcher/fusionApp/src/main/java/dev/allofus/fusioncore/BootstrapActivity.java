@@ -37,6 +37,7 @@ public class BootstrapActivity extends AppCompatActivity {
     private TextView progressDetailsView;
     private ProgressBar spinnerProgress;
     private ProgressBar downloadProgress;
+    private android.widget.Button cancelPreparation;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -54,13 +55,14 @@ public class BootstrapActivity extends AppCompatActivity {
         setPhaseStatus(getString(R.string.bootstrap_status_preparing));
         android.widget.LinearLayout root = findViewById(R.id.bootstrap_root);
         android.widget.Button cancel = new android.widget.Button(this);
-        cancel.setText("取消准备");
+        cancel.setText(getString(R.string.bpp_cancel_preparation));
         cancel.setOnClickListener(v -> {
-            LauncherLog.note(getFilesDir(), "用户取消准备");
+            LauncherLog.note(getFilesDir(), getString(R.string.bpp_log_preparation_canceled));
             LauncherPreparation.CANCEL.set(true);
             cancel.setEnabled(false);
-            cancel.setText("等待当前安全步骤结束…");
+            cancel.setText(getString(R.string.bpp_preparation_cancel_wait));
         });
+        cancelPreparation = cancel;
         root.addView(cancel);
         TextView elapsed = new TextView(this);
         elapsed.setGravity(android.view.Gravity.CENTER);
@@ -69,7 +71,7 @@ public class BootstrapActivity extends AppCompatActivity {
         elapsed.post(new Runnable() {
             @Override public void run() {
                 if (isFinishing() || isDestroyed()) return;
-                elapsed.setText("准备运行环境已耗时 " + (android.os.SystemClock.elapsedRealtime() - started) / 1000 + " 秒");
+                elapsed.setText(getString(R.string.bpp_elapsed, (android.os.SystemClock.elapsedRealtime() - started) / 1000));
                 elapsed.postDelayed(this, 1000);
             }
         });
@@ -85,9 +87,18 @@ public class BootstrapActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onConfigurationChanged(android.content.res.Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        // Keep the preparation worker; recreating this Activity would restart the handoff.
+        if (cancelPreparation != null) cancelPreparation.setText(getString(LauncherPreparation.CANCEL.get()
+                ? R.string.bpp_preparation_cancel_wait : R.string.bpp_cancel_preparation));
+        if (statusView != null) statusView.setText(LauncherPreparation.phaseText(this));
+    }
+
+    @Override
     public void onBackPressed() {
         if (LauncherPreparation.BUSY.get()) {
-            Toast.makeText(this, "正在准备运行环境，请等待当前步骤完成", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.bpp_preparation_wait), Toast.LENGTH_SHORT).show();
         } else { super.onBackPressed(); }
     }
 
@@ -171,15 +182,15 @@ public class BootstrapActivity extends AppCompatActivity {
 
         try {
             setPhaseStatus(getString(R.string.bootstrap_status_launching));
-            setPhaseStatus("正在连接原生库…");
+            setPhaseStatus(getString(R.string.bpp_preparation_connecting));
             dev.allofus.fusioncore.history.HistoryRuntime.markNativeLoading();
             initializeFusion(config);
-            setPhaseStatus("正在初始化游戏…");
+            setPhaseStatus(getString(R.string.bpp_preparation_initializing));
             runOnMainThread(() -> {
                 try {
                     GameRuntime.initializeApplication(preparedGameContext, getApplicationContext());
                     LauncherPreparation.watchCrashes(getApplicationContext());
-                    setPhaseStatus("正在打开游戏界面…");
+                    setPhaseStatus(getString(R.string.bpp_preparation_opening_game));
                     var intent = new Intent().setComponent(new ComponentName(targetPackage, className));
 
                     // Using the stub activity intent here avoids one extra layer of hooks running.
@@ -230,7 +241,7 @@ public class BootstrapActivity extends AppCompatActivity {
         dev.allofus.fusioncore.tools.JniBridge.stopRuntimeNotes();
         LauncherPreparation.activeSession = null;
         getSharedPreferences("launcher", 0).edit().remove("session").commit();
-        LauncherPreparation.phase(getApplicationContext(), "初始化失败：" + (error != null && error.getMessage() != null ? error.getMessage() : "运行环境准备失败，可重试"));
+        LauncherPreparation.fail(getApplicationContext(), error != null ? LauncherMessages.error(this, error.getMessage()) : getString(R.string.bpp_preparation_failed_detail));
         runOnMainThread(() -> {
             if (error != null) {
                 Log.e(TAG, message, error);
@@ -240,7 +251,7 @@ public class BootstrapActivity extends AppCompatActivity {
             if (statusView != null) {
                 statusView.setText(getString(R.string.bootstrap_status_error));
             }
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            Toast.makeText(this, LauncherPreparation.phaseText(this), Toast.LENGTH_LONG).show();
             finish();
         });
     }
@@ -272,7 +283,7 @@ public class BootstrapActivity extends AppCompatActivity {
         Map<String, String> map = Il2CppApiMapper.prepare(new File(gameLibDir, "libunity.so"), il2cpp,
                 new File(codeCacheScoped, "libunity.so"));
         if (map.isEmpty() && Il2CppApiMapper.hasObfuscatedExports(il2cpp))
-            throw new IOException("当前游戏的运行接口无法自动适配，请导出诊断");
+            throw new IOException(getString(R.string.bpp_game_interface_unsupported));
         return map;
     }
 
@@ -298,7 +309,7 @@ public class BootstrapActivity extends AppCompatActivity {
 
         setPhaseStatus(getString(R.string.bootstrap_status_copy_assets));
         File Assets = new File(dataOnSdCard, "Assets");
-        setPhaseStatus("核对游戏安装包，首次准备可能需要一分钟…");
+        setPhaseStatus(getString(R.string.bpp_preparation_checking_files));
         File resourceStamp = new File(appContext.getFilesDir(), "launcher-resource-key");
         android.content.pm.PackageInfo targetInfo = LauncherRelease.game(appContext, targetPackage);
         StringBuilder key = new StringBuilder(LauncherRelease.GAME.equals(targetPackage)
@@ -317,7 +328,7 @@ public class BootstrapActivity extends AppCompatActivity {
             LauncherFiles.removeOwned(new File(bepInExDir, "interop"));
             LauncherFiles.removeOwned(new File(bepInExDir, "cache"));
         }
-        setPhaseStatus("准备游戏运行资源…");
+        setPhaseStatus(getString(R.string.bpp_preparation_game_resources));
         if (!new File(Assets, ".fusion_copied").isFile()) {
             long required = 0;
             for (String apk : apks) {
@@ -331,16 +342,16 @@ public class BootstrapActivity extends AppCompatActivity {
                 }
             }
             if (new android.os.StatFs(dataOnSdCard.getPath()).getAvailableBytes() < required + 512L * 1024 * 1024)
-                throw new IOException("可用空间不足，无法准备游戏运行资源；请释放空间后重试");
+                throw new IOException(getString(R.string.bpp_game_resources_no_space));
         }
         boolean copied = Utilities.copyAssets(gameContext.getApplicationInfo(), Assets);
         if (!copied) {
-            throw new IOException("无法读取已安装游戏资源，请检查空间及权限");
+            throw new IOException(getString(R.string.bpp_game_resources_unreadable));
         }
         File copiedData = new File(Assets, "bin/Data");
         setPhaseStatus(getString(R.string.bootstrap_status_detecting_version));
         String version = UnityUtils.TryGetVersion(copiedData);
-        if (version == null) throw new IOException("无法识别游戏 Unity 版本");
+        if (version == null) throw new IOException(getString(R.string.bpp_unity_version_unknown));
         LauncherFiles.write(resourceStamp, LauncherRelease.bytes(resourceKey));
         LauncherPreparation.prepare(appContext, targetPackage, codeCacheScoped, version, this::setPhaseStatus);
         File dotnetDir = new File(getRuntimeDir(appContext), "dotnet");

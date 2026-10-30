@@ -95,19 +95,19 @@ public final class LauncherGames {
             try { info = manager.getApplicationInfo(packageName, 0); }
             catch (PackageManager.NameNotFoundException error) { continue; }
             if (!eligible(context, info)) continue;
-            String version = "版本未知";
+            String version = context.getString(R.string.bpp_game_version_unknown);
             Drawable icon = fallback;
             try {
                 PackageInfo installed = manager.getPackageInfo(packageName, 0);
                 long code = installed.getLongVersionCode();
                 String name = installed.versionName == null || installed.versionName.isEmpty()
-                        ? "未知" : installed.versionName;
+                        ? context.getString(R.string.bpp_unknown) : installed.versionName;
                 version = Utilities.formatVersionText(name, code);
                 icon = manager.getApplicationIcon(info);
             } catch (Exception ignored) {}
             result.add(new Choice(packageName, label(manager, info), version, icon));
         }
-        Collator order = Collator.getInstance(Locale.CHINA);
+        Collator order = Collator.getInstance(context.getResources().getConfiguration().getLocales().get(0));
         result.sort((left, right) -> order.compare(left.label, right.label));
         return result;
     }

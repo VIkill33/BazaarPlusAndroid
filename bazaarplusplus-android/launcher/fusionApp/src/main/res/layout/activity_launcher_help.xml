@@ -6,52 +6,51 @@
         <LinearLayout android:id="@+id/help_body" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal" android:orientation="vertical" android:padding="24dp">
             <com.google.android.material.button.MaterialButton android:id="@+id/help_back" style="@style/BppButton"
-                android:layout_width="wrap_content" android:text="返回首页" />
+                android:layout_width="wrap_content" android:text="@string/bpp_back_home" />
             <TextView style="@style/BppText" android:text="@string/app_name" android:fontFamily="serif"
                 android:textSize="28sp" android:layout_marginTop="28dp" />
-            <TextView style="@style/BppText" android:text="使用帮助" android:textSize="36sp"
+            <TextView style="@style/BppText" android:text="@string/bpp_help_title" android:textSize="36sp"
                 android:textStyle="bold" android:layout_marginTop="8dp" android:accessibilityHeading="true" />
-            <TextView style="@style/BppCaption" android:text="首次启动、预览操作与常见问题。"
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_subtitle"
                 android:layout_marginTop="12dp" />
             <ImageView android:layout_width="match_parent" android:layout_height="16dp" android:layout_marginTop="24dp"
                 android:src="@drawable/bpp_divider" android:contentDescription="@null" />
-            <TextView style="@style/BppHelpHeading" android:text="三步开始" />
+            <TextView style="@style/BppHelpHeading" android:text="@string/bpp_help_get_started" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="vertical" android:background="@drawable/bpp_help_panel" android:padding="20dp">
-                <TextView style="@style/BppHelpTitle" android:text="01  安装并授权" />
-                <TextView style="@style/BppCaption" android:text="通过官方渠道安装大巴扎（The Bazaar），打开本启动器并点击「重新检查」。如提示文件授权，点「前往授权」，允许后返回。" />
-                <TextView style="@style/BppHelpTitle" android:text="02  启动游戏" />
-                <TextView style="@style/BppCaption" android:text="预留至少 1 GB 空间，点击「启动游戏」，首次准备请保持前台并耐心等待。框架与插件已内置，无需手动下载；游戏登录与资源下载仍需联网。" />
-                <TextView style="@style/BppHelpTitle" android:text="03  打开插件" />
-                <TextView style="@style/BppCaption" android:text="在游戏内登录，等待语言与卡牌数据加载，即可打开「卡牌图鉴」；对局中可用「构筑推荐」。以后请从本启动器进入游戏。" />
+                <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_step_install" />
+                <TextView style="@style/BppCaption" android:text="@string/bpp_help_step_install_body" />
+                <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_step_launch" />
+                <TextView style="@style/BppCaption" android:text="@string/bpp_help_step_launch_body" />
+                <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_step_plugin" />
+                <TextView style="@style/BppCaption" android:text="@string/bpp_help_step_plugin_body" />
             </LinearLayout>
-            <TextView style="@style/BppHelpHeading" android:text="游戏内怎么用" />
-            <TextView style="@style/BppHelpTitle" android:text="图鉴与构筑" />
-            <TextView style="@style/BppCaption" android:text="「卡牌图鉴」支持名称与描述搜索、筛选、品质及附魔预览，首次加载可能较慢。「构筑推荐」可点选场上、仓库或商店候选，查看匹配阵容。预览不会实际升级或附魔物品。" />
-            <TextView style="@style/BppHelpTitle" android:text="长按预览" />
-            <TextView style="@style/BppCaption" android:text="长按预览模式按钮按「附魔 → 升级 → 无」切换，图标随之变化；选择「无」只保留物品原生详情。游戏设置中的「BazaarPlusAndroid：长按预览」也可直接选择。商店、事件与野怪可长按查看附加信息。" />
-            <TextView style="@style/BppHelpTitle" android:text="双指按住预览 · 仅高级模式" />
-            <TextView style="@style/BppCaption" android:text="一指按住「按住预览」，另一指点物品、事件或野怪查看详情，松开退出。野怪面板会保留，可点卡图查看说明，点空白或 × 关闭；标准输入模式下此入口隐藏，仅高级模式显示。" />
-            <TextView style="@style/BppHelpTitle" android:text="对局历史" />
-            <TextView style="@style/BppCaption" android:text="「对局历史」按整局列出本机保存的记录，点开查看各次 PvP 交手和双方当时阵容；首页「对局历史」也可只读浏览。" />
-            <TextView style="@style/BppHelpTitle" android:text="按钮显示、样式与位置" />
-            <TextView style="@style/BppCaption" android:text="左侧按钮依次为图鉴、构筑推荐、长按预览模式、按住预览和对局历史，默认全部显示。每个按钮都可在游戏设置的「BazaarPlusAndroid：…按钮」或启动器「设置 → 游戏内按钮」中单独隐藏，两边同步，隐藏的按钮不占位。「BazaarPlusAndroid：按钮样式」可切回旧版纯文字按钮。拖动任一按钮可移动整组并吸附屏幕边缘；「BazaarPlusAndroid：按钮自动收起」开启后闲置 5 秒收起，点 BPA 小条展开。「BazaarPlusAndroid：预览面板位置」可将物品附加预览靠左，启动器「设置」也可调整。" />
-            <TextView style="@style/BppHelpHeading" android:text="切换本机客户端" />
-            <TextView style="@style/BppHelpTitle" android:text="设置 → 启动目标" />
-            <TextView style="@style/BppCaption" android:text="默认启动正版大巴扎。点「选择本机游戏」保存其他客户端，返回首页再点「启动游戏」；「恢复正版游戏」可切回默认。各客户端的运行数据独立，需分别登录。" />
-            <TextView style="@style/BppHelpTitle" android:text="列表找不到或无法启动？" />
-            <TextView style="@style/BppCaption" android:text="列表仅显示有桌面入口、非系统且已提取 arm64 IL2CPP 原生库的应用。自选客户端仍需匹配内置 Unity 版本；正版还会核对已验证的游戏版本。请按首页提示检查，游戏更新后可能需要新版启动器。" />
-            <TextView style="@style/BppHelpHeading" android:text="遇到问题" />
-            <TextView style="@style/BppHelpTitle" android:text="准备失败或没有插件入口" />
-            <TextView style="@style/BppCaption" android:text="确认从本启动器启动、文件权限已允许且空间充足，返回首页重试。仍失败时先退出游戏，再到「更多：修复与许可 → 修复运行环境」。修复仅针对当前客户端，保留登录、持久数据与用户配置。" />
-            <TextView style="@style/BppHelpTitle" android:text="如何反馈问题" />
-            <TextView style="@style/BppCaption" android:text="退出游戏，在首页「更多：修复与许可 → 导出诊断日志」选择保存位置，再将文件发给维护者。导出仅含启动器记录，不含游戏日志、账号或登录数据，也不会自动上传。" />
-            <TextView style="@style/BppHelpTitle" android:text="后台返回与功能范围" />
-            <TextView style="@style/BppCaption" android:text="切到后台后，点桌面启动器图标可回到正在运行的游戏。Android 版仍为实验版本，尚无回放、视频录制、上传与自动更新；预览数值与推荐仅供参考，部分场景仍待验证。" />
+            <TextView style="@style/BppHelpHeading" android:text="@string/bpp_help_controls" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_collection_builds" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_collection_builds_body" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_long_press" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_long_press_body" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_hold_preview" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_hold_preview_body" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_history" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_history_body" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_move_controls" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_move_controls_body" />
+            <TextView style="@style/BppHelpHeading" android:text="@string/bpp_help_switch_client" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_target_path" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_switch_client_body" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_missing_game" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_missing_game_body" />
+            <TextView style="@style/BppHelpHeading" android:text="@string/bpp_help_troubleshooting" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_preparation_failure" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_preparation_failure_body" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_report_problem" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_report_problem_body" />
+            <TextView style="@style/BppHelpTitle" android:text="@string/bpp_help_resume" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_resume_body" />
             <androidx.appcompat.widget.AppCompatButton android:id="@+id/help_start" style="@style/BppPrimaryButton"
-                android:text="返回首页" android:layout_marginTop="32dp" />
-            <TextView style="@style/BppCaption" android:text="独立社区工具 · 非官方出品
-本页可离线阅读" android:gravity="center"
+                android:text="@string/bpp_back_home" android:layout_marginTop="32dp" />
+            <TextView style="@style/BppCaption" android:text="@string/bpp_help_footer" android:gravity="center"
                 android:textSize="12sp" android:layout_marginTop="24dp" android:layout_marginBottom="12dp" />
         </LinearLayout>
     </FrameLayout>

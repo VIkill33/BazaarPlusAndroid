@@ -5,16 +5,16 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:paddingHorizontal="24dp" android:paddingTop="24dp">
         <com.google.android.material.button.MaterialButton android:id="@+id/games_back"
-            style="@style/BppButton" android:layout_width="wrap_content" android:text="返回" />
-        <TextView style="@style/BppText" android:text="选择游戏" android:textSize="28sp"
+            style="@style/BppButton" android:layout_width="wrap_content" android:text="@string/bpp_back" />
+        <TextView style="@style/BppText" android:text="@string/bpp_choose_game" android:textSize="28sp"
             android:textStyle="bold" android:layout_marginTop="24dp" android:accessibilityHeading="true" />
         <TextView style="@style/BppCaption"
-            android:text="只列出带桌面入口、且已提取 arm64 IL2CPP 原生库的非系统应用。点选只保存目标，不会立刻启动。"
+            android:text="@string/bpp_games_requirements"
             android:layout_marginTop="8dp" />
         <ProgressBar android:id="@+id/games_progress" android:layout_width="wrap_content"
             android:layout_height="wrap_content" android:layout_marginTop="16dp" android:indeterminate="true" />
         <TextView android:id="@+id/games_status" style="@style/BppCaption"
-            android:text="正在查找符合要求的游戏…" android:layout_marginTop="8dp" />
+            android:text="@string/bpp_games_scanning" android:layout_marginTop="8dp" />
     </LinearLayout>
     <ListView android:id="@+id/games_list" android:layout_width="match_parent" android:layout_height="0dp"
         android:layout_weight="1" android:layout_marginTop="12dp" android:paddingHorizontal="24dp"

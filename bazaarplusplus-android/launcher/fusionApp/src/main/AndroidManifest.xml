@@ -43,7 +43,7 @@
     <activity
         android:name="dev.allofus.fusioncore.LauncherActivity"
         android:theme="@style/BppLauncherTheme" android:exported="true"
-        android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|layoutDirection|density"
+        android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|density"
         >
       <intent-filter>
         <category android:name="android.intent.category.LAUNCHER" />
