@@ -4,7 +4,7 @@
 
 [English](README.md) · [下载 APK](https://github.com/VIkill33/BazaarPlusAndroid/releases) · [反馈问题](https://github.com/VIkill33/BazaarPlusAndroid/issues)
 
-项目目前处于实验性测试阶段。不同设备、系统和游戏版本的验证范围见[真机验证记录](bazaarplusplus-android/docs/device-validation.md)，完整功能状态见[功能清单](bazaarplusplus-android/docs/feature-checklist.md)。
+启动器及游戏内插件已完整支持英文，同时保留中文。启动器随 Android 系统语言显示，游戏内功能随游戏语言显示；不支持的系统语言回退为英文。项目目前处于实验性测试阶段。不同设备、系统和游戏版本的验证范围见[真机验证记录](bazaarplusplus-android/docs/device-validation.md)，完整功能状态见[功能清单](bazaarplusplus-android/docs/feature-checklist.md)。
 
 ## 安装与使用
 
@@ -31,7 +31,7 @@
 
 | 功能 | 当前能力 |
 | --- | --- |
-| 独立启动器 | 文件授权、兼容检查、内置运行环境准备、失败重试、修复、诊断日志和离线帮助；首页提供「打赏作者」与「Github」入口 |
+| 独立启动器 | 完整中英文界面、文件授权、兼容检查、内置运行环境准备、失败重试、修复、诊断日志和离线帮助；首页提供「打赏作者」与「Github」入口 |
 | 卡牌图鉴 | 查阅物品与技能，搜索名称和描述，按英雄、品质、体型、商人及天数筛选，查看原生卡面与详情 |
 | 附魔与升级预览 | 长按查看附加信息，可切换附魔、升级或关闭附加预览，并设置预览面板位置 |
 | 商店与事件预览 | 展示可解析的品质概率、条件、奖励信息及后续遭遇；具体事件覆盖范围见功能清单 |

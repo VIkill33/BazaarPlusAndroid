@@ -4,7 +4,7 @@ An Android port for *The Bazaar*, with a dedicated launcher and in-game tools ad
 
 [中文](README_zh.md) · [Download APK](https://github.com/VIkill33/BazaarPlusAndroid/releases) · [Report an issue](https://github.com/VIkill33/BazaarPlusAndroid/issues)
 
-The project is experimental. See the [device validation records](bazaarplusplus-android/docs/device-validation.md) for tested devices, systems, and game versions, and the [feature checklist](bazaarplusplus-android/docs/feature-checklist.md) for implementation status. These detailed documents are currently in Chinese.
+The launcher and in-game plugin support English throughout. The launcher follows the Android system language; the in-game tools follow the game language. Chinese remains available, and unsupported system languages fall back to English. The project is experimental: see the [device validation records](bazaarplusplus-android/docs/device-validation.md) for tested devices, systems, and game versions, and the [feature checklist](bazaarplusplus-android/docs/feature-checklist.md) for implementation status. These detailed documents are currently in Chinese.
 
 ## Installation and usage
 
@@ -20,18 +20,18 @@ The project is experimental. See the [device validation records](bazaarplusplus-
 1. Install the Android client of *The Bazaar* on your phone.
 2. Open the `.apk` downloaded above and follow the system prompts to allow installation.
 3. Open the launcher, grant file access as prompted, and wait for the pre-launch checks.
-4. Tap 「启动游戏」 (Launch game). The launcher prepares the runtime and loads the plugin. Initial game login and game resource downloads require internet access.
-5. Use the in-game card collection and build recommendation buttons. Open 「帮助」 (Help) in the launcher for instructions.
+4. Tap **Launch game**. The launcher prepares the runtime and loads the plugin. Initial game login and game resource downloads require internet access.
+5. Use the in-game card collection and build recommendation buttons. Open **Help** in the launcher for instructions.
 
-The APK bundles the framework, plugin, and matching Unity dependencies. Setup and repair extract and verify these files locally without downloading runtime dependencies from GitHub. 「可以启动」 (Ready to launch) means the pre-launch checks passed; login and in-game functionality still depend on the actual game session.
+The APK bundles the framework, plugin, and matching Unity dependencies. Setup and repair extract and verify these files locally without downloading runtime dependencies from GitHub. **Ready to launch** means the pre-launch checks passed; login and in-game functionality still depend on the actual game session.
 
-Under 「设置」 (Settings), you can select an installed game client that meets the launcher's filtering requirements. The official client is the default. Under 「更多：修复与许可」 (More: repair and licenses), you can repair the runtime or export diagnostics. You choose where to save diagnostic files; they are not uploaded automatically.
+Under **Settings**, you can select an installed game client that meets the launcher's filtering requirements. The official client is the default. Under **More: repair and licenses**, you can repair the runtime or export diagnostics. You choose where to save diagnostic files; they are not uploaded automatically.
 
 ## Main features
 
 | Feature | Current capabilities |
 | --- | --- |
-| Dedicated launcher | File permissions, compatibility checks, bundled runtime setup, retries, repair, diagnostics, and offline help; donation and Github buttons on the home screen |
+| Dedicated launcher | English and Chinese interface, file permissions, compatibility checks, bundled runtime setup, retries, repair, diagnostics, and offline help; donation and GitHub buttons on the home screen |
 | Card collection | Browse items and skills, search names and descriptions, filter by hero, tier, size, merchant, and day, and inspect native card art and details |
 | Enchant and upgrade previews | Long-press for additional information, select enchant previews, upgrade previews, or no additional preview, and configure panel position |
 | Shop and encounter previews | Show resolvable tier probabilities, conditions, rewards, and follow-up encounters; coverage is listed in the feature checklist |
