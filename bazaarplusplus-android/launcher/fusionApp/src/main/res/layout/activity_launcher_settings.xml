@@ -61,5 +61,12 @@
             android:text="对局历史" android:textColor="@color/bpp_text" />
         <TextView style="@style/BppCaption" android:text="以上设置自动保存，下次启动当前目标游戏时生效；游戏内「设置」中也能修改，两边保持同步。"
             android:layout_marginTop="16dp" />
+        <TextView style="@style/BppText" android:text="图片缓存" android:textSize="20sp"
+            android:layout_marginTop="32dp" android:accessibilityHeading="true" />
+        <TextView android:id="@+id/cache_size" style="@style/BppText" android:text="正在计算占用…"
+            android:layout_marginTop="8dp" />
+        <TextView android:id="@+id/cache_policy" style="@style/BppCaption" android:layout_marginTop="8dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/cache_clear"
+            style="@style/BppButton" android:text="清理缓存" android:layout_marginTop="12dp" />
     </LinearLayout>
 </ScrollView>

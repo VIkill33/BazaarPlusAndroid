@@ -125,7 +125,8 @@ public final class HistoryReader {
     }
 
     // Background artwork backfill uses the same host-owned account scope as all game reads.
-    // Parse a bounded page in Java; do not depend on SQLite JSON extensions on older Android.
+    // Snapshots still page through every PvP battle. Purchases stop after the default first page
+    // so cards the purchase screen does not show first are not written back into the image cache.
     private JSONObject artwork(SQLiteDatabase db, JSONObject request) throws Exception {
         List<String> args = arguments();
         args.add(Long.toString(request.has("afterRow") ? nonnegative(request, "afterRow") : 0));
@@ -133,40 +134,75 @@ public final class HistoryReader {
         java.util.Set<String> seen = new java.util.HashSet<>();
         long last = request.has("afterRow") ? nonnegative(request, "afterRow") : 0;
         long purchaseLast = request.has("afterPurchaseRow") ? nonnegative(request, "afterPurchaseRow") : 0;
-        int count = 0, purchaseCount = 0;
+        int count = 0;
         try (Cursor rows = query(db, "SELECT x.rowid,x.payload" + RUN_FROM
                 + " JOIN battles b ON b.run_id=r.id JOIN battle_snapshots x ON x.battle_id=b.id WHERE "
                 + scope.clause + " AND b.kind='pvp' AND x.rowid>? ORDER BY x.rowid LIMIT " + PAGE_SIZE, args)) {
             while (rows.moveToNext()) {
                 last = rows.getLong(0); count++;
-                JSONArray cards = new JSONObject(rows.getString(1)).optJSONArray("cards");
-                if (cards == null) continue;
-                for (int i = 0; i < cards.length(); i++) {
-                    JSONObject card = cards.optJSONObject(i);
-                    String id = card == null ? "" : card.optString("templateId");
-                    try { id = uuid(id); } catch (IllegalArgumentException invalid) { continue; }
-                    if (seen.add(id)) ids.put(id);
-                }
+                addCards(new JSONObject(rows.getString(1)).optJSONArray("cards"), seen, ids);
             }
         }
-        // Purchases can be sold, merged or kept in the stash before any PvP snapshot.
-        // Independent cursors keep either source advancing when the other is exhausted.
-        if (db.getVersion() >= 2) {
-            List<String> purchaseArgs = arguments();
-            purchaseArgs.add(Long.toString(purchaseLast));
-            try (Cursor rows = query(db, "SELECT p.rowid,p.template_id" + RUN_FROM
-                    + " JOIN card_purchases p ON p.run_id=r.id WHERE " + scope.clause
-                    + " AND p.rowid>? ORDER BY p.rowid LIMIT " + PAGE_SIZE, purchaseArgs)) {
-                while (rows.moveToNext()) {
-                    purchaseLast = rows.getLong(0); purchaseCount++;
-                    String id;
-                    try { id = uuid(rows.getString(1)); } catch (IllegalArgumentException invalid) { continue; }
-                    if (seen.add(id)) ids.put(id);
-                }
-            }
+        if (db.getVersion() >= 2 && purchaseLast == 0) {
+            addPurchaseFirstPage(db, true, seen, ids);
+            addPurchaseFirstPage(db, false, seen, ids);
+            purchaseLast = 1;
         }
         return state("ok").put("items", ids).put("afterRow", last).put("afterPurchaseRow", purchaseLast)
-            .put("hasMore", count == PAGE_SIZE || purchaseCount == PAGE_SIZE);
+            .put("hasMore", count == PAGE_SIZE);
+    }
+
+    /**
+     * Card template ids the launcher keeps. Null means the database could not be judged,
+     * so callers must leave card images in place. An empty set means nothing is referenced.
+     */
+    public java.util.Set<String> retainedCardTemplates() throws Exception {
+        if (Looper.getMainLooper() != null && Looper.myLooper() == Looper.getMainLooper())
+            throw new IllegalStateException("History I/O must run off the UI thread");
+        if (!file.isFile()) return null;
+        try (SQLiteDatabase db = SQLiteDatabase.openDatabase(file.getPath(), null,
+                SQLiteDatabase.OPEN_READONLY, HistoryStore.PRESERVE_CORRUPTION)) {
+            if (db.getVersion() > HistoryStore.SCHEMA_VERSION || db.getVersion() < 1) return null;
+            try (Cursor metadata = db.rawQuery("SELECT value FROM metadata WHERE key='target_package'", null)) {
+                if (!metadata.moveToFirst() || !target.equals(metadata.getString(0))) return null;
+            }
+            java.util.Set<String> ids = new java.util.HashSet<>();
+            try (Cursor rows = query(db, "SELECT x.payload" + RUN_FROM
+                    + " JOIN battles b ON b.run_id=r.id JOIN battle_snapshots x ON x.battle_id=b.id WHERE "
+                    + scope.clause + " AND b.kind='pvp'", arguments())) {
+                while (rows.moveToNext()) {
+                    try { addCards(new JSONObject(rows.getString(0)).optJSONArray("cards"), ids, null); }
+                    catch (org.json.JSONException ignored) { /* One bad snapshot does not keep every other image. */ }
+                }
+            }
+            if (db.getVersion() >= 2) {
+                addPurchaseFirstPage(db, true, ids, null);
+                addPurchaseFirstPage(db, false, ids, null);
+            }
+            return ids;
+        } catch (android.database.sqlite.SQLiteException unavailable) { return null; }
+    }
+
+    // Ranking and recent, with no hero or time filter: the first screen of each purchase tab.
+    private void addPurchaseFirstPage(SQLiteDatabase db, boolean ranking, java.util.Set<String> seen, JSONArray ids) throws Exception {
+        JSONArray items = purchases(db, new JSONObject().put("view", ranking ? "ranking" : "recent")
+            .put("filter", "all").put("offset", 0)).getJSONArray("items");
+        for (int i = 0; i < items.length(); i++) {
+            String id;
+            try { id = uuid(items.getJSONObject(i).optString("templateId")); }
+            catch (IllegalArgumentException invalid) { continue; }
+            if (seen.add(id) && ids != null) ids.put(id);
+        }
+    }
+
+    private static void addCards(JSONArray cards, java.util.Set<String> seen, JSONArray ids) {
+        if (cards == null) return;
+        for (int i = 0; i < cards.length(); i++) {
+            JSONObject card = cards.optJSONObject(i);
+            String id = card == null ? "" : card.optString("templateId");
+            try { id = uuid(id); } catch (IllegalArgumentException invalid) { continue; }
+            if (seen.add(id) && ids != null) ids.put(id);
+        }
     }
 
     private JSONObject runs(SQLiteDatabase db, JSONObject request) throws Exception {

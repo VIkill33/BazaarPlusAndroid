@@ -2165,3 +2165,11 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 23 项 Python 回归通过；固定框架与本机 Android interop 的 `build_probe.py --mod` 编译零警告／零错误。签名 APK 覆盖安装成功，`apksigner` 报告 `Verifies`、v2 true、`CN=BazaarPlusPlus Android Test`。最终会话 `d5dd4243-9367-496d-a970-04a4a94a86ae` 的加载 DLL SHA-256 `3d36c2a0a717f76a8d52cf08337266baa67f0cdc6554b49ba7bfe5471003693e` 与本次构建及 APK 内置插件一致。高级模式主菜单截图人工复核：四个可见图标均无深绿色方块，金框与右上角设置按钮同源；点击图鉴后面板打开，关闭后入口恢复。切到标准模式，截图确认金框保留且按住预览入口隐藏；切回高级模式后入口恢复。没有自动视觉断言；纯文字样式运行时切换、自动收起、其他屏幕边缘及其他设备尚未专项验证。
 
 证据位于忽略目录 `bazaarplusplus-android/artifacts/`：`dock-border-before.png`、`dock-border-final-menu.png`、`dock-border-click.png`、`dock-border-standard-selected.png`、`dock-border-advanced-restored.png`、`dock-border-build.log`、`dock-border-tests.log`、`dock-border-final.log`；签名报告在 `artifacts/launcher/signing-report.txt`。加载日志中的 Unity Accessibility 方法缺失、系统游戏模式权限和登录请求 401 与本次按钮绘制无对应异常；主菜单与图鉴操作正常。
+
+## 2026-10-30：历史图片缓存按优先级清理（离线与隔离查询通过，设置页未装机）
+
+设备 `OBJVWSPNSCFQU48L`（型号 22041216C，Android 14）当时已有启动器进程，本次没有覆盖安装、没有打开设置，也没有删除手机上的图片。只读查看正版目录 `BepInEx/history-art`：合计 265MB，其中旧版 `v1` 23MB、`v2` 121MB，当前 `.cache/v3` 121MB（714 张 `card-` 图，另有 20 张边框、8 张英雄、4 张奖杯、3 张状态图）。同一目录下的历史库只读统计：PvP 快照涉及 609 个模板，购牌默认第一页（常买排行与购买明细，无英雄和时间筛选）合计 35 个模板，与历史合并后保留 628 个；只出现在更后面购牌页的模板有 86 个。因此这台手机上，定期清理会去掉旧版图片树和这 86 张卡图，历史对局仍要的图会留下。用户看到的 600MB 与这次只读合计 265MB 不一致，不能把 265MB 写成已经释放的空间。
+
+离线：`HistoryArtCache` 文件策略 25 项通过。`python3 -m unittest discover -s bazaarplusplus-android/tests -v` 共 24 项，其中 23 项通过；`test_history_artwork.py` 因本机没有 `dotnet` 未能执行，该测试不是本次改动引入的失败。JDK 24 的 `:fusionApp:compileReleaseJavaWithJavac` 通过。隔离目录上的 `verify_history_store.py --reader` 118 项通过，覆盖购牌第一页导出、第一页之后不再导出，以及账号范围和启动器范围的保留集合；成功后测试目录已删除。证据在忽略目录 `artifacts/history-art/cache-cleanup/reader.json`。
+
+设置里的「清理缓存」、首页自动清理、清理后的历史页和购牌第一页显示，都还没有在正式启动器上操作，不能记为真机通过。切换英雄、时间或体型后的缺图提示也未看过。

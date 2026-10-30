@@ -4,11 +4,11 @@
 
 启动器不装载 Unity，也不从网络查询卡牌图片。`AndroidHistoryArtwork` 在游戏主线程调用手机版原生资源入口，导出默认英雄头像、奖杯及历史快照涉及的模板插画。图片不包含账号、玩家名称、玩家头像或实际卡牌实例。
 
-`HistoryReader.artwork` 使用宿主确定的账号／暂存会话范围，投影 PvP 快照和成功购买记录的模板 ID。两类来源各自按行号有界分页，同页去重，任一来源未结束时继续回填；旧版无购买表的数据库仍只读取快照，不依赖旧版 Android 未必具备的 SQLite JSON 扩展。回填在游戏内历史关闭、非战斗时执行，使用现有读取桥；当前查询让位于用户浏览，取消后延迟重试。
+`HistoryReader.artwork` 使用宿主确定的账号／暂存会话范围。PvP 快照仍按行号有界分页，直到当前范围内的历史模板都进入导出队列。成功购买记录只取购牌统计的默认第一页：无英雄筛选、筛选为「全部」、偏移为 0，`HistoryReader.PAGE_SIZE` 条；常买排行和购买明细各取一页，同页去重。购买游标在这一页之后即结束，避免把全部购牌模板重新写回缓存。旧版无购买表的数据库仍只读取快照，不依赖旧版 Android 未必具备的 SQLite JSON 扩展。回填在游戏内历史关闭、非战斗时执行，使用现有读取桥；当前查询让位于用户浏览，取消后延迟重试。
 
 图片目录由 `AndroidHistoryArtwork` 拥有。先前仅依赖公开 PNG 树根 `.nomedia` 的方案收到仍被收录的反馈，因此修订目录约定：`HistoryArtworkDirectory.Prepare` 在 `BepInEx/history-art/` 创建根标记，随后创建隐藏路径 `.cache/v3/<游戏版本 SHA-256>/` 及该图片目录的 `.nomedia`。`HistoryArtworkDirectory.Write` 在每次写入前补齐图片目录标记，创建失败时不发布图片并交给现有写入重试。新图片以 `.bppart` 后缀存放原 PNG 字节，临时文件为 `.bppart.part`；隐藏目录、专用后缀和排除标记共同减少被媒体扫描当作公开图片收录的机会。该方案尚未真机验收，不假设所有厂商相册都遵循排除约定。
 
-`HistoryArtworkFiles` 只读取新树的 `current.txt` 和 `.bppart` 文件，`HistoryArtwork` 继续按字节解码。插件与启动器一起升级，进入游戏后按现有队列重新生成当前账号缓存；生成前保持缺图状态，不读取旧 PNG。旧 `v1`／`v2` 文件与既有相册记录保留，不通过删除媒体索引清理相册。
+`HistoryArtworkFiles` 只读取新树的 `current.txt` 和 `.bppart` 文件，`HistoryArtwork` 继续按字节解码。进入游戏后按上述队列生成当前账号缓存；生成前保持缺图状态，不读取旧 PNG。启动器可以删除不再读取的旧图片文件以收回空间；不修改系统相册索引，因此已经收录的旧记录可能仍然留在相册里。
 
 `source.json` 标注来源游戏版本，`current.txt` 指向当前版本目录；图片先写临时文件再原子替换。物品材质纹理的 alpha 是游戏着色器遮罩，导出卡图时使用 RGB，英雄与奖杯保留原始透明度，避免卡牌主体在 Android 图片控件中消失。单次只处理一张图片，限制输出尺寸及待写字节，只有托管 PNG 字节交给后台落盘；暂停不消耗加载超时，失败延迟有界重试。该缓存可重新生成，不参与历史 schema、初始化、迁移或修复，也不把当前模板图片当作采集时截图。
 
@@ -17,3 +17,14 @@
 缓存 PNG 是源材质纹理，其方形像素尺寸不能代表物品的显示比例。启动器以 `HistoryBattleLayout.artworkAspect` 中当前手机版 `CardPreviewItem._cardImage` 区域的实测比例还原原生 UV 映射，再按整排预算统一高度、单行缩放；不从装饰框或方形纹理推断小／中／大型卡图比例。
 
 品质边框同样来自本机缓存：插件为历史中出现的每种物品体型及技能创建不显示的原生预览，按五档品质 `SetUp` 后复制 `_currentFrame` 的 Simple 精灵为 `frame-<体型>-<品质>.bppart` 或 `frame-Skill-<品质>.bppart`，保留透明度。启动器按 `HistoryBattleLayout.frameAspect` 与 `artInsets` 把插画放入边框窗口再叠加边框；技能插画裁成圆形以对齐游戏内 `CardPreviewSkill`。边框未缓存时只显示插画。
+
+## 保留优先级和清理
+
+图片可以重新生成，但历史对局和购牌统计首页应先保持可看。`HistoryArtCache` 拥有清理规则，`HistoryReader.retainedCardTemplates` 提供当前范围内要保留的卡牌模板：
+
+- 全部 PvP 快照里的卡牌模板，以及英雄、奖杯、状态、品质边框这些数量有限的界面图，优先级最高，定期清理不删除。
+- 购牌统计在「全部英雄、全部」下的常买排行第一页和购买明细第一页，优先级与历史对局相同。英雄筛选、近三日、近七日和体型筛选下的其他页不在此列。
+- 其余 `card-*.bppart`、当前版本以外的版本目录、`history-art` 下除 `.cache` 和根 `.nomedia` 以外的旧树，可以删除。最近 10 分钟内写过的文件先留下，避免和正在导出的图片互相覆盖。读不到历史库时不删除当前版本里的卡牌图，只删除能够确认已经过时的目录。
+- 不删除 `current.txt`、`source.json`、`.nomedia`，不删除历史数据库，也不调用系统相册接口。
+
+启动器首页每天第一次出现时执行一次；若总大小超过 `HistoryArtCache.SIZE_BUDGET_BYTES`，并且比上次清理后又增加了 `HistoryArtCache.GROWTH_BYTES`，则至少间隔 `HistoryArtCache.GROWTH_INTERVAL_MS` 再执行。设置页「清理缓存」立即执行同一规则，并显示释放与剩余大小。切换英雄、时间或体型后，不在保留范围内的购牌图会显示「图片未缓存」。

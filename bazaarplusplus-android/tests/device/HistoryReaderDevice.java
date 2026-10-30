@@ -134,17 +134,31 @@ public final class HistoryReaderDevice {
                 check(artPages > 1 && artIds.size()==1 && artIds.contains(artId), "artwork backfill paginates, deduplicates and skips invalid templates");
                 check(new HistoryReader(root,"test.history.target",HistoryReader.Scope.account(other)).read(request("artwork")).getJSONArray("items").length()==0,
                     "artwork backfill cannot read another account's snapshots");
-                Set<String> expectedArt = new HashSet<>(); expectedArt.add(artId);
-                for (int i = 0; i < 47; i++) {
-                    String template = i == 0 ? "invalid" : i == 1 ? artId : id();
-                    if (i > 0) expectedArt.add(template);
-                    fixture.execSQL(PurchaseSql.INSERT, new Object[] {id(), first, id(), template, "Purchased only", "Item", "Bronze", 3, 3000, 1, 3});
+                Set<String> gaps = new HashSet<>();
+                for (int i = 0; i < 45; i++) {
+                    String template = id();
+                    if (i >= 20 && i < 25) gaps.add(template);
+                    fixture.execSQL(PurchaseSql.INSERT, new Object[] {id(), first, id(), template, "Purchased only", "Item", "Bronze", 1000 - i, 1000 + i, 1, 3});
                 }
+                fixture.execSQL(PurchaseSql.INSERT, new Object[] {id(), first, id(), "invalid", "Purchased only", "Item", "Bronze", 5000, 5000, 1, 3});
                 String otherArt = id(), pendingArt = id();
                 fixture.execSQL("INSERT INTO card_purchases SELECT ?,r.id,?,?, 'Other', 'Skill','Gold',1,3000,1,3 FROM runs r JOIN history_scopes s ON s.id=r.scope_id WHERE s.account_key=? LIMIT 1",
                     new Object[] {id(), id(), otherArt, other});
                 fixture.execSQL("INSERT INTO card_purchases SELECT ?,r.id,?,?, 'Pending', 'Item','Gold',1,3000,1,3 FROM runs r JOIN history_scopes s ON s.id=r.scope_id WHERE s.account_key IS NULL LIMIT 1",
                     new Object[] {id(), id(), pendingArt});
+                Set<String> expectedArt = new HashSet<>(); expectedArt.add(artId);
+                for (String view : new String[] {"ranking", "recent"}) {
+                    JSONArray purchasePage = own.read(request("purchases").put("view", view).put("filter", "all").put("offset", 0)).getJSONArray("items");
+                    check(purchasePage.length() == 20, "purchase " + view + " first page stays bounded");
+                    for (int i = 0; i < purchasePage.length(); i++) {
+                        String templateId = purchasePage.getJSONObject(i).getString("templateId");
+                        try { if (!UUID.fromString(templateId).toString().equals(templateId)) continue; }
+                        catch (IllegalArgumentException invalidId) { continue; }
+                        expectedArt.add(templateId);
+                    }
+                }
+                check(gaps.size() == 5, "fixture has templates past both purchase first pages");
+                for (String missing : gaps) check(!expectedArt.contains(missing), "templates past both first pages stay off the default page");
                 artIds.clear(); artAfter = 0; long purchaseAfter = 0; artPages = 0;
                 do {
                     JSONObject art = own.read(request("artwork").put("afterRow", artAfter).put("afterPurchaseRow", purchaseAfter));
@@ -161,7 +175,16 @@ public final class HistoryReaderDevice {
                     artAfter = nextArt; purchaseAfter = nextPurchase;
                     if (artPages > 20) throw new AssertionError("artwork pagination did not finish");
                 } while (true);
-                check(artPages > 3 && artIds.equals(expectedArt), "all purchase-only templates backfill without requiring a PvP snapshot");
+                check(artPages > 3 && artIds.equals(expectedArt), "artwork backfill keeps history templates and the default purchase first pages only");
+                for (String missing : gaps) check(!artIds.contains(missing), "purchase templates past the first page are not exported");
+                java.util.Set<String> retained = own.retainedCardTemplates();
+                check(retained != null && retained.containsAll(expectedArt), "retention keeps history templates and purchase first pages");
+                for (String missing : gaps) check(!retained.contains(missing), "retention drops purchase templates past the first page");
+                check(!retained.contains(otherArt), "account retention does not include another account");
+                java.util.Set<String> launcherRetained = all.retainedCardTemplates();
+                check(launcherRetained != null && launcherRetained.contains(artId) && launcherRetained.contains(otherArt)
+                    && launcherRetained.contains(pendingArt), "launcher retention keeps visible history art and every account's default first page");
+                for (String missing : gaps) check(!launcherRetained.contains(missing), "launcher retention drops templates past both first pages");
                 JSONArray otherIds = new HistoryReader(root,"test.history.target",HistoryReader.Scope.account(other))
                     .read(request("artwork")).getJSONArray("items");
                 check(otherIds.length() == 1 && otherArt.equals(otherIds.getString(0)), "purchase artwork stays within account scope");
