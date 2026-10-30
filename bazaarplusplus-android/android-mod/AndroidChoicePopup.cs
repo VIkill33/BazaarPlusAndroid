@@ -54,7 +54,7 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
         panel.gameObject.AddComponent<Image>().color = artwork == null
             ? new Color(.06f, .09f, .12f, 1) : new Color(.106f, .071f, .078f, 1);
         NativeUi.Label(NativeUi.Rect("BPP.ChoiceTitle", panel, new Vector2(.03f, .86f), new Vector2(.86f, .98f)), font, title, 34);
-        NativeUi.Button(panel, font, "×", new Vector2(.88f, .86f), new Vector2(.98f, .98f), Close);
+        AndroidPanelButtonSkin.Register(NativeUi.Button(panel, font, "×", new Vector2(.88f, .86f), new Vector2(.98f, .98f), Close));
         var viewport = NativeUi.Rect("BPP.ChoiceViewport", panel, new Vector2(.03f, .03f), new Vector2(.97f, .84f));
         viewport.gameObject.AddComponent<RectMask2D>();
         var backdrop = viewport.gameObject.AddComponent<Image>();
@@ -74,8 +74,12 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
                 new Vector2(column / (float)columns, 1), new Vector2((column + 1) / (float)columns, 1),
                 () => { Close(); option.Select(); },
                 new Vector2(6, -row * rowHeight - rowHeight + 6), new Vector2(-6, -row * rowHeight - 6));
-            if (artwork == null) continue;
             var chosen = index == selectedIndex;
+            if (artwork == null)
+            {
+                AndroidPanelButtonSkin.Register(button, chosen);
+                continue;
+            }
             button.GetComponent<Image>().color = chosen ? new Color(.38f,.25f,.15f,1) : new Color(.157f,.110f,.141f,1);
             var caption = button.GetComponentInChildren<TextMeshProUGUI>();
             caption.richText = false;
@@ -98,6 +102,7 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
                     font, NativeUi.Text("Selected", "已选"), 20);
                 marker.color = new Color(1f,.74f,.40f);
             }
+            AndroidPanelButtonSkin.Register(button, chosen);
         }
         var scroll = viewport.gameObject.AddComponent<ScrollRect>();
         scroll.viewport = viewport;

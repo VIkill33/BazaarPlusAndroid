@@ -59,6 +59,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 _board?.Tick();
                 _candidateCards.Tick();
             }
+            if (_canvas != null) AndroidPanelButtonSkin.Tick();
             if (string.IsNullOrWhiteSpace(PlayerPreferences.Data?.LanguageCode)) return;
             if (_canvas == null)
             {
@@ -118,13 +119,13 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 new Vector2(.37f, .89f), new Vector2(.53f, .98f), CycleSource);
             _candidatePageButton = NativeUi.Button(_panel, font, "1/1",
                 new Vector2(.54f, .89f), new Vector2(.68f, .98f), NextCandidatePage);
-            NativeUi.Button(_panel, font, () => NativeUi.Text("Refresh", "刷新"),
+            var refreshButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Refresh", "刷新"),
                 new Vector2(.70f, .89f), new Vector2(.82f, .98f), () =>
                 {
                     _ = Plugin.BuildRepository?.RefreshAsync();
                     _nextRefresh = 0;
                 });
-            NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"),
+            var closeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"),
                 new Vector2(.85f, .89f), new Vector2(.97f, .98f), () => SetOpen(false));
             for (var slot = 0; slot < 10; slot++)
             {
@@ -171,6 +172,12 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _text.fontSize = 29;
             _text.enableAutoSizing = false;
             if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
+            foreach (var button in new[]
+            {
+                _sourceButton, _candidatePageButton, refreshButton, closeButton,
+                _previousBuildButton, _nextBuildButton,
+            })
+                AndroidPanelButtonSkin.Register(button);
             SetOpen(false);
         }
         catch

@@ -123,6 +123,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 if (ReadContext()) Changed();
             }
             _choices?.Tick();
+            AndroidPanelButtonSkin.Tick();
             _thumbnails.Tick();
             try { TickPreview(); }
             catch (Exception error)
@@ -178,8 +179,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _choices = new AndroidChoicePopup(_panel, font);
         var title = NativeUi.Rect("BPP.Title", _panel, new Vector2(.03f, .88f), new Vector2(.6f, .98f));
         var titleLabel = NativeUi.Label(title, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"), 44);
-        NativeUi.Button(_panel, font, () => NativeUi.Text("Reset filters", "重置筛选"), new Vector2(.64f, .88f), new Vector2(.82f, .98f), ResetFilters);
-        NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"), new Vector2(.85f, .88f), new Vector2(.97f, .98f), () => SetOpen(false));
+        var resetButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Reset filters", "重置筛选"), new Vector2(.64f, .88f), new Vector2(.82f, .98f), ResetFilters);
+        var closeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"), new Vector2(.85f, .88f), new Vector2(.97f, .98f), () => SetOpen(false));
         _heroButton = NativeUi.Button(_panel, font, NativeUi.Text("Hero: All", "英雄：全部"), new Vector2(.03f, .78f), new Vector2(.24f, .85f), ChooseHero);
         _tierButton = NativeUi.Button(_panel, font, NativeUi.Text("Tier: All", "品质：全部"), new Vector2(.25f, .78f), new Vector2(.42f, .85f), ChooseTier);
         _sizeButton = NativeUi.Button(_panel, font, NativeUi.Text("Size: All", "体型：全部"), new Vector2(.43f, .78f), new Vector2(.6f, .85f), ChooseSize);
@@ -198,8 +199,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             () => NativeUi.Text("Data may take longer to load the first time", "首次打开数据加载可能较慢"), 30);
         _loadingHint.alignment = TextAlignmentOptions.Center;
         _loadingHint.raycastTarget = false;
-        NativeUi.Button(_panel, font, () => NativeUi.Text("Previous", "上一页"), new Vector2(.03f, .04f), new Vector2(.18f, .12f), () => { _page--; Refresh(); });
-        NativeUi.Button(_panel, font, () => NativeUi.Text("Next", "下一页"), new Vector2(.45f, .04f), new Vector2(.6f, .12f), () => { _page++; Refresh(); });
+        var previousButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Previous", "上一页"), new Vector2(.03f, .04f), new Vector2(.18f, .12f), () => { _page--; Refresh(); });
+        var nextButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Next", "下一页"), new Vector2(.45f, .04f), new Vector2(.6f, .12f), () => { _page++; Refresh(); });
         _pageLabel = NativeUi.Label(NativeUi.Rect("BPP.Page", _panel, new Vector2(.19f, .04f), new Vector2(.44f, .12f)), font, string.Empty, 27);
         _previewTierButton = NativeUi.Button(_panel, font, NativeUi.Text("Preview tier", "预览品质"),
             new Vector2(.64f, .76f), new Vector2(.80f, .82f), ChoosePreviewTier);
@@ -212,6 +213,13 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         (_description, _descriptionContent, _descriptionScroll) = NativeUi.ScrollText(_panel, font,
             new Vector2(.64f, .04f), new Vector2(.97f, .35f));
         if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
+        foreach (var button in new Button?[]
+        {
+            resetButton, closeButton, _heroButton, _tierButton, _sizeButton, _itemsButton, _skillsButton,
+            _sourceButton, _dayButton, previousButton, nextButton, _previewTierButton, _enchantmentButton,
+            _search?.GetComponentInChildren<Button>(),
+        })
+            AndroidPanelButtonSkin.Register(button);
         _filter.ToggleAllHeroes();
         SetOpen(false);
         _uiBuilt = true;
@@ -352,6 +360,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (_skillsButton != null) _skillsButton.GetComponent<Image>().color = AndroidLauncherSettings.MarketPanels
             ? !items ? AndroidMarketPanelTheme.Selected : AndroidMarketPanelTheme.Surface
             : !items ? new Color(.28f, .35f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
+        AndroidPanelButtonSkin.SetSelected(_itemsButton, items);
+        AndroidPanelButtonSkin.SetSelected(_skillsButton, !items);
         if (_source != null && !_source.AppliesToHero(SourceHero()) && !_followSource) _source = null;
         var source = _source != null && (_source.Kind == CollectionSourceKind.Merchant) == items ? _source : null;
         var poolHero = SourceHero();
