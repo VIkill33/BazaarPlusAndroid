@@ -33,6 +33,13 @@
                 android:layout_height="wrap_content" android:minHeight="56dp" android:text="靠屏幕左侧边缘"
                 android:textColor="@color/bpp_text" />
         </RadioGroup>
+        <TextView style="@style/BppText" android:text="图鉴与构筑页面样式" android:textSize="20sp"
+            android:layout_marginTop="32dp" android:accessibilityHeading="true" />
+        <TextView style="@style/BppCaption" android:text="开启后使用暮紫琥珀新样式；关闭后使用原有样式。下次启动游戏时生效。"
+            android:layout_marginTop="8dp" />
+        <androidx.appcompat.widget.SwitchCompat android:id="@+id/market_panels"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:layout_marginTop="16dp" android:text="使用新样式" android:textColor="@color/bpp_text" />
         <TextView style="@style/BppText" android:text="游戏内按钮" android:textSize="20sp"
             android:layout_marginTop="32dp" android:accessibilityHeading="true" />
         <TextView style="@style/BppCaption" android:text="选择游戏画面左侧要显示的按钮。关闭的按钮会隐藏，其余按钮自动补位。"

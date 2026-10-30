@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../android-mod/AndroidBuildCorpus.cs" Link="AndroidBuildCorpus.cs" />
+    <Compile Include="../../android-mod/AndroidBuildAdoption.cs" Link="AndroidBuildAdoption.cs" />
     <Compile Include="../../android-mod/AndroidBuildRepository.cs" Link="AndroidBuildRepository.cs" />
     <Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildLiveState.cs" Link="BuildLiveState.cs" />
     <Content Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Data/BuildRecommendations/builds.json"

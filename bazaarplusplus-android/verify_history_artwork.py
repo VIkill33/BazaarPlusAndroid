@@ -27,12 +27,13 @@ def main():
     def read(path):
         return subprocess.check_output(adb + [path], timeout=15)
 
-    root = args.game_root + '/BepInEx/history-art/v2/'
+    root = args.game_root + '/BepInEx/history-art/.cache/v3/'
     version = read(root + 'current.txt').decode().strip()
     if not re.fullmatch('[a-f0-9]{64}', version):
         raise AssertionError('Invalid cache version pointer')
+    assert read(root + version + '/.nomedia') == b'', 'Image directory marker missing or nonempty'
     source = json.loads(read(root + version + '/source.json'))
-    assert source['schema'] == 2
+    assert source['schema'] == 3
     assert hashlib.sha256(source['gameVersion'].encode()).hexdigest() == version
     summary = json.loads(args.inspection.read_text())['summary']
     keys = {'hero-Pygmalien', 'hero-Vanessa', 'hero-TheDragons', 'state-broken', 'state-pending', 'Trophy_Diamond_TUI'}
@@ -47,7 +48,7 @@ def main():
                 card_types.add(card['type'])
     evidence = []
     for key in sorted(keys):
-        data = read(root + version + '/' + key + '.png')
+        data = read(root + version + '/' + key + '.bppart')
         assert data[:8] == b'\x89PNG\r\n\x1a\n' and data[12:16] == b'IHDR', key
         width, height, depth, color = struct.unpack('>IIBB', data[16:26])
         assert 0 < width <= 384 and 0 < height <= 384 and depth == 8, key

@@ -6,9 +6,9 @@ namespace BazaarPlusPlus.Android;
 
 internal enum AndroidDockButton { Collection, Builds, PreviewMode, HoldPreview, History }
 
-internal sealed record AndroidLauncherPreferences(bool LeftEdge, IReadOnlySet<AndroidDockButton> Hidden)
+internal sealed record AndroidLauncherPreferences(bool LeftEdge, IReadOnlySet<AndroidDockButton> Hidden, bool MarketPanels)
 {
-    internal static AndroidLauncherPreferences Default { get; } = new(false, new HashSet<AndroidDockButton>());
+    internal static AndroidLauncherPreferences Default { get; } = new(false, new HashSet<AndroidDockButton>(), false);
 }
 
 // Shared with the launcher settings page (LauncherSettingsActivity); keys must match on both sides.
@@ -26,9 +26,11 @@ internal static class AndroidLauncherSettings
     private static string SettingsPath => Path.Combine(Paths.BepInExRootPath, "bpp-launcher-settings.json");
     internal static AndroidLauncherPreferences Current { get; private set; } = Load();
     internal static bool LeftEdge => Current.LeftEdge;
+    internal static bool MarketPanels => Current.MarketPanels;
     internal static bool Shown(AndroidDockButton button) => !Current.Hidden.Contains(button);
 
     internal static void SetLeftEdge(bool value) => Save(Current with { LeftEdge = value });
+    internal static void SetMarketPanels(bool value) => Save(Current with { MarketPanels = value });
 
     internal static void SetShown(AndroidDockButton button, bool shown)
     {
@@ -48,6 +50,7 @@ internal static class AndroidLauncherSettings
         catch (JsonException) { root = new JsonObject(); }
         root["schema"] = 1;
         root["previewPanelPosition"] = value.LeftEdge ? "left" : "default";
+        root["catalogBuildPanelStyle"] = value.MarketPanels ? "market" : "classic";
         root["hiddenDockButtons"] = new JsonArray(Keys.Where(key => value.Hidden.Contains(key.Key))
             .Select(key => (JsonNode?)JsonValue.Create(key.Value)).ToArray());
         try
@@ -87,12 +90,14 @@ internal static class AndroidLauncherSettings
                 return AndroidLauncherPreferences.Default;
             var left = root.TryGetProperty("previewPanelPosition", out var position)
                 && position.ValueKind == JsonValueKind.String && position.GetString() == "left";
+            var market = root.TryGetProperty("catalogBuildPanelStyle", out var style)
+                && style.ValueKind == JsonValueKind.String && style.GetString() == "market";
             var hidden = new HashSet<AndroidDockButton>();
             if (root.TryGetProperty("hiddenDockButtons", out var buttons) && buttons.ValueKind == JsonValueKind.Array)
                 foreach (var item in buttons.EnumerateArray())
                     foreach (var key in Keys)
                         if (item.ValueKind == JsonValueKind.String && item.GetString() == key.Value) hidden.Add(key.Key);
-            return new(left, hidden);
+            return new(left, hidden, market);
         }
         catch (JsonException) { return AndroidLauncherPreferences.Default; }
     }

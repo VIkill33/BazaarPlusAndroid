@@ -33,7 +33,7 @@ public sealed class Plugin : BasePlugin
             new HttpClient { Timeout = TimeSpan.FromSeconds(10) },
             Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.Android", "builds.json"),
             info: message => Log.LogInfo(message),
-            warning: message => Log.LogWarning(message));
+            warning: message => Log.LogWarning(message), productVersion: Version);
         BuildRepository.Warm();
         Log.LogInfo("[BPP][Android] event=android.mod.loaded");
         AndroidLauncherHandshake.Complete();

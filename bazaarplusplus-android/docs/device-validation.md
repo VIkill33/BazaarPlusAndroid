@@ -1,5 +1,15 @@
 # Android 真机验证
 
+## 图鉴／构筑新样式与启动器开关（2026-10-30，大厅路径真机通过）
+
+参照现有游戏内图鉴、构筑截图及启动器暮紫琥珀首页，为两个 Unity 面板增加可选的集市场景底图、暮紫底色、暖金按钮与分隔线；启动器「使用新样式」写入共享配置，默认旧样式，下次启动游戏时生效。新旧样式复用同一筛选、卡图预览、候选选择、匹配和刷新逻辑。当前仓库另有未提交的构筑数据及历史图片缓存修改；本次混合构建的真机结果仅用于下述已操作路径。
+
+已完成：`LauncherSettings.Tests` 设置解析、保存、旧版默认及未知字段保留检查通过；本次固定框架及 Android interop 的插件 Release 编译零警告／零错误；JDK 24 签名 APK 构建及签名验证通过。设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C／Android 14，游戏 `1.0.12825-production-android-d9601ded`，2460×1080 横屏、字体 1.0）开始时停在系统设置，游戏未运行。覆盖安装同签名启动器，设置页「使用新样式」可见，点击后共享配置写入 `catalogBuildPanelStyle=market`。由启动器进入已有账号大厅；本次 DLL SHA-256 `233f5f6902dc446cd7144c1b6591dab0a632075f477df88ffc90d9c9b05558d1` 与 APK 内置、设备插件和新会话加载记录一致，`verify_launcher.py --expect-loaded` 的 12 项断言通过。APK SHA-256 为 `07ef9d65cde53ec3b9ecd137353231230f3bf6e12f4787413149afe0f5eb845c`。
+
+大厅真机截图人工复核：图鉴显示暮紫背景、暖金边框和分隔线，加载后显示 156 张皮格马利翁物品、15 页；点选物品可见原生卡图与详情，切换技能后显示 142 张、7 页，点选技能显示原生技能图与说明，翻到第 2 页后无布局错位。构筑推荐显示同样的新样式、生成日／统计截止日及本地数据提示；手动刷新、关闭重开后页面仍可显示。插件日志记录目录投影 1857 张及两次在线缩水响应拒绝，操作期间未见面板异常或新增原生崩溃。证据在忽略目录 `artifacts/catalog-build-style-device/`：`launcher-verification.json`、`settings-market.png`、`catalog-items.png`、`catalog-detail.png`、`catalog-skill-detail.png`、`catalog-skill-page2.png`、`build-market.png`、`build-reopened.png`、`plugin.log`。
+
+本次仍待验证：默认旧样式及开关返回旧样式的真机画面、更多筛选和滚动末页、标准输入模式、对局中的候选点选与十格阵容。大厅没有可选物品，未开新对局或推进游戏；因此只将新样式的大厅图鉴与构筑空候选路径记为真机通过。
+
 ## 单场对局败场样式与完整采集文案（2026-10-26，test.14）
 
 `LauncherHistoryActivity.runRow` 仅在单场对局摘要中将败场缩为原 25sp 的四分之一（6.25sp），
@@ -2101,3 +2111,30 @@ JDK 24 签名构建、lintVitalRelease 与 APK 内置输入核验通过。
 - 小米相册仍显示此前收录的正式缓存图片，详情页确认路径属于当前 `history-art/v2`；重开相册及定向扫描通知未立即清退。临时在实际版本目录补标记的兼容性试验也未清退旧图，实验标记已撤销，最终设备仅保留生产代码创建的根标记。用户随后明确“已有的图就别管了”，因此旧相册记录清退退出本次验收范围，未删除图片或清除相册数据，也不宣称已解决旧缩略图。
 
 真机证据在忽略目录 `artifacts/history-art/nomedia-device/`：`loading/verification.json`、`baseline.json`、`before-png-sha256.txt`／`after-png-sha256.txt`、`scan-before.txt`／`scan-after.txt`、`media-checks.json`、`runtime-checks.json`、`plugin.log`、`crash.log`、购牌页及相册截图／布局。签名和构建证据在 `artifacts/launcher/signing-report.txt` 与 `artifacts/launcher-apk-build.log`。按用户最新范围，当前设备的新增防收录与购牌显示通过；未验证其他厂商／旧版 Android，也未通过新购买触发原生图片重新导出。
+
+
+## 缓存图片再次进入相册：隐藏缓存格式修复（2026-10-28，离线通过、真机待验证）
+
+用户反馈上次问题未解决，要求先尝试真机复现。本轮 `adb devices -l` 检出 `OBJVWSPNSCFQU48L`，但状态为 `unauthorized`，未读取手机文件、相册、游戏状态或系统版本。用户随后说明当前无法连接实机，授权先排查和修复代码。因此没有本次真机复现结论，也不以旧设备记录证明本次行为。
+
+排查参考 Android README、功能清单、此前验证记录、ADR-0001／0003、启动器构建说明、桌面 mod 的 AGENTS／MEMORY／ARCHITECTURE／capture 文档，以及实际导出器和启动器读取实现。现有导出仍发布公开目录下的 `.png`，仅在初始化创建根 `.nomedia`；运行中丢失标记不会补回。该证据说明防护薄弱，不能确定本次用户反馈来自新图片、旧索引、其他目录或加载了旧插件。尚无依据宣称厂商相册忽略标记。
+
+实现修订 ADR-0003：新缓存位于隐藏的 `history-art/.cache/v3/<游戏版本摘要>/`，PNG 字节保存为 `.bppart`，每次原子发布前确保图片目录有 `.nomedia`；失败由已有写入重试处理。启动器只读取相同新树，保留大小、版本、请求生命周期和解码限制。两端必须同步更新；升级后进入游戏重新生成当前账号缓存，生成前显示缺图，不回退旧 PNG。旧缓存及系统相册记录不改动，不修改历史数据库。
+
+离线验收：`python3 -m unittest discover -s bazaarplusplus-android/tests -v` 的 23 项全部通过；其中新增 `test_history_artwork.py` 执行真实 C# 导出器的 16 项断言，再让生产 Java 路径解析器直接读取其输出，11 项断言通过。覆盖隐藏路径与专用后缀、字节保留、旧 v1／v2 文件不变、重复初始化、版本切换、标记丢失后恢复、标记失败停止发布、非法版本／键、超大文件和禁止旧目录回退；JVM ImageIO 验证 PNG 内容可解码，但不代替 Android BitmapFactory 真机验收。使用固定框架和本机 Android interop 的 `build_probe.py --mod` 通过，插件零警告／零错误；JDK 24 的 `:fusionApp:compileReleaseJavaWithJavac` 通过。证据位于忽略目录 `artifacts/history-art/cache-v3/` 的 `python-tests.log`、`plugin-build.log`、`launcher-compile.log`，插件摘要见 `artifacts/mod/build-inputs.json`。
+
+后续真机验收：先确认反馈图片路径、时间及实际插件／APK 摘要；同步安装含新读写两端的构建，进入现有大厅等待真实资源回填，核对新树 `.bppart`、标记和导出日志，验证历史与购牌图片显示；记录系统媒体库及相册扫描前后结果，覆盖游戏重启、缓存新增及标记恢复。不得仅凭媒体库空查询或 JVM 解码宣布相册问题已解决。本轮未打包签名 APK、未部署、未操作账号或清理相册；依仓库规范保留未提交状态，待真机验证后再提交。
+
+## 构筑库新统计窗口采纳（2026-10-30，部分真机通过）
+
+`AndroidBuildAdoption.RejectionReason` 现按统计窗口判断新快照：非内置文档须达到字节和构筑条数下限；更新窗口可少于旧库，同一窗口仍保护英雄覆盖率。`AndroidBuildRepository.LoadStartupAsync` 先比较内置和缓存，未过期的胜出缓存跳过启动网络；手动刷新会在启动加载后执行。面板显示生成日与统计截止日，在线失败保留当前阵容并提示。
+
+离线检查：`BuildCorpus.Tests` 通过，覆盖更小的新窗口、旧窗口、同窗口缩水、有效缓存断网冷启动、20 小时缓存和加载期间刷新；23 项 Python 回归通过；固定框架及 Android interop 的 `build_probe.py --mod` 编译零警告／零错误。本次源码构建 DLL SHA-256 为 `149022acafd81e5bd9e818d62ba52f7ec01695ce5aeb99462b8a7bed66a5e2fd`，记录在被忽略的 `artifacts/mod/build-inputs.json`。
+
+2026-10-30 当前在线 `builds/latest.json`：schema 2，2,117 字节，生成于 2026-10-22，统计截至 2026-10-21，仅 3 条 Dooley 构筑。设备 `OBJVWSPNSCFQU48L`（Android 14，游戏 1.0.12825-production）覆盖安装同签名测试启动器 `artifacts/launcher/BazaarPlusAndroid-launcher.apk`，APK SHA-256 `a70257c7ec538e0490be02c6c985a732211274cec01d84de1721df7cf0ce8c08`；签名验证通过，v2 为 true，证书 DN 为 `CN=BazaarPlusPlus Android Test`。APK 内插件、设备运行目录 DLL 和新会话 `bpp-launch-loaded.json` 的 SHA-256 均为 `149022acafd81e5bd9e818d62ba52f7ec01695ce5aeb99462b8a7bed66a5e2fd`，会话 `19c975fa-1848-4130-93af-72a33fa00c95` 载入成功。最初误操作写入旧 `/sdcard/FusionCore/` 目录，已用事先备份的原 DLL 恢复，验收均针对启动器实际使用的 `/sdcard/BazaarPlusPlusAndroid/`。
+
+真机正常路径：冷启动日志 `android.builds.bundled count=5689 ... window_end=2026-10-05`，随后 `android.builds.remote_rejected reason=truncated incoming=3 retained=5689 bytes=2117`；在大厅打开构筑面板，截图人工复核生成日 2026-10-06、统计截止日 2026-10-05 和“在线更新未采用，仍显示本地数据”。点击「刷新」后出现第二条同原因日志，面板日期与提示保持；无构筑面板错误或原生崩溃。大厅无可选物品，未开始对局，因此没有验证十格阵容与候选匹配。
+
+为验证缓存优先，临时写入由官方内置快照裁剪并重新生成索引的有效测试缓存：100 条皮格马利翁阵容、生成日 2026-10-27、统计截止日 2026-10-26；C# 解析测试先确认合法，设备文件 SHA-256 `402c2968ab958532a973ad00e8eda2b1f023f1be370afa0e682ea962ed335b8e`。重新启动的会话 `fc3140fc-bae9-4f21-acf9-0c8a0ead64d3` 记录 `cache_loaded count=100` 和 `skipped_fresh`，没有启动网络请求；面板截图显示新日期。手动刷新又请求线上数据并以 `reason=truncated` 拒绝 3 条响应，缓存 SHA-256 不变。测试缓存随后按摘要核对后删除；最后会话 `d9697616-1b5b-479e-860b-2b2c9bf10d8a` 再次加载 5,689 条内置数据并拒绝线上缩水响应。手机原有旋转设置 `1/0` 与亮屏设置 `2` 已恢复。
+
+证据截图与临时数据在被忽略的 `bazaarplusplus-android/artifacts/build-refresh/`：`build-panel-lobby.png`、`build-panel-refreshed.png`、`cache-panel.png`、`cache-panel-refreshed.png`、`final-game.png`；启动日志在设备实际 BepInEx 目录。真机已覆盖缓存择优、未过期跳过联网、手动刷新、缩水响应保护和日期／失败提示。真实合格新窗口的在线采纳、缓存过期后的后台替换、断网、两种输入模式及对局中的十格阵容仍待专项验收。本次测试 APK 包含工作区其他未提交的历史卡图改动，不能把本轮构筑结果扩大为它们的验收。

@@ -25,6 +25,7 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
     static final String PREFERENCES = "bpp_settings";
     static final String POSITION = "previewPanelPosition";
     static final String HIDDEN = "hiddenDockButtons";
+    static final String PANEL_STYLE = "catalogBuildPanelStyle";
     // Keys must match AndroidLauncherSettings in the plugin.
     static final String[] BUTTONS = { "collection", "builds", "previewMode", "holdPreview", "history" };
     private static final int[] SWITCHES = { R.id.dock_collection, R.id.dock_builds, R.id.dock_preview_mode,
@@ -68,20 +69,30 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         return hidden;
     }
 
+    static boolean readMarketPanels(Context context, String packageName) {
+        JSONObject settings = readFile(packageName);
+        String style = settings == null ? "" : settings.optString(PANEL_STYLE);
+        if ("market".equals(style) || "classic".equals(style)) return "market".equals(style);
+        return context.getSharedPreferences(PREFERENCES, 0).getBoolean(PANEL_STYLE, false);
+    }
+
     /** Merge into the shared file so keys written by newer plugins survive. */
-    static void write(Context context, String packageName, String position, Set<String> hidden) throws Exception {
+    static void write(Context context, String packageName, String position, Set<String> hidden,
+            boolean marketPanels) throws Exception {
         JSONObject settings = readFile(packageName);
         if (settings == null) settings = new JSONObject();
         JSONArray array = new JSONArray();
         for (String button : BUTTONS) if (hidden.contains(button)) array.put(button);
-        settings.put("schema", 1).put(POSITION, "left".equals(position) ? "left" : "default").put(HIDDEN, array);
+        settings.put("schema", 1).put(POSITION, "left".equals(position) ? "left" : "default")
+                .put(HIDDEN, array).put(PANEL_STYLE, marketPanels ? "market" : "classic");
         LauncherFiles.write(file(packageName), LauncherRelease.bytes(settings.toString()));
         context.getSharedPreferences(PREFERENCES, 0).edit().putString(POSITION, position)
-                .putStringSet(HIDDEN, new HashSet<>(hidden)).commit();
+                .putStringSet(HIDDEN, new HashSet<>(hidden)).putBoolean(PANEL_STYLE, marketPanels).commit();
     }
 
     static void sync(Context context, String packageName) throws Exception {
-        write(context, packageName, readPosition(context, packageName), readHidden(context, packageName));
+        write(context, packageName, readPosition(context, packageName), readHidden(context, packageName),
+                readMarketPanels(context, packageName));
     }
 
     @Override protected void onCreate(Bundle state) {
@@ -102,6 +113,7 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         position.setOnCheckedChangeListener((group, id) -> save());
         for (int id : SWITCHES)
             ((CompoundButton) findViewById(id)).setOnCheckedChangeListener((button, checked) -> save());
+        ((CompoundButton) findViewById(R.id.market_panels)).setOnCheckedChangeListener((button, checked) -> save());
     }
 
     private void save() {
@@ -113,7 +125,8 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         for (int i = 0; i < BUTTONS.length; i++)
             if (!((CompoundButton) findViewById(SWITCHES[i])).isChecked()) hidden.add(BUTTONS[i]);
         try {
-            write(this, target, position, hidden);
+            write(this, target, position, hidden,
+                    ((CompoundButton) findViewById(R.id.market_panels)).isChecked());
         } catch (Exception error) {
             Toast.makeText(this, "保存失败，请重试", Toast.LENGTH_LONG).show();
             recreate();
@@ -134,6 +147,7 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
                 ? R.id.preview_position_left : R.id.preview_position_default);
         for (int i = 0; i < BUTTONS.length; i++)
             ((CompoundButton) findViewById(SWITCHES[i])).setChecked(!hidden.contains(BUTTONS[i]));
+        ((CompoundButton) findViewById(R.id.market_panels)).setChecked(readMarketPanels(this, target));
         binding = false;
     }
 

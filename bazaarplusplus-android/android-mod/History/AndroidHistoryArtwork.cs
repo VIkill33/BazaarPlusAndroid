@@ -36,7 +36,7 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
     private float _nextQuery, _deadline, _nextFrame;
     private void Enqueue(string key)
     {
-        if (_seen.Add(key) && !File.Exists(Path.Combine(_directory!, key + ".png"))) _queue.Enqueue(key);
+        if (_seen.Add(key) && !File.Exists(HistoryArtworkDirectory.ImagePath(_directory!, key))) _queue.Enqueue(key);
     }
     private void Retry(string? key)
     {
@@ -57,11 +57,12 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
         {
             if (_directory == null)
             {
-                var root = Path.Combine(Paths.BepInExRootPath, "history-art", "v2");
+                var artworkRoot = Path.Combine(Paths.BepInExRootPath, "history-art");
                 var version = Application.version;
                 var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(version))).ToLowerInvariant();
-                var directory = HistoryArtworkDirectory.Prepare(Path.GetDirectoryName(root)!, hash);
-                File.WriteAllText(Path.Combine(directory, "source.json"), JsonSerializer.Serialize(new { gameVersion = version, schema = 2 }));
+                var directory = HistoryArtworkDirectory.Prepare(artworkRoot, hash);
+                var root = Path.GetDirectoryName(directory)!;
+                File.WriteAllText(Path.Combine(directory, "source.json"), JsonSerializer.Serialize(new { gameVersion = version, schema = 3 }));
                 File.WriteAllText(Path.Combine(root, "current.part"), hash);
                 File.Move(Path.Combine(root, "current.part"), Path.Combine(root, "current.txt"), true);
                 _directory = directory;
@@ -218,13 +219,12 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
     }
     private void Save(string key, byte[] bytes)
     {
-        var path = Path.Combine(_directory!, key + ".png");
+        var directory = _directory!;
         _writingKey = key;
         _key = null; _texture = null; _sprite = null; _directTexture = null; _directRegion = null;
         _write = Task.Run(() =>
         {
-            try { File.WriteAllBytes(path + ".part", bytes); File.Move(path + ".part", path, true); }
-            finally { if (File.Exists(path + ".part")) File.Delete(path + ".part"); }
+            HistoryArtworkDirectory.Write(directory, key, bytes);
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=history.art.saved key={key}");
         });
     }

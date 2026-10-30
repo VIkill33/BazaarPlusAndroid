@@ -7,21 +7,23 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 namespace BazaarPlusPlus.Android;
 
 internal sealed class AndroidBuildRepository(HttpClient client, string cachePath,
-    Action<string>? info = null, Action<string>? warning = null, bool loadBundled = true)
+    Action<string>? info = null, Action<string>? warning = null, bool loadBundled = true,
+    string? productVersion = null)
 {
     private const string Url = "https://bpp-metrics-v6.bazaarplusplus.com/builds/latest.json";
     private const string BundledResource = "BazaarPlusPlus.Android.Data.BuildRecommendations.builds.json.gz";
-    // Match the desktop production package's minimum for a complete build catalog.
-    private const int MinimumRemoteBytes = 51200;
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(20);
     private readonly object _sync = new();
     private AndroidBuildCorpus? _corpus;
-    private Task? _warmTask;
+    private Task? _flight;
+    private string? _lastOnlineFailure;
 
     internal AndroidBuildCorpus? Current => Volatile.Read(ref _corpus);
+    internal string? LastOnlineFailure => Volatile.Read(ref _lastOnlineFailure);
 
     internal Task WarmAsync()
     {
-        lock (_sync) return _warmTask ??= Task.Run(LoadAsync);
+        lock (_sync) return _flight ??= Task.Run(LoadStartupAsync);
     }
 
     internal void Warm() => _ = WarmAsync();
@@ -29,16 +31,24 @@ internal sealed class AndroidBuildRepository(HttpClient client, string cachePath
     internal Task RefreshAsync()
     {
         lock (_sync)
-            return _warmTask is { IsCompleted: false } ? _warmTask : _warmTask = Task.Run(LoadAsync);
+        {
+            var previous = _flight;
+            return _flight = Task.Run(async () =>
+            {
+                if (previous != null) await previous;
+                await LoadRemoteAsync();
+            });
+        }
     }
 
     internal IReadOnlyList<AndroidBuildMatch> Find(string hero, IReadOnlyCollection<Guid> selected,
         BuildLiveState? liveState = null) =>
         Current?.Find(hero, selected, liveState) ?? Array.Empty<AndroidBuildMatch>();
 
-    private async Task LoadAsync()
+    private async Task LoadStartupAsync()
     {
-        if (Current == null && loadBundled)
+        AndroidBuildCorpus? bundled = null;
+        if (loadBundled)
         {
             try
             {
@@ -47,12 +57,9 @@ internal sealed class AndroidBuildRepository(HttpClient client, string cachePath
                 {
                     using var gzip = new GZipStream(resource, CompressionMode.Decompress);
                     using var reader = new StreamReader(gzip, Encoding.UTF8);
-                    var bundled = AndroidBuildCorpus.Parse(await reader.ReadToEndAsync());
+                    bundled = AndroidBuildCorpus.Parse(await reader.ReadToEndAsync());
                     if (bundled != null)
-                    {
-                        Volatile.Write(ref _corpus, bundled);
-                        info?.Invoke($"[BPP][Android] event=android.builds.bundled count={bundled.BuildCount} generated_at={bundled.GeneratedAt:O}");
-                    }
+                        info?.Invoke($"[BPP][Android] event=android.builds.bundled count={bundled.BuildCount} generated_at={bundled.GeneratedAt:O} window_end={bundled.WindowEnd:yyyy-MM-dd}");
                 }
             }
             catch (Exception error)
@@ -61,36 +68,62 @@ internal sealed class AndroidBuildRepository(HttpClient client, string cachePath
             }
         }
 
+        var local = bundled;
+        var cacheWon = false;
         try
         {
             if (File.Exists(cachePath))
             {
-                var cached = AndroidBuildCorpus.Parse(await File.ReadAllTextAsync(cachePath));
-                if (cached != null && HealthyReplacement(cached, Current,
-                    new FileInfo(cachePath).Length))
-                    Volatile.Write(ref _corpus, cached);
+                var cachedText = await File.ReadAllTextAsync(cachePath);
+                var cached = AndroidBuildCorpus.Parse(cachedText);
+                if (cached == null)
+                    warning?.Invoke("[BPP][Android] event=android.builds.cache_failed reason=invalid_response");
+                else if (AndroidBuildAdoption.RejectionReason(local, cached,
+                    Encoding.UTF8.GetByteCount(cachedText)) == null)
+                {
+                    local = cached;
+                    cacheWon = true;
+                    info?.Invoke($"[BPP][Android] event=android.builds.cache_loaded count={cached.BuildCount} generated_at={cached.GeneratedAt:O} window_end={cached.WindowEnd:yyyy-MM-dd}");
+                }
             }
         }
         catch (Exception error)
         {
             warning?.Invoke($"[BPP][Android] event=android.builds.cache_failed exception={error}");
         }
+        Volatile.Write(ref _corpus, local);
+        if (cacheWon && DateTime.UtcNow - File.GetLastWriteTimeUtc(cachePath) < CacheDuration)
+        {
+            info?.Invoke("[BPP][Android] event=android.builds.skipped_fresh");
+            return;
+        }
+        await LoadRemoteAsync();
+    }
 
+    private async Task LoadRemoteAsync()
+    {
+        Volatile.Write(ref _lastOnlineFailure, null);
         try
         {
-            using var response = await client.GetAsync(Url);
+            using var request = new HttpRequestMessage(HttpMethod.Get, Url);
+            if (productVersion != null)
+                request.Headers.UserAgent.ParseAdd($"BazaarPlusAndroid/{productVersion}");
+            using var response = await client.SendAsync(request);
             response.EnsureSuccessStatusCode();
             var document = await response.Content.ReadAsStringAsync();
-            var current = AndroidBuildCorpus.Parse(document)
+            var candidate = AndroidBuildCorpus.Parse(document)
                 ?? throw new InvalidDataException("Build corpus schema was rejected.");
             var bytes = Encoding.UTF8.GetByteCount(document);
-            if (!HealthyReplacement(current, Current, bytes))
+            var retained = Current;
+            var rejection = AndroidBuildAdoption.RejectionReason(retained, candidate, bytes);
+            if (rejection != null)
             {
-                warning?.Invoke($"[BPP][Android] event=android.builds.remote_rejected incoming={current.BuildCount} retained={Current?.BuildCount ?? 0} bytes={bytes}");
+                Volatile.Write(ref _lastOnlineFailure, "rejected");
+                warning?.Invoke($"[BPP][Android] event=android.builds.remote_rejected reason={rejection} incoming={candidate.BuildCount} retained={retained?.BuildCount ?? 0} bytes={bytes} incoming_window_end={candidate.WindowEnd:yyyy-MM-dd} retained_window_end={retained?.WindowEnd:yyyy-MM-dd}");
                 return;
             }
-            Volatile.Write(ref _corpus, current);
-            info?.Invoke($"[BPP][Android] event=android.builds.ready count={current.BuildCount} generated_at={current.GeneratedAt:O}");
+            Volatile.Write(ref _corpus, candidate);
+            info?.Invoke($"[BPP][Android] event=android.builds.ready count={candidate.BuildCount} generated_at={candidate.GeneratedAt:O} window_end={candidate.WindowEnd:yyyy-MM-dd}");
             try
             {
                 var directory = Path.GetDirectoryName(cachePath)
@@ -107,17 +140,8 @@ internal sealed class AndroidBuildRepository(HttpClient client, string cachePath
         }
         catch (Exception error)
         {
+            Volatile.Write(ref _lastOnlineFailure, "failed");
             warning?.Invoke($"[BPP][Android] event=android.builds.remote_failed cached_count={Current?.BuildCount ?? 0} exception={error}");
         }
-    }
-
-    private static bool HealthyReplacement(AndroidBuildCorpus candidate, AndroidBuildCorpus? previous,
-        long bytes)
-    {
-        if (previous == null) return true;
-        if (bytes < MinimumRemoteBytes || candidate.BuildCount < previous.BuildCount / 4)
-            return false;
-        return previous.HeroBuildCounts.All(hero => hero.Value == 0 ||
-            candidate.CountForHero(hero.Key) >= Math.Max(1, hero.Value / 10));
     }
 }

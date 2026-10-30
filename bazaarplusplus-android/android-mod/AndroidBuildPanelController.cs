@@ -112,7 +112,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             var background = _panel.gameObject.AddComponent<Image>();
             background.color = new Color(.025f, .04f, .065f, .995f);
             background.raycastTarget = true;
-            NativeUi.Label(NativeUi.Rect("BPP.BuildTitle", _panel, new Vector2(.03f, .89f),
+            var titleLabel = NativeUi.Label(NativeUi.Rect("BPP.BuildTitle", _panel, new Vector2(.03f, .89f),
                 new Vector2(.36f, .98f)), font, () => NativeUi.Text("Recommended builds", "构筑推荐"), 40);
             _sourceButton = NativeUi.Button(_panel, font, NativeUi.Text("Board", "场上"),
                 new Vector2(.37f, .89f), new Vector2(.53f, .98f), CycleSource);
@@ -170,6 +170,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 new Vector2(.03f, .04f), new Vector2(.97f, .30f));
             _text.fontSize = 29;
             _text.enableAutoSizing = false;
+            if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
             SetOpen(false);
         }
         catch
@@ -264,8 +265,15 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             $"<b>{TheBazaar.Utilities.LocalizableShared.GetLocalizedHero(player.Hero)}</b> · {NativeUi.Text("Board/Stash/Shop", "场上／仓库／商店")} " +
             $"{board.Count}/{stash.Count}/{shop.Count} · " +
             $"{NativeUi.Text("Candidates", "候选")} {_selectedCandidates.Count} · " +
-            $"{NativeUi.Text("Data generated", "数据生成于")} {corpus.GeneratedAt:yyyy-MM-dd}"
+            $"{NativeUi.Text("Data generated", "数据生成于")} {corpus.GeneratedAt:yyyy-MM-dd} · " +
+            $"{NativeUi.Text("Statistics through", "统计至")} {corpus.WindowEnd:yyyy-MM-dd}"
         };
+        if (Plugin.BuildRepository?.LastOnlineFailure is "rejected")
+            lines.Add(NativeUi.Text("Online update was not adopted; showing local data.",
+                "在线更新未采用，仍显示本地数据"));
+        else if (Plugin.BuildRepository?.LastOnlineFailure is "failed")
+            lines.Add(NativeUi.Text("Online update failed; showing local data.",
+                "在线更新失败，仍显示本地数据"));
         if (board.Count + stash.Count + shop.Count == 0)
             lines.Add(NativeUi.Text("No items are available to select.", "目前没有可选择的物品。"));
         else if (_selectedCandidates.Count == 0)
@@ -340,8 +348,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             var marker = _candidateMarkers[slot];
             marker.text = selected ? "✓" : "○";
             marker.color = selected ? new Color(.65f, 1, .71f, 1) : new Color(.80f, .83f, .85f, 1);
-            button.GetComponent<Image>().color = selected
-                ? new Color(.19f, .32f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
+            button.GetComponent<Image>().color = AndroidLauncherSettings.MarketPanels
+                ? selected ? AndroidMarketPanelTheme.Selected : AndroidMarketPanelTheme.Surface
+                : selected ? new Color(.19f, .32f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
             button.gameObject.SetActive(true);
             _candidateCards.Show(button, candidate.Id, captionHeight: .22f);
             marker.transform.parent.SetAsLastSibling();

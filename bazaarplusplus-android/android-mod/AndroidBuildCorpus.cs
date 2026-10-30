@@ -16,7 +16,8 @@ internal sealed class AndroidBuildCorpus
     private readonly Dictionary<string, IReadOnlyList<AndroidBuild>> _heroes;
     private readonly Dictionary<string, Dictionary<Guid, HashSet<int>>> _cardIndices;
 
-    private AndroidBuildCorpus(Dictionary<string, IReadOnlyList<AndroidBuild>> heroes, DateTimeOffset generatedAt)
+    private AndroidBuildCorpus(Dictionary<string, IReadOnlyList<AndroidBuild>> heroes, DateTimeOffset generatedAt,
+        DateOnly windowStart, DateOnly windowEnd)
     {
         _heroes = heroes;
         _cardIndices = heroes.ToDictionary(hero => hero.Key, hero => hero.Value
@@ -25,9 +26,13 @@ internal sealed class AndroidBuildCorpus
             .ToDictionary(group => group.Key, group => group.Select(entry => entry.Id).ToHashSet()),
             StringComparer.Ordinal);
         GeneratedAt = generatedAt;
+        WindowStart = windowStart;
+        WindowEnd = windowEnd;
     }
 
     internal DateTimeOffset GeneratedAt { get; }
+    internal DateOnly WindowStart { get; }
+    internal DateOnly WindowEnd { get; }
     internal int BuildCount => _heroes.Values.Sum(builds => builds.Count);
     internal IReadOnlyDictionary<string, int> HeroBuildCounts =>
         _heroes.ToDictionary(hero => hero.Key, hero => hero.Value.Count, StringComparer.Ordinal);
@@ -121,7 +126,7 @@ internal sealed class AndroidBuildCorpus
                         .OrderBy(build => build.Id).ToArray();
                 else heroes.Add(canonical, builds);
             }
-            return new AndroidBuildCorpus(heroes, generatedAt);
+            return new AndroidBuildCorpus(heroes, generatedAt, start, end);
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException
             or KeyNotFoundException or FormatException or ArgumentException or OverflowException)

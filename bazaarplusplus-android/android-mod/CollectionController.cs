@@ -177,7 +177,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _sources = AndroidCollectionSources.Load();
         _choices = new AndroidChoicePopup(_panel, font);
         var title = NativeUi.Rect("BPP.Title", _panel, new Vector2(.03f, .88f), new Vector2(.6f, .98f));
-        NativeUi.Label(title, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"), 44);
+        var titleLabel = NativeUi.Label(title, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"), 44);
         NativeUi.Button(_panel, font, () => NativeUi.Text("Reset filters", "重置筛选"), new Vector2(.64f, .88f), new Vector2(.82f, .98f), ResetFilters);
         NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"), new Vector2(.85f, .88f), new Vector2(.97f, .98f), () => SetOpen(false));
         _heroButton = NativeUi.Button(_panel, font, NativeUi.Text("Hero: All", "英雄：全部"), new Vector2(.03f, .78f), new Vector2(.24f, .85f), ChooseHero);
@@ -211,6 +211,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             NativeUi.Text("Select a card", "点选左侧卡牌"), 28);
         (_description, _descriptionContent, _descriptionScroll) = NativeUi.ScrollText(_panel, font,
             new Vector2(.64f, .04f), new Vector2(.97f, .35f));
+        if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
         _filter.ToggleAllHeroes();
         SetOpen(false);
         _uiBuilt = true;
@@ -345,8 +346,12 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _loadingHint?.gameObject.SetActive(!_catalog.Ready && _catalog.Error == null);
         var items = _filter.ActiveType == ECardType.Item;
         _sizeButton?.gameObject.SetActive(items);
-        if (_itemsButton != null) _itemsButton.GetComponent<Image>().color = items ? new Color(.28f, .35f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
-        if (_skillsButton != null) _skillsButton.GetComponent<Image>().color = !items ? new Color(.28f, .35f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
+        if (_itemsButton != null) _itemsButton.GetComponent<Image>().color = AndroidLauncherSettings.MarketPanels
+            ? items ? AndroidMarketPanelTheme.Selected : AndroidMarketPanelTheme.Surface
+            : items ? new Color(.28f, .35f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
+        if (_skillsButton != null) _skillsButton.GetComponent<Image>().color = AndroidLauncherSettings.MarketPanels
+            ? !items ? AndroidMarketPanelTheme.Selected : AndroidMarketPanelTheme.Surface
+            : !items ? new Color(.28f, .35f, .25f, 1) : new Color(.15f, .20f, .24f, 1);
         if (_source != null && !_source.AppliesToHero(SourceHero()) && !_followSource) _source = null;
         var source = _source != null && (_source.Kind == CollectionSourceKind.Merchant) == items ? _source : null;
         var poolHero = SourceHero();
