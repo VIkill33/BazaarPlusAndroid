@@ -58,7 +58,7 @@ def main():
         subprocess.run([javac, '--release', '8', '-cp', str(args.android_jar), '-d', str(classes),
                         str(production / 'HistoryAccessLock.java'), str(production / 'HistoryStore.java'),
                         str(production / 'HistoryReader.java'), str(production / 'HistoryPresentation.java'),
-                        str(production / 'PurchaseSql.java'),
+                        str(production / 'PurchaseSql.java'), str(production / 'PurchaseSizeCatalog.java'),
                         str(root / f'tests/device/{runner}.java')], check=True, timeout=30)
         subprocess.run([str(args.d8), '--min-api', '26', '--lib', str(args.android_jar), '--output', str(dex)] +
                        [str(path) for path in sorted(classes.rglob('*.class'))], check=True, timeout=30)

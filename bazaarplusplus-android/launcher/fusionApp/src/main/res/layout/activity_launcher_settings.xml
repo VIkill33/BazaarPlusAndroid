@@ -61,5 +61,12 @@
             android:text="@string/bpp_history" android:textColor="@color/bpp_text" />
         <TextView style="@style/BppCaption" android:text="@string/bpp_dock_saved"
             android:layout_marginTop="16dp" />
+        <TextView style="@style/BppText" android:text="@string/bpp_cache_heading" android:textSize="20sp"
+            android:layout_marginTop="32dp" android:accessibilityHeading="true" />
+        <TextView android:id="@+id/cache_size" style="@style/BppText" android:text="@string/bpp_cache_measuring"
+            android:layout_marginTop="8dp" />
+        <TextView android:id="@+id/cache_policy" style="@style/BppCaption" android:layout_marginTop="8dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/cache_clear"
+            style="@style/BppButton" android:text="@string/bpp_cache_clear" android:layout_marginTop="12dp" />
     </LinearLayout>
 </ScrollView>

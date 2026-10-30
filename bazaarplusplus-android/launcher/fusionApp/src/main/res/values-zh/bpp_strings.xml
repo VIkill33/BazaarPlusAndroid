@@ -204,5 +204,19 @@
     <string name="bpp_dock_preview_mode">"长按预览模式（附魔／升级／无）"</string>
     <string name="bpp_dock_hold_preview">"按住预览（仅高级输入模式）"</string>
     <string name="bpp_dock_saved">"以上设置自动保存，下次启动当前目标游戏时生效；游戏内「设置」中也能修改，两边保持同步。"</string>
-    <string name="bpp_help_history_body">"「对局历史」按整局列出本机保存的记录，点开查看各次 PvP 交手和双方当时阵容；首页「对局历史」也可只读浏览。"</string>
+    <string name="bpp_help_history_body">"「对局历史」按整局列出本机保存的记录，点开查看各次 PvP 交手和双方当时阵容；首页「对局历史」也可只读浏览。设置里的「清理缓存」会删除用不到的卡牌图片；对局历史，以及购牌统计默认第一页的图片会保留。"</string>
+    <string name="bpp_cache_heading">图片缓存</string>
+    <string name="bpp_cache_measuring">正在计算占用…</string>
+    <string name="bpp_cache_clear">清理缓存</string>
+    <string name="bpp_cache_clear_title">清理图片缓存</string>
+    <string name="bpp_cache_clear_action">清理</string>
+    <string name="bpp_cache_clear_message">将删除对局历史和购牌统计首页用不到的图片，并删除旧版本留下的图片文件。这两处要显示的图片会保留。系统相册里已有的记录不会从相册移除。</string>
+    <string name="bpp_cache_policy">对局历史用到的图片会保留。购牌统计在「全部英雄」和「全部」下，常买排行与购买明细的第一页也会保留。其余卡牌图片和旧版本缓存，会在每天第一次打开启动器时清理；占用超过 %1$s 且比上次又多了 %2$s 时，至少间隔一小时会再清理。进入游戏后，仍需要的图片会重新生成。</string>
+    <string name="bpp_cache_empty">当前没有图片缓存</string>
+    <string name="bpp_cache_size">当前约 %1$s</string>
+    <string name="bpp_cache_unreadable">暂时无法读取图片缓存</string>
+    <string name="bpp_cache_none">没有可清理的图片</string>
+    <string name="bpp_cache_freed">已释放 %1$s，当前剩余 %2$s</string>
+    <string name="bpp_cache_failed">清理失败，请重试</string>
+    <string name="bpp_cache_swept">已清理 %1$s 用不到的图片缓存</string>
 </resources>

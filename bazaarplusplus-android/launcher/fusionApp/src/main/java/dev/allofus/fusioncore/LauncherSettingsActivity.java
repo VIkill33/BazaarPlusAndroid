@@ -1,6 +1,7 @@
 package dev.allofus.fusioncore;
 
 import android.os.Bundle;
+import android.os.Environment;
 import android.content.Context;
 import android.content.Intent;
 import android.view.View;
@@ -11,18 +12,26 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import android.widget.CompoundButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import dev.allofus.fusioncore.history.HistoryArtCache;
+import dev.allofus.fusioncore.history.HistoryReader;
 import dev.allofus.fusioncore.tools.Utilities;
 
 /** Position and dock button visibility are shared with the in-game native settings rows. */
 public final class LauncherSettingsActivity extends AppCompatActivity {
     static final String PREFERENCES = "bpp_settings";
+    static final String ART_CLEANED_AT = "historyArtCleanedAt";
+    static final String ART_CLEANED_BYTES = "historyArtCleanedBytes";
+    static final String ART_SIZED_AT = "historyArtSizedAt";
     static final String POSITION = "previewPanelPosition";
     static final String HIDDEN = "hiddenDockButtons";
     static final String PANEL_STYLE = "catalogBuildPanelStyle";
@@ -31,6 +40,8 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
     private static final int[] SWITCHES = { R.id.dock_collection, R.id.dock_builds, R.id.dock_preview_mode,
             R.id.dock_hold_preview, R.id.dock_history };
     private boolean binding;
+    private final ExecutorService cacheWork = Executors.newSingleThreadExecutor();
+    private int cacheGeneration;
 
     private static File file(String packageName) {
         return new File(LauncherPreparation.bep(packageName), "bpp-launcher-settings.json");
@@ -114,6 +125,66 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         for (int id : SWITCHES)
             ((CompoundButton) findViewById(id)).setOnCheckedChangeListener((button, checked) -> save());
         ((CompoundButton) findViewById(R.id.market_panels)).setOnCheckedChangeListener((button, checked) -> save());
+        ((TextView) findViewById(R.id.cache_policy)).setText(getString(R.string.bpp_cache_policy,
+                HistoryArtCache.format(HistoryArtCache.SIZE_BUDGET_BYTES),
+                HistoryArtCache.format(HistoryArtCache.GROWTH_BYTES)));
+        findViewById(R.id.cache_clear).setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle(R.string.bpp_cache_clear_title)
+                .setMessage(R.string.bpp_cache_clear_message)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.bpp_cache_clear_action, (dialog, which) -> clearArtworkCache())
+                .show());
+    }
+
+    private File gameRoot() {
+        return new File(new File(Environment.getExternalStorageDirectory(), BuildConfig.LAUNCHER_STORAGE_ROOT),
+                LauncherGames.selected(this));
+    }
+
+    private void showArtworkCache() {
+        int generation = ++cacheGeneration;
+        TextView size = findViewById(R.id.cache_size);
+        size.setText(R.string.bpp_cache_measuring);
+        cacheWork.execute(() -> {
+            String text;
+            try {
+                long bytes = HistoryArtCache.bytes(gameRoot());
+                text = bytes == 0 ? getString(R.string.bpp_cache_empty)
+                        : getString(R.string.bpp_cache_size, HistoryArtCache.format(bytes));
+            } catch (Exception error) { text = getString(R.string.bpp_cache_unreadable); }
+            String shown = text;
+            runOnUiThread(() -> { if (generation == cacheGeneration && !isFinishing()) size.setText(shown); });
+        });
+    }
+
+    private void clearArtworkCache() {
+        View button = findViewById(R.id.cache_clear);
+        button.setEnabled(false);
+        cacheWork.execute(() -> {
+            String message;
+            try {
+                File root = gameRoot();
+                Set<String> retained = null;
+                try {
+                    retained = new HistoryReader(root, LauncherGames.selected(this), HistoryReader.Scope.launcher())
+                            .retainedCardTemplates();
+                } catch (Exception ignored) { retained = null; }
+                long freed = HistoryArtCache.clean(root, retained);
+                long left = HistoryArtCache.bytes(root);
+                long recordedAt = System.currentTimeMillis();
+                getSharedPreferences(PREFERENCES, 0).edit().putLong(ART_CLEANED_AT, recordedAt)
+                        .putLong(ART_CLEANED_BYTES, left).putLong(ART_SIZED_AT, recordedAt).apply();
+                message = freed <= 0 ? getString(R.string.bpp_cache_none)
+                        : getString(R.string.bpp_cache_freed, HistoryArtCache.format(freed), HistoryArtCache.format(left));
+            } catch (Exception error) { message = getString(R.string.bpp_cache_failed); }
+            String shown = message;
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                button.setEnabled(true);
+                showArtworkCache();
+                Toast.makeText(this, shown, Toast.LENGTH_LONG).show();
+            });
+        });
     }
 
     private void save() {
@@ -137,7 +208,10 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         super.onResume();
         showTarget();
         showSettings();
+        showArtworkCache();
     }
+
+    @Override protected void onDestroy() { cacheWork.shutdownNow(); super.onDestroy(); }
 
     private void showSettings() {
         String target = LauncherGames.selected(this);

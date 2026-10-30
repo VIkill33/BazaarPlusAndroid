@@ -204,5 +204,19 @@
     <string name="bpp_dock_preview_mode">"Long press preview mode (Enchants / Upgrade / None)"</string>
     <string name="bpp_dock_hold_preview">"Hold to preview (advanced input only)"</string>
     <string name="bpp_dock_saved">"Saved automatically. Applies the next time you launch the selected game. You can also change these settings in game; both stay in sync."</string>
-    <string name="bpp_help_history_body">"Run history lists locally saved runs. Select a run to see its PvP battles and both formations. You can also browse it from the launcher home page."</string>
+    <string name="bpp_help_history_body">"Run history lists locally saved runs. Select a run to see its PvP battles and both formations. You can also browse it from the launcher home page. Clear cache in Settings deletes card images that are not needed. Images for run history, and for the default first page of purchase statistics, are kept."</string>
+    <string name="bpp_cache_heading">Image cache</string>
+    <string name="bpp_cache_measuring">Calculating size…</string>
+    <string name="bpp_cache_clear">Clear cache</string>
+    <string name="bpp_cache_clear_title">Clear image cache</string>
+    <string name="bpp_cache_clear_action">Clear</string>
+    <string name="bpp_cache_clear_message">This deletes card images that run history and the first page of purchase statistics do not use, and deletes image files left by older versions. Images those two screens need are kept. Pictures already in the system gallery stay in the gallery.</string>
+    <string name="bpp_cache_policy">Images used by run history are kept. On purchase statistics, with All heroes and All selected, the first page of the frequent-purchase ranking and the purchase list is also kept. Other card images and caches from older versions are removed the first time you open the launcher each day. If the cache is larger than %1$s and has grown by another %2$s since the last cleanup, it is cleaned again after at least one hour. Images that are still needed are created again after you enter the game.</string>
+    <string name="bpp_cache_empty">No image cache</string>
+    <string name="bpp_cache_size">About %1$s</string>
+    <string name="bpp_cache_unreadable">Cannot read the image cache right now</string>
+    <string name="bpp_cache_none">No images to remove</string>
+    <string name="bpp_cache_freed">Freed %1$s. %2$s left.</string>
+    <string name="bpp_cache_failed">Cleanup failed. Please retry.</string>
+    <string name="bpp_cache_swept">Removed %1$s of unused image cache</string>
 </resources>

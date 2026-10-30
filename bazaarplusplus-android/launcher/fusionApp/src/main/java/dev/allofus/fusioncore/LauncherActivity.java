@@ -20,8 +20,12 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import org.json.JSONObject;
 import java.io.*;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import dev.allofus.fusioncore.history.HistoryArtCache;
+import dev.allofus.fusioncore.history.HistoryReader;
 import dev.allofus.fusioncore.tools.Utilities;
 
 /** Product entry point. The home button launches the official game unless settings chose another. */
@@ -35,6 +39,7 @@ public final class LauncherActivity extends AppCompatActivity {
     private Button primary;
     private final Handler handler = new Handler();
     private final ExecutorService checks = Executors.newSingleThreadExecutor();
+    private static final AtomicBoolean ART_SWEEP = new AtomicBoolean();
     private boolean visible;
     private boolean supported;
     private boolean installed;
@@ -375,6 +380,46 @@ public final class LauncherActivity extends AppCompatActivity {
         if (isFinishing()) return;
         visible = true;
         handler.post(refreshTask);
+        sweepArtworkCache();
+    }
+
+    private void sweepArtworkCache() {
+        android.content.SharedPreferences prefs = getSharedPreferences(LauncherSettingsActivity.PREFERENCES, 0);
+        long last = prefs.getLong(LauncherSettingsActivity.ART_CLEANED_AT, 0);
+        long sized = prefs.getLong(LauncherSettingsActivity.ART_SIZED_AT, 0);
+        long now = System.currentTimeMillis();
+        boolean beforeDaily = last > 0 && now >= last && now - last < HistoryArtCache.CLEAN_INTERVAL_MS;
+        boolean sizedRecently = sized > 0 && now >= sized && now - sized < HistoryArtCache.GROWTH_INTERVAL_MS;
+        if (beforeDaily && sizedRecently) return;
+        if (!ART_SWEEP.compareAndSet(false, true)) return;
+        checks.execute(() -> {
+            try {
+                String target = LauncherGames.selected(this);
+                File root = new File(new File(Environment.getExternalStorageDirectory(), BuildConfig.LAUNCHER_STORAGE_ROOT), target);
+                long size = HistoryArtCache.bytes(root);
+                long lastBytes = prefs.getLong(LauncherSettingsActivity.ART_CLEANED_BYTES, 0);
+                long checkedAt = System.currentTimeMillis();
+                if (!HistoryArtCache.due(checkedAt, last, size, lastBytes)) {
+                    prefs.edit().putLong(LauncherSettingsActivity.ART_SIZED_AT, checkedAt).apply();
+                    return;
+                }
+                Set<String> retained = null;
+                try {
+                    retained = new HistoryReader(root, target, HistoryReader.Scope.launcher()).retainedCardTemplates();
+                } catch (Exception ignored) { retained = null; }
+                long freed = HistoryArtCache.clean(root, retained);
+                long left = HistoryArtCache.bytes(root);
+                long recordedAt = System.currentTimeMillis();
+                prefs.edit().putLong(LauncherSettingsActivity.ART_CLEANED_AT, recordedAt)
+                        .putLong(LauncherSettingsActivity.ART_CLEANED_BYTES, left)
+                        .putLong(LauncherSettingsActivity.ART_SIZED_AT, recordedAt).apply();
+                if (freed >= 1024 * 1024 && visible) {
+                    String message = getString(R.string.bpp_cache_swept, HistoryArtCache.format(freed));
+                    runOnUiThread(() -> { if (!isFinishing()) Toast.makeText(this, message, Toast.LENGTH_LONG).show(); });
+                }
+            } catch (Exception ignored) { /* The next launch can try again. History images stay when retention cannot be read. */ }
+            finally { ART_SWEEP.set(false); }
+        });
     }
     @Override protected void onPause() { visible = false; handler.removeCallbacks(refreshTask); super.onPause(); }
     @Override protected void onDestroy() { handler.removeCallbacks(refreshTask); checks.shutdown(); super.onDestroy(); }
