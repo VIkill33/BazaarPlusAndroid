@@ -17,6 +17,13 @@ import { assertWorkspaceHistoryDatabaseCompatibility } from './history-database.
 import { lockWarnings, readGameLibsLock } from './game-libs.mjs';
 
 function readBadges(workspaceRoot, version) {
+  // The Android repository has README.md/README_zh.md for its own app, not
+  // desktop Product Release badges. Keep the badge contract for desktop roots.
+  if (
+    fs.existsSync(path.join(workspaceRoot, 'README_zh.md')) &&
+    !fs.existsSync(path.join(workspaceRoot, 'README_en.md'))
+  )
+    return [];
   return ['README.md', 'README_en.md'].map((name) => {
     const file = path.join(workspaceRoot, name);
     const before = fs.readFileSync(file, 'utf8');

@@ -32,6 +32,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private int _buildIndex;
     private Button? _sourceButton;
     private Button? _candidatePageButton;
+    private Button? _updateBuildsButton;
+    private Task? _manualUpdate;
     private readonly List<Button> _candidateButtons = new();
     private readonly List<TextMeshProUGUI> _candidateMarkers = new();
     private readonly AndroidBuildCandidates _candidateCards = new();
@@ -61,6 +63,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 _candidateCards.Tick();
             }
             if (_canvas != null) AndroidPanelButtonSkin.Tick();
+            if (_updateBuildsButton != null)
+                _updateBuildsButton.interactable = _manualUpdate?.IsCompleted != false;
             if (string.IsNullOrWhiteSpace(PlayerPreferences.Data?.LanguageCode)) return;
             if (_canvas == null)
             {
@@ -130,12 +134,11 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 new Vector2(.37f, .89f), new Vector2(.53f, .98f), CycleSource);
             _candidatePageButton = NativeUi.Button(_panel, font, "1/1",
                 new Vector2(.54f, .89f), new Vector2(.68f, .98f), NextCandidatePage);
-            var refreshButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Refresh", "刷新"),
-                new Vector2(.70f, .89f), new Vector2(.82f, .98f), () =>
-                {
-                    _ = Plugin.BuildRepository?.RefreshAsync();
-                    _nextRefresh = 0;
-                });
+            _updateBuildsButton = NativeUi.Button(_panel, font,
+                () => _manualUpdate?.IsCompleted == false
+                    ? NativeUi.Text("Updating...", "更新中…")
+                    : NativeUi.Text("Update builds", "更新阵容"),
+                new Vector2(.70f, .89f), new Vector2(.82f, .98f), UpdateBuilds);
             var closeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"),
                 new Vector2(.85f, .89f), new Vector2(.97f, .98f), () => SetOpen(false));
             for (var slot = 0; slot < 10; slot++)
@@ -185,7 +188,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
             foreach (var button in new[]
             {
-                _sourceButton, _candidatePageButton, refreshButton, closeButton,
+                _sourceButton, _candidatePageButton, _updateBuildsButton, closeButton,
                 _previousBuildButton, _nextBuildButton,
             })
                 AndroidPanelButtonSkin.Register(button);
@@ -198,6 +201,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _panel = null;
             _entry = null;
             _previewModeButton = null;
+            _updateBuildsButton = null;
             throw;
         }
     }
@@ -209,7 +213,10 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         var corpus = Plugin.BuildRepository?.Current;
         if (player == null || corpus == null)
         {
-            Show(NativeUi.Text("Build data is loading or no run is active.", "构筑数据加载中，或当前没有对局。"));
+            var message = NativeUi.Text("Build data is loading or no run is active.", "构筑数据加载中，或当前没有对局。");
+            if (_manualUpdate?.IsCompleted == false)
+                message += "\n" + NativeUi.Text("Updating build data...", "正在更新阵容数据…");
+            Show(message);
             return;
         }
 
@@ -256,7 +263,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         UpdateCandidateButtons();
         var hero = player.Hero.ToString();
         var liveState = BuildLiveState.From(board, stash, shop);
-        var matches = Plugin.BuildRepository!.Find(hero, _selectedCandidates, liveState).Take(3).ToArray();
+        var matches = Plugin.BuildRepository!.Find(hero, _selectedCandidates, liveState).ToArray();
         var changed = _matches.Length != matches.Length ||
             _matches.Where((match, index) => index < matches.Length &&
                 (match.Build.Id != matches[index].Build.Id || match.LiveStateScore != matches[index].LiveStateScore ||
@@ -286,7 +293,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             $"{NativeUi.Text("Data generated", "数据生成于")} {corpus.GeneratedAt:yyyy-MM-dd} · " +
             $"{NativeUi.Text("Statistics through", "统计至")} {corpus.WindowEnd:yyyy-MM-dd}"
         };
-        if (Plugin.BuildRepository?.LastOnlineFailure is "rejected")
+        if (_manualUpdate?.IsCompleted == false)
+            lines.Add(NativeUi.Text("Updating build data...", "正在更新阵容数据…"));
+        else if (Plugin.BuildRepository?.LastOnlineFailure is "rejected")
             lines.Add(NativeUi.Text("Online update was not adopted; showing local data.",
                 "在线更新未采用，仍显示本地数据"));
         else if (Plugin.BuildRepository?.LastOnlineFailure is "failed")
@@ -321,6 +330,13 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             }
         }
         Show(string.Join("\n", lines));
+    }
+
+    private void UpdateBuilds()
+    {
+        if (_manualUpdate?.IsCompleted == false) return;
+        _manualUpdate = Plugin.BuildRepository?.RefreshAsync();
+        _nextRefresh = 0;
     }
 
     private static string ResolveName(Guid id)

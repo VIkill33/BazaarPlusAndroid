@@ -30,8 +30,6 @@ function fixture() {
   roots.push(workspaceRoot);
   for (const file of [
     'VERSION',
-    'README.md',
-    'README_en.md',
     'release/payload.json',
     'release/generated/Payload.targets',
     GAME_LIBS_LOCK_PATH,
@@ -51,6 +49,11 @@ function fixture() {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(path.join(WORKSPACE_ROOT, file), target);
   }
+  for (const file of ['README.md', 'README_en.md'])
+    fs.writeFileSync(
+      path.join(workspaceRoot, file),
+      '![Product version](https://img.shields.io/badge/version-6.0.0-blue)\n'
+    );
   return {
     workspaceRoot,
     log: vi.fn(),
