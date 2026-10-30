@@ -13,7 +13,7 @@
     <Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildLiveState.cs" Link="BuildLiveState.cs" />
     <Content Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/Data/BuildRecommendations/builds.json"
              Link="builds.json" CopyToOutputDirectory="PreserveNewest" />
-    <EmbeddedResource Include="../../data/builds-2026-10-05.json.gz"
+    <EmbeddedResource Include="../../data/builds-2026-10-26.json.gz"
       LogicalName="BazaarPlusPlus.Android.Data.BuildRecommendations.builds.json.gz" />
   </ItemGroup>
 </Project>

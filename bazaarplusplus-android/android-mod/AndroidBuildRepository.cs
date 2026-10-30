@@ -10,7 +10,7 @@ internal sealed class AndroidBuildRepository(HttpClient client, string cachePath
     Action<string>? info = null, Action<string>? warning = null, bool loadBundled = true,
     string? productVersion = null)
 {
-    private const string Url = "https://bpp-metrics-v6.bazaarplusplus.com/builds/latest.json";
+    private const string Url = "https://cdn.bazaarplusplus.com/metrics/v6/builds/latest.json";
     private const string BundledResource = "BazaarPlusPlus.Android.Data.BuildRecommendations.builds.json.gz";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(20);
     private readonly object _sync = new();

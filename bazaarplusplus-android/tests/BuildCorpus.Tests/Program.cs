@@ -55,9 +55,9 @@ try
     using var reader = new StreamReader(gzip);
     var complete = await reader.ReadToEndAsync();
     var updated = JsonNode.Parse(complete)!.AsObject();
-    updated["generated_at"] = "2026-10-27T12:00:00Z";
-    updated["window"]!["start"] = "2026-10-20";
-    updated["window"]!["end"] = "2026-10-26";
+    updated["generated_at"] = "2026-10-28T12:00:00Z";
+    updated["window"]!["start"] = "2026-10-21";
+    updated["window"]!["end"] = "2026-10-27";
     var newer = updated.ToJsonString();
     var completeCorpus = AndroidBuildCorpus.Parse(complete)!;
     var newerCorpus = AndroidBuildCorpus.Parse(newer)!;
@@ -90,8 +90,8 @@ try
         AndroidBuildAdoption.RejectionReason(completeCorpus, reducedCorpus,
             Encoding.UTF8.GetByteCount(reducedText)) != null)
         throw new Exception("A newer window with fewer builds must replace an older full snapshot.");
-    reduced["window"]!["start"] = "2026-09-29";
-    reduced["window"]!["end"] = "2026-10-05";
+    reduced["window"]!["start"] = "2026-10-20";
+    reduced["window"]!["end"] = "2026-10-26";
     var sameWindow = AndroidBuildCorpus.Parse(reduced.ToJsonString())!;
     if (AndroidBuildAdoption.RejectionReason(completeCorpus, sameWindow, 51200) != "same_window_shrink")
         throw new Exception("A collapsing response for the same window must be rejected.");
@@ -106,12 +106,12 @@ try
     var online = new AndroidBuildRepository(new HttpClient(new FixedHandler(complete)), cachePath,
         loadBundled: false);
     await online.WarmAsync();
-    if (online.Current?.BuildCount != 5689 || !File.Exists(cachePath))
+    if (online.Current?.BuildCount != 6846 || !File.Exists(cachePath))
         throw new Exception("A valid remote corpus must publish and populate the cache.");
     var offline = new AndroidBuildRepository(new HttpClient(new FixedHandler(null)), cachePath,
         loadBundled: false);
     await offline.WarmAsync();
-    if (offline.Current?.BuildCount != 5689)
+    if (offline.Current?.BuildCount != 6846)
         throw new Exception("A fresh cached corpus must load without network.");
     await File.WriteAllTextAsync(cachePath, reducedText);
     var fresh = new CountingHandler(null);
@@ -142,7 +142,7 @@ try
     await File.WriteAllTextAsync(bundledPath, payload);
     var bundled = new AndroidBuildRepository(new HttpClient(new FixedHandler(payload)), bundledPath);
     await bundled.WarmAsync();
-    if (bundled.Current?.CountForHero("Pygmalien") != 834 || bundled.Current.BuildCount < 4000)
+    if (bundled.Current?.CountForHero("Pygmalien") != 1004 || bundled.Current.BuildCount != 6846)
         throw new Exception("The release's bundled corpus must retain Pygmalien recommendations.");
     if (await File.ReadAllTextAsync(bundledPath) != payload)
         throw new Exception("A tiny cached or remote response must not replace the bundled corpus.");

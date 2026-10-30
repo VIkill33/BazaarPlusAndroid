@@ -18,7 +18,7 @@
     <Compile Include="$(DesktopSource)/Game/CollectionPanel/Grid/CollectionGridLayout.cs;$(DesktopSource)/Game/CollectionPanel/Grid/CollectionGridCell.cs;$(DesktopSource)/Game/CollectionPanel/Grid/CollectionGridConstants.cs;$(DesktopSource)/Infrastructure/UiTokens/BppOverlaySorting.cs" Link="Shared/Grid/%(Filename)%(Extension)" />
     <EmbeddedResource Include="$(DesktopSource)/Data/CollectionSources/collection-sources.json" LogicalName="BazaarPlusPlus.Android.collection-sources.json" />
     <Compile Include="$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceEntry.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceOfferRule.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceOfferPoolResolver.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceOfferPoolResult.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionHiddenTagGroups.cs;$(DesktopSource)/Game/CollectionPanel/Sources/CollectionSourceHeroParser.cs;$(DesktopSource)/GameInterop/Heroes/TheDragonsHeroIdentity.cs" Link="Shared/Sources/%(Filename)%(Extension)" />
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../data/builds-2026-10-05.json.gz"
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../data/builds-2026-10-26.json.gz"
       LogicalName="BazaarPlusPlus.Android.Data.BuildRecommendations.builds.json.gz" />
     <Reference Include="BepInEx.Core" HintPath="$(FrameworkPath)/BepInEx.Core.dll" Private="false" />
     <Reference Include="BepInEx.Unity.IL2CPP" HintPath="$(FrameworkPath)/BepInEx.Unity.IL2CPP.dll" Private="false" />
