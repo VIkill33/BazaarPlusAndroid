@@ -1,5 +1,19 @@
 # Android 真机验证
 
+## 构筑推荐显示全部匹配阵容（2026-10-30，用户自测通过）
+
+`AndroidBuildPanelController.Refresh` 原先在 `AndroidBuildRepository.Find` 返回完整排序结果后调用 `Take(3)`，导致任一物品最多只能翻看三套阵容；桌面 `LiveBuildPanel.RefreshRecommendations` 没有此截断。现移除 Android 端限制，页码与左右按钮使用完整匹配集。内置 2026-10-26 快照按英雄统计，单件物品最多可对应 191–481 套阵容，故旧限制会隐藏大量有效结果。
+
+离线检查：固定框架和 Android IL2CPP interop 的 `build_probe.py --mod` 编译零警告／零错误；`BuildCorpus.Tests` 与 25 项 Python 回归通过。已按 APK 导出流程构建同签名 0.2.0／versionCode 15，APK v2 签名验证通过。经用户确认可立即中断运行中的游戏后，`adb install -r` 覆盖安装成功；安装后的 APK 与构建文件 SHA-256 均为 `4ebf6c910971484dff3b24c97ba8087ca8e251c2b4ecee6a6d9539536ab3fb24`，包内插件 SHA-256 为 `2d5d9d0774350e492ffe09f0599d1e19a0a169ac9c6f2b492e0ec09bc3ba0e7f`。`verify_launcher.py` 的内置输入、插件及安装版本三项检查通过，证据在忽略目录 `artifacts/all-build-matches-installed/`。尚未重新进入游戏或操作推荐页；用户将自行核对超过三套的页码、逐套切换与卡图显示，本功能暂不记为真机通过。随后用户确认本次修改已验证通过；未提供具体页码、所选物品、输入模式或截图，记为用户自测通过，不扩大为上述边界均已验收。
+
+## 构筑面板手动更新入口（2026-10-30，用户自测通过）
+
+`AndroidBuildPanelController.BuildUi` 将原有「刷新」入口明确标为「更新阵容」，点击后仍由 `AndroidBuildRepository.RefreshAsync` 强制请求在线快照；请求期间按钮显示「更新中…」并禁用重复点击，状态区显示正在更新，当前推荐保留。请求结束后沿用既有统计截止日及拒绝／失败提示。预期真机操作：在构筑面板点击按钮，观察请求期间状态和按钮禁用，核对插件请求日志；成功时日期及推荐更新，拒绝或断网时本地推荐保留，关闭重开与标准／高级模式均可正常操作。
+
+离线检查：`build_probe.py --mod` 使用固定框架及 Android IL2CPP interop 编译成功，零警告／零错误；`BuildCorpus.Tests` 通过；Python 回归 25 项通过。构建 DLL SHA-256 为 `1be4c2529ccbd8258591645664510a0be4aaa1f30dc70ef1b30f356f10c1ba15`，输入清单在忽略目录 `artifacts/mod/build-inputs.json`。
+
+Redmi 22041216C／Android 14 已通过 ADB 连接检查。先前的 0.1.0-test.13 是工作区旧 APK 产物；按当前源码重新构建的签名启动器版本为 0.2.0、versionCode 15，已通过 `adb install -r` 覆盖安装。APK 使用 v2 签名，证书 DN 为 `CN=BazaarPlusPlus Android Test`；构建文件与安装后从设备取回的 APK SHA-256 均为 `2deeb237ea235c3a8245208674acf4590f42e2945ce9e774ba00ef89f7c98e50`。`verify_launcher.py` 确认包内依赖、插件和安装版本匹配，包内插件摘要与上方构建 DLL 一致。证据在忽略目录 `artifacts/launcher/` 与 `artifacts/manual-build-update-installed/verification.json`。尚未启动新包中的游戏或操作构筑面板；用户将自行验证按钮文字、请求期间状态及结果，故本次仍不标记游戏内功能真机通过。随后用户确认本次构筑页面修改已验证通过；未提供按钮各状态及网络结果的逐项证据，记为用户自测通过。
+
 ## 图鉴／构筑新样式与启动器开关（2026-10-30，大厅路径真机通过）
 
 参照现有游戏内图鉴、构筑截图及启动器暮紫琥珀首页，为两个 Unity 面板增加可选的集市场景底图、暮紫底色、暖金按钮与分隔线；启动器「使用新样式」写入共享配置，默认旧样式，下次启动游戏时生效。新旧样式复用同一筛选、卡图预览、候选选择、匹配和刷新逻辑。当前仓库另有未提交的构筑数据及历史图片缓存修改；本次混合构建的真机结果仅用于下述已操作路径。
