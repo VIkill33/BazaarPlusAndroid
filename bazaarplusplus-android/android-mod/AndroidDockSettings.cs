@@ -3,7 +3,10 @@ using BepInEx;
 
 namespace BazaarPlusPlus.Android;
 
-internal sealed record AndroidDockPreferences(bool AutoHide = false, int Edge = 0, int Along = 3500, bool TextButtons = false);
+internal enum AndroidDockIconSize { Large, Medium, Small }
+
+internal sealed record AndroidDockPreferences(bool AutoHide = false, int Edge = 0, int Along = 3500,
+    bool TextButtons = false, AndroidDockIconSize IconSize = AndroidDockIconSize.Medium);
 
 internal static class AndroidDockSettings
 {
@@ -12,7 +15,8 @@ internal static class AndroidDockSettings
 
     internal static void Save(AndroidDockPreferences value)
     {
-        value = value with { Edge = Math.Clamp(value.Edge, 0, 3), Along = Math.Clamp(value.Along, 0, 10000) };
+        value = value with { Edge = Math.Clamp(value.Edge, 0, 3), Along = Math.Clamp(value.Along, 0, 10000),
+            IconSize = Enum.IsDefined(value.IconSize) ? value.IconSize : AndroidDockIconSize.Medium };
         var path = SettingsPath;
         var temporary = path + ".part";
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -22,6 +26,7 @@ internal static class AndroidDockSettings
             {
                 schema = 1, autoHide = value.AutoHide, edge = Math.Clamp(value.Edge, 0, 3),
                 along = Math.Clamp(value.Along, 0, 10000), textButtons = value.TextButtons,
+                iconSize = (int)value.IconSize,
             }));
             File.Move(temporary, path, overwrite: true);
             Current = value;
@@ -54,7 +59,10 @@ internal static class AndroidDockSettings
             var along = root.TryGetProperty("along", out var a) && a.ValueKind == JsonValueKind.Number
                 && a.TryGetInt32(out var fraction) && fraction is >= 0 and <= 10000 ? fraction : 3500;
             var textButtons = root.TryGetProperty("textButtons", out var text) && text.ValueKind == JsonValueKind.True;
-            return new(autoHide, edge, along, textButtons);
+            var iconSize = root.TryGetProperty("iconSize", out var size) && size.ValueKind == JsonValueKind.Number
+                && size.TryGetInt32(out var sizeIndex) && sizeIndex is >= 0 and <= 2
+                ? (AndroidDockIconSize)sizeIndex : AndroidDockIconSize.Medium;
+            return new(autoHide, edge, along, textButtons, iconSize);
         }
         catch (JsonException) { return new(); }
     }

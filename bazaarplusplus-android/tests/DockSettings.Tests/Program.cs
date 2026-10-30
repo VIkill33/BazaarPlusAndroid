@@ -10,7 +10,14 @@ if (AndroidDockSettings.Parse("{\"schema\":1,\"autoHide\":\"true\",\"edge\":9,\"
 if (AndroidDockSettings.Parse("{\"schema\":1,\"textButtons\":true}") != new AndroidDockPreferences(TextButtons: true)
     || AndroidDockSettings.Parse("{\"schema\":1,\"textButtons\":1}") != new AndroidDockPreferences())
     throw new Exception("Button style parsed incorrectly");
-saved = saved with { TextButtons = true };
+foreach (var size in Enum.GetValues<AndroidDockIconSize>())
+    if (AndroidDockSettings.Parse($"{{\"schema\":1,\"iconSize\":{(int)size}}}") != new AndroidDockPreferences(IconSize: size))
+        throw new Exception($"Icon size {size} parsed incorrectly");
+foreach (var json in new[] { "{\"schema\":1,\"iconSize\":-1}", "{\"schema\":1,\"iconSize\":3}",
+    "{\"schema\":1,\"iconSize\":\"Large\"}" })
+    if (AndroidDockSettings.Parse(json).IconSize != AndroidDockIconSize.Medium)
+        throw new Exception($"Invalid icon size accepted: {json}");
+saved = saved with { TextButtons = true, IconSize = AndroidDockIconSize.Large };
 var path = Path.Combine(BepInEx.Paths.ConfigPath, "BazaarPlusPlus.Android", "dock.json");
 try
 {

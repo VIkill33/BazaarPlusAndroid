@@ -12,9 +12,8 @@ namespace BazaarPlusPlus.Android;
 
 public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
 {
-    private const float IconFrameSize = 86f * 1.2f;
+    private const float OriginalFrameSize = 86f;
     private sealed record Style(Vector2 Button, float Gap, float HandleHeight, Vector2 Collapsed, float HandleFont, float CollapsedFont);
-    private static readonly Style IconStyle = new(new Vector2(115, 140), 10, 58, new Vector2(72, 158), 26, 34);
     private static readonly Style TextStyle = new(new Vector2(270, 90), 5, 70, new Vector2(60, 132), 30, 28);
 
     private sealed class Entry
@@ -48,10 +47,20 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private Vector2 _screen;
     private int _visibleEntries;
     private bool _textButtons;
+    private AndroidDockIconSize _iconSize = AndroidDockIconSize.Medium;
     private Sprite? _nativeButtonFrame;
     private float _nextFrameScan;
     private readonly SortedDictionary<int, Entry> _entries = new();
-    private Style CurrentStyle => _textButtons ? TextStyle : IconStyle;
+    private float IconScale => _iconSize switch
+    {
+        AndroidDockIconSize.Large => 1.5f,
+        AndroidDockIconSize.Small => 1f,
+        _ => 1.2f,
+    };
+    private float IconFactor => IconScale / 1.2f;
+    private Style CurrentStyle => _textButtons ? TextStyle
+        : new Style(new Vector2(115, 140) * IconFactor, 10 * IconFactor, 58,
+            new Vector2(72, 158), 26, 34);
 
     internal static bool AutoHide
     {
@@ -91,8 +100,8 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         Image? image = null;
         var frameRect = NativeUi.Rect("BPP.DockFrame", rect, new Vector2(.5f, 1), new Vector2(.5f, 1));
         frameRect.pivot = new Vector2(.5f, 1);
-        frameRect.sizeDelta = new Vector2(IconFrameSize, IconFrameSize);
-        frameRect.anchoredPosition = new Vector2(0, -2);
+        frameRect.sizeDelta = new Vector2(OriginalFrameSize * IconScale, OriginalFrameSize * IconScale);
+        frameRect.anchoredPosition = new Vector2(0, -2 * IconFactor);
         frameRect.SetAsFirstSibling();
         var frameImage = frameRect.gameObject.AddComponent<Image>();
         frameImage.preserveAspect = true;
@@ -102,8 +111,8 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         {
             var art = NativeUi.Rect("BPP.DockIcon", rect, new Vector2(.5f, 1), new Vector2(.5f, 1));
             art.pivot = new Vector2(.5f, .5f);
-            art.sizeDelta = new Vector2(69, 71);
-            art.anchoredPosition = new Vector2(0, -2 - IconFrameSize / 2);
+            art.sizeDelta = new Vector2(69, 71) * IconFactor;
+            art.anchoredPosition = new Vector2(0, -2 * IconFactor - OriginalFrameSize * IconScale / 2);
             image = art.gameObject.AddComponent<Image>();
             image.sprite = sprite;
             image.preserveAspect = true;
@@ -119,6 +128,16 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private void Restyle(Entry entry)
     {
         entry.Rect.sizeDelta = CurrentStyle.Button;
+        var factor = IconFactor;
+        var frameRect = entry.Frame.rectTransform;
+        frameRect.sizeDelta = new Vector2(OriginalFrameSize * IconScale, OriginalFrameSize * IconScale);
+        frameRect.anchoredPosition = new Vector2(0, -2 * factor);
+        if (entry.Icon != null)
+        {
+            var art = entry.Icon.rectTransform;
+            art.sizeDelta = new Vector2(69, 71) * factor;
+            art.anchoredPosition = new Vector2(0, -2 * factor - OriginalFrameSize * IconScale / 2);
+        }
         var frame = entry.Rect.GetComponent<Image>();
         frame.sprite = null;
         frame.color = _textButtons ? new Color(.15f, .20f, .24f, 1) : Color.clear;
@@ -130,12 +149,13 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         var labelRect = entry.Label.rectTransform;
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = new Vector2(1, icon ? 0 : 1);
-        labelRect.offsetMin = icon ? new Vector2(5, 0) : new Vector2(12, 6);
-        labelRect.offsetMax = icon ? new Vector2(-5, 30) : new Vector2(-12, -6);
+        labelRect.offsetMin = icon ? new Vector2(5 * factor, 0) : new Vector2(12, 6);
+        labelRect.offsetMax = icon ? new Vector2(-5 * factor, 30 * factor) : new Vector2(-12, -6);
         entry.Label.enableAutoSizing = !_textButtons;
-        entry.Label.fontSizeMin = 17;
-        entry.Label.fontSizeMax = 24;
+        entry.Label.fontSizeMin = icon ? 17 * factor : 17;
+        entry.Label.fontSizeMax = icon ? 24 * factor : 24;
         if (_textButtons) entry.Label.fontSize = 30;
+        entry.Label.GetComponent<Shadow>().effectDistance = icon ? new Vector2(2, -2) * factor : new Vector2(2, -2);
         entry.Label.textWrappingMode = _textButtons ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
     }
 
@@ -181,6 +201,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         _holdPreview = gameObject.AddComponent<AndroidHoldPreview>();
         _holdPreview.Build(_buttons!, font);
         _textButtons = AndroidDockSettings.Current.TextButtons;
+        _iconSize = AndroidDockSettings.Current.IconSize;
         Place(_holdPreview.Button!, 3, AndroidDockIcon.HoldPreview, () => NativeUi.Text("Hold", "按住预览"),
             () => NativeUi.Text("Hold to preview", "按住预览"));
         _edge = AndroidDockSettings.Current.Edge;
@@ -259,9 +280,10 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             _lastInteraction = Time.realtimeSinceStartup;
             Layout();
         }
-        if (_textButtons != AndroidDockSettings.Current.TextButtons)
+        if (_textButtons != AndroidDockSettings.Current.TextButtons || _iconSize != AndroidDockSettings.Current.IconSize)
         {
             _textButtons = AndroidDockSettings.Current.TextButtons;
+            _iconSize = AndroidDockSettings.Current.IconSize;
             foreach (var entry in _entries.Values) Restyle(entry);
             Layout();
         }
