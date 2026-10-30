@@ -48,6 +48,18 @@ public class CustomContextWrapper extends ContextWrapper {
         return fusionContext;
     }
 
+    /**
+     * Game activities are rebound onto the target package, whose resource table does not contain
+     * launcher string IDs. Loading copy must be resolved from the host context captured before that swap.
+     */
+    public static Context hostResources(Context context) {
+        if (!(context instanceof ContextWrapper)) return context;
+        Context base = ((ContextWrapper) context).getBaseContext();
+        if (!(base instanceof CustomContextWrapper)) return context;
+        Context fusion = ((CustomContextWrapper) base).getOriginalActivity();
+        return fusion != null ? fusion : context;
+    }
+
 //    @Override
 //    public Resources getResources() {
 //        return this.appContext.getResources();

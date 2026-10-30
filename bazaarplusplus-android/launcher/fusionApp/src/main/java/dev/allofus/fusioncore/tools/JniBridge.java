@@ -71,46 +71,67 @@ public class JniBridge {
     public static void SetLoadingText(Activity activity, String text) {
         LauncherLog.note(activity.getFilesDir(), "加载状态 " + (text == null ? "" : text));
         String lower = text == null ? "" : text.toLowerCase(Locale.ROOT);
-        final int userText = lower.contains("cpp2il") ? R.string.bpp_cpp2il
+        final int label = lower.contains("cpp2il") ? R.string.bpp_cpp2il
                 : lower.contains("interop") ? R.string.bpp_interop
                 : lower.contains("plugin") ? R.string.bpp_plugin_loading
                 : lower.contains("fail") || lower.contains("error") ? R.string.bpp_runtime_failed
                 : R.string.bpp_runtime_preparing;
+        final String fallback = lower.contains("cpp2il") ? "Preparing the game for the first time. Keep this app in the foreground."
+                : lower.contains("interop") ? "Generating game interop files"
+                : lower.contains("plugin") ? "Loading the BazaarPlusAndroid plugin"
+                : lower.contains("fail") || lower.contains("error") ? "Runtime loading failed. Return to the launcher for diagnostics."
+                : "Preparing runtime";
+        // activity.getString() reads the game package after the context swap and crashes startup.
+        final String userText = loadingLabel(activity, label, fallback);
         activity.runOnUiThread(() -> {
-            TextView view = activity.findViewById(R.id.loadingText);
-            if (view == null) {
-                Log.e(TAG, "Could not set loading text, view is null!");
-                return;
-            }
-
-            view.setText(activity.getString(userText));
-            View loader = activity.findViewById(R.id.loader);
-            if (loader != null && loader.getVisibility() == View.VISIBLE) LauncherPreparation.markLoader(activity, true);
-            Log.i(TAG, "Set loading text to "+text);
-
-            // reset timer
-            if (timerRunnable != null) {
-                handler.removeCallbacks(timerRunnable);
-            }
-
-            timerRunnable = new Runnable() {
-                private int elapsedSeconds = 0;
-
-                @Override
-                public void run() {
-                    elapsedSeconds++;
-                    int minutes = elapsedSeconds / 60;
-                    int seconds = elapsedSeconds % 60;
-
-                    String timeString = String.format(Locale.getDefault(),
-                            " (%02d:%02d)", minutes, seconds);
-
-                    view.setText(activity.getString(userText) + timeString);
-
-                    handler.postDelayed(this, 1000);
+            try {
+                TextView view = activity.findViewById(R.id.loadingText);
+                if (view == null) {
+                    Log.e(TAG, "Could not set loading text, view is null!");
+                    return;
                 }
-            };
-            handler.post(timerRunnable);
+
+                view.setText(userText);
+                View loader = activity.findViewById(R.id.loader);
+                if (loader != null && loader.getVisibility() == View.VISIBLE) LauncherPreparation.markLoader(activity, true);
+                Log.i(TAG, "Set loading text to "+text);
+
+                // reset timer
+                if (timerRunnable != null) {
+                    handler.removeCallbacks(timerRunnable);
+                }
+
+                timerRunnable = new Runnable() {
+                    private int elapsedSeconds = 0;
+
+                    @Override
+                    public void run() {
+                        elapsedSeconds++;
+                        int minutes = elapsedSeconds / 60;
+                        int seconds = elapsedSeconds % 60;
+
+                        String timeString = String.format(Locale.getDefault(),
+                                " (%02d:%02d)", minutes, seconds);
+
+                        view.setText(userText + timeString);
+
+                        handler.postDelayed(this, 1000);
+                    }
+                };
+                handler.post(timerRunnable);
+            } catch (RuntimeException error) {
+                Log.e(TAG, "Could not set loading text", error);
+            }
         });
+    }
+
+    private static String loadingLabel(Activity activity, int resId, String fallback) {
+        android.content.Context source = CustomContextWrapper.hostResources(activity);
+        if (source == activity && app != null) source = app;
+        try {
+            return source.getString(resId);
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
     }
 }

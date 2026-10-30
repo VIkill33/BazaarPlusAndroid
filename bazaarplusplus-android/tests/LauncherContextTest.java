@@ -34,6 +34,12 @@ public final class LauncherContextTest {
                 if (activity.getDisplay().getDisplayId() != 42 || activity.getDisplay() != hostDisplay)
                     throw new AssertionError("lost host display on API " + api);
             }
+            if (CustomContextWrapper.hostResources(activity) != host)
+                throw new AssertionError("launcher strings would resolve against the game package on API " + api);
+            if (CustomContextWrapper.hostResources(host) != host)
+                throw new AssertionError("unwrapped host context changed on API " + api);
+            if (CustomContextWrapper.hostResources(activity) == game)
+                throw new AssertionError("game package selected for launcher strings on API " + api);
         }
         System.out.println("Launcher context display tests passed (API 26, 28, 29, 30, 34)");
     }
