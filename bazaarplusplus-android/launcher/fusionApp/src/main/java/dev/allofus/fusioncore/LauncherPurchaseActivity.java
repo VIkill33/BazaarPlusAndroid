@@ -64,7 +64,7 @@ public final class LauncherPurchaseActivity extends AppCompatActivity {
         @Override public View getView(int position, View recycled, ViewGroup parent) {
             int first = index(position);
             LinearLayout row = new LinearLayout(LauncherPurchaseActivity.this);
-            row.setPadding(dp(12), dp(4), dp(12), dp(4));
+            row.setPadding(dp(12), dp(6), dp(12), dp(6));
             boolean featured = mode.equals("ranking") && offset == 0 && first == 0;
             row.addView(tile(first, featured), new LinearLayout.LayoutParams(0, -2, 1));
             if (mode.equals("ranking") && !singleColumn && !featured) {
@@ -134,7 +134,7 @@ public final class LauncherPurchaseActivity extends AppCompatActivity {
         bar.setPadding(dp(8), 0, dp(8), 0);
         bar.addView(iconButton(R.drawable.ic_back, "返回", this::finish));
         TextView title = text(24); title.setText("购牌统计"); title.setTypeface(null, Typeface.BOLD);
-        title.setGravity(Gravity.CENTER); title.setAccessibilityHeading(true);
+        title.setGravity(Gravity.CENTER); title.setAccessibilityHeading(true); title.setPadding(0, 0, 0, 0);
         bar.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         refresh = iconButton(R.drawable.bpp_refresh, "刷新", () -> {
             offset = 0; rankMaximum = 0; restoreItemIndex = -1; restoreTop = 0;
@@ -145,11 +145,13 @@ public final class LauncherPurchaseActivity extends AppCompatActivity {
 
         LinearLayout controls = new LinearLayout(this);
         controls.setOrientation(singleColumn ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
-        controls.setGravity(Gravity.CENTER_VERTICAL); controls.setPadding(dp(12), dp(8), dp(12), 0);
+        controls.setGravity(Gravity.CENTER_VERTICAL); controls.setPadding(dp(12), dp(10), dp(12), 0);
         heroButton = button("全部英雄", this::chooseHero);
+        slim(heroButton, 48);
         controls.addView(heroButton, singleColumn ? new LinearLayout.LayoutParams(-1, -2)
             : new LinearLayout.LayoutParams(0, -2, 1));
-        summary = text(16); summary.setTextColor(getColor(R.color.bpp_accent)); summary.setGravity(Gravity.END);
+        summary = text(14); summary.setTextColor(getColor(R.color.bpp_accent)); summary.setGravity(singleColumn ? Gravity.START : Gravity.END);
+        summary.setPadding(dp(12), dp(4), dp(12), dp(4));
         controls.addView(summary, singleColumn ? new LinearLayout.LayoutParams(-1, -2)
             : new LinearLayout.LayoutParams(0, -2, 1)); header.addView(controls);
 
@@ -170,21 +172,26 @@ public final class LauncherPurchaseActivity extends AppCompatActivity {
         }
         header.addView(filters);
 
-        LinearLayout tabs = new LinearLayout(this); tabs.setPadding(dp(12), 0, dp(12), dp(4));
+        LinearLayout tabs = new LinearLayout(this); tabs.setPadding(dp(12), 0, dp(12), dp(8));
         rankingTab = button("常买排行", () -> chooseMode("ranking"));
         recentTab = button("购买明细", () -> chooseMode("recent"));
-        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, -2, 1); left.setMarginEnd(dp(4));
+        com.google.android.material.button.MaterialButton ranking = (com.google.android.material.button.MaterialButton)rankingTab;
+        ranking.setIconResource(R.drawable.bpp_crown); ranking.setIconSize(dp(18)); ranking.setIconPadding(dp(6));
+        slim(rankingTab, 44); slim(recentTab, 44);
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, -2, 1); left.setMarginEnd(dp(8));
         tabs.addView(rankingTab, left); tabs.addView(recentTab, new LinearLayout.LayoutParams(0, -2, 1)); header.addView(tabs);
         status = text(13); status.setTextColor(getColor(R.color.bpp_muted));
+        status.setPadding(dp(12), dp(2), dp(12), dp(6));
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); header.addView(status);
         list.addHeaderView(header, null, false);
 
         LinearLayout footer = column(); footer.setPadding(dp(12), dp(8), dp(12), dp(12));
         footer.addView(divider());
-        totals = text(17); totals.setGravity(Gravity.CENTER); footer.addView(totals);
+        totals = text(15); totals.setGravity(Gravity.CENTER); footer.addView(totals);
         LinearLayout navigation = new LinearLayout(this); navigation.setGravity(Gravity.CENTER_VERTICAL);
         previous = button("上一页", () -> { offset = Math.max(0, offset - HistoryReader.PAGE_SIZE); load(); });
         next = button("下一页", () -> { offset += HistoryReader.PAGE_SIZE; load(); });
+        slim(previous, 48); slim(next, 48);
         page = text(14); page.setGravity(Gravity.CENTER);
         navigation.addView(previous, new LinearLayout.LayoutParams(0, -2, 1));
         navigation.addView(page, new LinearLayout.LayoutParams(0, -2, 1));
@@ -251,7 +258,7 @@ public final class LauncherPurchaseActivity extends AppCompatActivity {
         else if (result.optString("state").equals("missing")) status.setText("暂无购牌记录，请启动游戏后购买卡牌。旧对局无法补录。");
         else if (result.optString("state").equals("ok")) {
             JSONObject totals = result.optJSONObject("summary");
-            summary.setText(number(totals.optLong("totalPurchases")) + " 次购买\n" + number(totals.optLong("totalGold")) + " 金币");
+            summary.setText(number(totals.optLong("totalPurchases")) + " 次购买 · " + number(totals.optLong("totalGold")) + " 金币");
             this.totals.setText(number(totals.optLong("uniqueCards")) + " 种卡牌 · " + number(totals.optLong("purchaseRuns")) + " 局记录");
             items = result.optJSONArray("items"); more = result.optBoolean("hasMore");
             totalRows = totals.optLong(mode.equals("ranking") ? "uniqueCards" : "totalPurchases");
@@ -291,9 +298,16 @@ public final class LauncherPurchaseActivity extends AppCompatActivity {
     }
     private void tabState(Button tab, boolean selected) {
         tab.setSelected(selected);
-        tab.setTextColor(getColor(selected ? R.color.bpp_background : R.color.bpp_text));
-        ((com.google.android.material.button.MaterialButton)tab).setBackgroundTintList(
-            ColorStateList.valueOf(getColor(selected ? R.color.bpp_accent : R.color.bpp_surface)));
+        int ink = getColor(selected ? R.color.bpp_background : R.color.bpp_text);
+        tab.setTextColor(ink);
+        com.google.android.material.button.MaterialButton material = (com.google.android.material.button.MaterialButton)tab;
+        material.setBackgroundTintList(ColorStateList.valueOf(getColor(selected ? R.color.bpp_accent : R.color.bpp_surface)));
+        material.setIconTint(ColorStateList.valueOf(ink));
+    }
+    private void slim(Button button, int height) {
+        button.setMinHeight(dp(height)); button.setMinimumHeight(dp(height));
+        ((com.google.android.material.button.MaterialButton)button).setInsetTop(0);
+        ((com.google.android.material.button.MaterialButton)button).setInsetBottom(0);
     }
 
     private void showDetails(JSONObject item) {

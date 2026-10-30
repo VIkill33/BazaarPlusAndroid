@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Material Design Icons "crown" by Pictogrammers, Apache License 2.0. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M5,16L3,5L8.5,10L12,4L15.5,10L21,5L19,16H5M19,19C19.6,19 20,18.6 20,18H4C4,18.6 4.4,19 5,19H19Z" />
+</vector>
