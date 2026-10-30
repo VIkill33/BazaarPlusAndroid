@@ -22,6 +22,7 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         internal required TextMeshProUGUI Label;
         internal required AndroidLocalizedText Localized;
         internal required Image? Icon;
+        internal required Image Frame;
         internal required Func<string> Caption;
         internal required Func<string> Text;
     }
@@ -46,6 +47,8 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private Vector2 _screen;
     private int _visibleEntries;
     private bool _textButtons;
+    private Sprite? _nativeButtonFrame;
+    private float _nextFrameScan;
     private readonly SortedDictionary<int, Entry> _entries = new();
     private Style CurrentStyle => _textButtons ? TextStyle : IconStyle;
 
@@ -84,6 +87,14 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         var localized = label.GetComponent<AndroidLocalizedText>();
         if (localized == null) localized = label.gameObject.AddComponent<AndroidLocalizedText>();
         Image? image = null;
+        var frameRect = NativeUi.Rect("BPP.DockFrame", rect, new Vector2(.5f, 1), new Vector2(.5f, 1));
+        frameRect.pivot = new Vector2(.5f, 1);
+        frameRect.sizeDelta = new Vector2(86, 86);
+        frameRect.anchoredPosition = new Vector2(0, -2);
+        frameRect.SetAsFirstSibling();
+        var frameImage = frameRect.gameObject.AddComponent<Image>();
+        frameImage.preserveAspect = true;
+        frameImage.raycastTarget = false;
         var sprite = AndroidDockIcons.Get(icon);
         if (sprite != null)
         {
@@ -93,7 +104,8 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
             image.preserveAspect = true;
             image.raycastTarget = false;
         }
-        var entry = new Entry { Rect = rect, Label = label, Localized = localized, Icon = image, Caption = caption, Text = text };
+        var entry = new Entry { Rect = rect, Label = label, Localized = localized, Icon = image,
+            Frame = frameImage, Caption = caption, Text = text };
         _entries[slot] = entry;
         Restyle(entry);
     }
@@ -102,6 +114,11 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     private void Restyle(Entry entry)
     {
         entry.Rect.sizeDelta = CurrentStyle.Button;
+        var frame = entry.Rect.GetComponent<Image>();
+        frame.sprite = null;
+        frame.color = _textButtons ? new Color(.15f, .20f, .24f, 1) : Color.clear;
+        entry.Frame.sprite = _nativeButtonFrame;
+        entry.Frame.gameObject.SetActive(!_textButtons && _nativeButtonFrame != null);
         var icon = !_textButtons && entry.Icon != null;
         entry.Icon?.gameObject.SetActive(icon);
         entry.Localized.Bind(entry.Label, _textButtons ? entry.Text : entry.Caption);
@@ -201,6 +218,11 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
     public void LateUpdate()
     {
         if (_group == null) return;
+        if (!_textButtons && _nativeButtonFrame == null && Time.realtimeSinceStartup >= _nextFrameScan)
+        {
+            _nextFrameScan = Time.realtimeSinceStartup + 1;
+            TryResolveNativeButtonFrame();
+        }
         // Keep the held button alive for pointer ownership, but let the native
         // details use either screen edge without being covered by the dock.
         _opacity!.alpha = AndroidHoldPreview.Active ? 0 : 1;
@@ -235,6 +257,18 @@ public sealed class AndroidFloatingDock(IntPtr pointer) : MonoBehaviour(pointer)
         {
             _collapsed = true;
             Layout();
+        }
+    }
+
+    private void TryResolveNativeButtonFrame()
+    {
+        foreach (var image in Resources.FindObjectsOfTypeAll<Image>())
+        {
+            if (image == null || image.gameObject.name != "Btn_Frame"
+                || image.sprite == null || image.sprite.name != "Btn_Rnd_Frame_TUI") continue;
+            _nativeButtonFrame = image.sprite;
+            foreach (var entry in _entries.Values) Restyle(entry);
+            return;
         }
     }
 
