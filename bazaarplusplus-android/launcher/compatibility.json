@@ -2,41 +2,35 @@
   "schema": 1,
   "game": {
     "package": "com.tempogames.thebazaar",
-    "versionCode": 12825,
-    "versionName": "1.0.12825-production-android-d9601ded",
-    "unity": "6000.3.11f1",
+    "versionCode": 13084,
+    "versionName": "1.0.13084-production-android-4670b82d",
+    "unity": "6000.3.27f2",
     "abi": "arm64-v8a",
-    "validation": "pending-custom-apk"
+    "validation": "android-14-launch-and-plugin-load-verified; gameplay-pending"
   },
-  "baseLibrariesUrl": "https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/download/6000.3.11f1/Managed.zip",
   "dependencies": [
     {
       "name": "libunity.so",
-      "url": "https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/download/6000.3.11f1/libunity.so.arm64-v8a",
-      "size": 28090600,
-      "sha256": "8c62d36ffd7b3fad1c1bd40c187df0282cf418015d19bb3e3b0f55627b6e72e6",
-      "fallbackUrls": [
-        "https://api.github.com/repos/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/assets/508329010?download=1"
-      ]
+      "size": 28699328,
+      "sha256": "c813830af177c1ebd57037eac3a489fd1ecb8113bffdc268bef27e3246b858af"
     },
     {
       "name": "libunity.sym.so",
-      "url": "https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/download/6000.3.11f1/libunity.sym.so.arm64-v8a",
-      "size": 13399040,
-      "sha256": "7ee5db8cdd90f118b5b9bf408b0ad64e9dbb7da20292560bbe2bf73587e33f70",
-      "fallbackUrls": [
-        "https://api.github.com/repos/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/assets/508329141?download=1"
-      ]
+      "size": 13487872,
+      "sha256": "e37b98a80171b8cf12416aeb4615f2c172b85a60506e0f9e2defe2fc5a5a8b26"
     },
     {
-      "name": "6000.3.11.zip",
-      "url": "https://github.com/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/download/6000.3.11f1/Managed.zip",
-      "size": 3069472,
-      "sha256": "e97362e2d6042a72be8f5e0204126d97283815b1fd47fc1a8f0e5c0aa21db1fa",
-      "fallbackUrls": [
-        "https://api.github.com/repos/All-Of-Us-Mods/FusionCore.UnityDependencies/releases/assets/508328996?download=1"
-      ]
+      "name": "6000.3.27.zip",
+      "size": 3015835,
+      "sha256": "c7e0f9dc37e731ec4472047180fc5363e89c56ca6cc75f3e0e5694e808b1e41f"
     }
   ],
-  "storageRoot": "BazaarPlusPlusAndroid"
+  "storageRoot": "BazaarPlusPlusAndroid",
+  "sourceArchive": {
+    "url": "https://download.unity3d.com/download_unity/22188f149405/MacEditorTargetInstaller/UnitySetup-Android-Support-for-Editor-6000.3.27f2.pkg",
+    "size": 2112134473,
+    "md5": "8c96704ee4727354cb92382b8c74a68f",
+    "sha256": "de888a89ce4255f167fe4f1a62f391acd3fe7aa33ca23a385ffbd53878ffa8f7",
+    "managedZipEntryCount": 77
+  }
 }

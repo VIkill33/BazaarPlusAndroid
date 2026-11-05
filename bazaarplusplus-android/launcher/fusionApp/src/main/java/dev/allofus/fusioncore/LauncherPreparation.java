@@ -348,9 +348,6 @@ public final class LauncherPreparation {
         checkCancelled();
         JSONObject release = LauncherRelease.manifest(context);
         File plugins = bep(packageName);
-        LauncherRelease.check(context, release, packageName);
-        if (!release.getJSONObject("game").getString("unity").equals(unity))
-            throw new IOException(context.getString(R.string.bpp_unity_version_mismatch));
         step(context, progress, context.getString(R.string.bpp_preparation_dependencies));
         JSONArray dependencies = release.getJSONArray("dependencies");
         String unityArchiveName = null;

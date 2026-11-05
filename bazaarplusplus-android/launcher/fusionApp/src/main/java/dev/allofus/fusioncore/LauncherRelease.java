@@ -36,22 +36,5 @@ public final class LauncherRelease {
         return context.getPackageManager().getPackageInfo(packageName, 0);
     }
 
-    public static void check(Context context, JSONObject release) throws Exception {
-        check(context, release, GAME);
-    }
-
-    /** Official installs keep the verified version pin. A chosen package must still be arm64 IL2CPP. */
-    public static void check(Context context, JSONObject release, String packageName) throws Exception {
-        PackageInfo installed = game(context, packageName);
-        if (GAME.equals(packageName)) {
-            JSONObject game = release.getJSONObject("game");
-            if (installed.getLongVersionCode() != game.getLong("versionCode") ||
-                    !game.getString("versionName").equals(installed.versionName))
-                throw new IOException(context.getString(R.string.bpp_game_version_unverified));
-        }
-        if (!LauncherGames.hasArm64Il2Cpp(installed.applicationInfo))
-            throw new IOException(context.getString(R.string.bpp_game_abi_unsupported));
-    }
-
     public static byte[] bytes(String text) { return text.getBytes(StandardCharsets.UTF_8); }
 }

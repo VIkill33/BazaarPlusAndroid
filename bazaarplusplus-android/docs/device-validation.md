@@ -1,5 +1,52 @@
 # Android 真机验证
 
+## 游戏 13084 的 Unity 依赖更新与启动复测（2026-11-05）
+
+设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14），官方游戏
+`1.0.13084-production-android-4670b82d`。从 Unity 官方 Android 支持包
+`6000.3.27f2` 提取 ARM64 `libunity.so`、`libunity.sym.so` 和 77 个 Managed DLL，
+官方包 MD5 `8c96704ee4727354cb92382b8c74a68f` 校验通过；三个内置依赖的大小
+和 SHA-256 固定于 `launcher/compatibility.json`。此版本尚无 FusionCore 依赖发布附件，
+构建使用本机已校验缓存，不宣称可从清单中的单文件 URL 下载。
+
+8 项启动器离线测试通过，Gradle `assembleRelease` 和 Lint 通过；签名报告为
+`Verifies`、v2=true、`CN=BazaarPlusPlus Android Test`。首次 ADB 流式覆盖安装被
+MIUI 取消，改用 `adb install --no-streaming -r` 成功。点按「重试初始化」后，
+游戏越过旧版 `Invalid serialized file version` 故障，进入官方游戏登录页，
+左侧插件入口可见。`verify_launcher.py --expect-loaded` 的当前会话、插件版本、
+摘要、加载事件和代理存在性检查均通过。未登录、创建账号或开始对局。
+最终清单重建包 SHA-256 为
+`243cfa71ba98207e5d22978e74b635be83e43367b601f749b31b8a5916adc1a9`；
+再次覆盖安装后冷启动，全部 12 项当前会话检查通过，登录页及插件入口仍可见。
+
+日志仍反复出现 `CardAssetDataSO.get_cardMaterial()` 的 `MissingMethodException`。
+这说明当前插件中的历史图片读取逻辑与新版游戏接口不匹配；虽然可打开登录页，
+不能将全部插件功能记为通过。证据位于忽略目录
+`artifacts/unity-6000.3.27f2-validation/` 的 `game-final.png`、`logcat-final.txt`、
+`verify-final/verification.json`，以及 `artifacts/launcher/signing-report.txt`。
+
+## 游戏 13084 更新后临时移除启动器兼容拦截（2026-11-05，未进入游戏）
+
+设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14），官方游戏
+`1.0.13084-production-android-4670b82d`，测试前启动器在首页、游戏进程未运行。
+以已安装的 `0.3.0` 同签名身份构建并覆盖安装测试包；签名验证为 `Verifies`、v2=true，
+证书 `CN=BazaarPlusPlus Android Test`。APK SHA-256：
+`959544f2c3eb6dd1f2373e538830ca015ef114ecaae8ece9d7a5ae7c4e51ad25`。
+针对启动器执行 6 项离线测试通过，Gradle `assembleRelease` 与 Lint 通过。
+
+本次移除 `LauncherRelease.check` 的游戏版本／ABI 拦截，以及 `LauncherPreparation.prepare` 的
+Unity 版本相等拦截；`LauncherActivity` 保留安装、授权与发行资源读取状态。
+首页对新版游戏显示「可以启动／启动游戏」。点按后进入 `BootstrapActivity`，完成资源准备并进入
+`StubActivity`；IL2CPP 代理生成完成，BepInEx Chainloader 初始化。随后弹出
+“Unable to initialize the Unity Engine”，未进入游戏大厅。`logcat` 明确报告：
+游戏为 Unity `6000.3.27f2`，内置 Unity 文件期望 `6000.3.11f1`，读取
+`globalgamemanagers` 时发生 `Invalid serialized file version`。因此本次仅验证绕过拦截的启动路径，
+**新版游戏启动失败，插件功能未验证**。当前包仍固定旧版 Unity 依赖；后续须更新并验证对应依赖。
+
+证据位于忽略目录 `artifacts/compatibility-bypass-13084/` 的 `after-launch.png`、
+`after-interop-2.png`、`launch-signals.log`，以及 `artifacts/launcher-apk-build.log`。
+测试未开始对局、操作账号或清除数据。本次启动失败，改动保持待验证，未作为已验收功能提交。
+
 ## 构筑推荐显示全部匹配阵容（2026-10-30，用户自测通过）
 
 `AndroidBuildPanelController.Refresh` 原先在 `AndroidBuildRepository.Find` 返回完整排序结果后调用 `Take(3)`，导致任一物品最多只能翻看三套阵容；桌面 `LiveBuildPanel.RefreshRecommendations` 没有此截断。现移除 Android 端限制，页码与左右按钮使用完整匹配集。内置 2026-10-26 快照按英雄统计，单件物品最多可对应 191–481 套阵容，故旧限制会隐藏大量有效结果。
