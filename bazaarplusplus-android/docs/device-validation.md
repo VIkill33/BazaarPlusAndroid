@@ -1,5 +1,37 @@
 # Android 真机验证
 
+## 野怪预览常驻生命值（2026-11-05，双输入模式真机通过）
+
+`AndroidMonsterCardGallery.Show` 在默认卡图视图上方显示野怪模板的 `HealthMax`，
+沿用 `AndroidMonsterPreview.Build` 的数值来源；字段缺失时隐藏生命值行。
+面板为文字留出独立高度，点击卡牌展开说明时继续显示血量。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C／Android 14），官方游戏
+`1.0.13084-production-android-4670b82d`，2460×1080 横屏。测试前为已有的休闲对局，
+高级输入模式。根据当前设备生成的 interop 完成插件 Release 编译（0 警告、0 错误）；
+25 项 Python 离线测试通过。使用签名 `0.3.0` 测试 APK 覆盖安装，
+APK SHA-256 为 `9e076de5bd1e1c7ada8b010bf1f251a99c1c4710ee2fb482c394a33117e80875`，
+`apksigner` 确认 `Verifies`、v2=true、`CN=BazaarPlusPlus Android Test`。
+新会话的 12 项加载／内置与设备 DLL 摘要检查全部通过，插件 SHA-256 为
+`6b8ea70431f8f58d65e3de05700daae41db01e1e8e44138475b9f60c708ac60d`。
+
+从原对局继续后选择宝箱取得 5 金币，到达三只野怪的选择画面。
+高级模式长按毒蛇：卡图及技能加载后，浮层常驻显示「生命值：75」；
+点击物品卡展开说明，血量仍在上方，× 关闭后可长按獠牙英格狼，显示「生命值：100」。
+切换到标准模式后，长按毒蛇同样显示「生命值：75」，与游戏原生血条的 75 一致。
+截图经人工复核，日志记录对应 `android.monster_preview.rendered`、
+`android.monster_gallery.started`、五张卡 `card_ready` 及物品 `card_selected`，
+未见野怪预览失败或新增原生崩溃。标准模式的单击只打开原生侧栏，长按才显示附加浮层。
+验证结束恢复高级输入模式，关闭预览并停在选怪画面；未选择野怪或进入战斗。
+
+证据在忽略目录 `bazaarplusplus-android/artifacts/launcher/` 的
+`monster-health-verification/verification.json`、`monster-health-viper.png`、
+`monster-health-wolf.png`、`monster-health-detail.png`、
+`monster-health-standard-longpress.png` 与 `monster-health-final-screen.png`；
+插件日志、`logcat` 摘要及离线测试输出在忽略目录
+`bazaarplusplus-android/artifacts/monster-health/`。
+无生命值模板、无物品／技能野怪、多行阵容和其他屏幕比例仍待专项验证。
+
 ## 游戏 13084 历史卡图材质接口修复（2026-11-05）
 
 设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14），官方游戏

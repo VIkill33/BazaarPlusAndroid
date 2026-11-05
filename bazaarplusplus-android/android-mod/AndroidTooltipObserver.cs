@@ -288,7 +288,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font, Vector2.zero, Vector2.one);
             _text.fontSize = 24;
             _text.enableAutoSizing = false;
-            _monsterGallery = new AndroidMonsterCardGallery(_panel, ShowMonsterDetails);
+            _monsterGallery = new AndroidMonsterCardGallery(_panel, font, ShowMonsterDetails);
             _monsterClose = NativeUi.Button(_panel, font, "×", Vector2.one, Vector2.one,
                 DismissMonster, new Vector2(-54, -42), new Vector2(-8, -4));
             _monsterClose.gameObject.SetActive(false);
