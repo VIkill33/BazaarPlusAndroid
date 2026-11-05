@@ -18,8 +18,9 @@
 初始化与修复无需访问 GitHub；游戏登录及游戏自身资源下载仍需联网。
 2026-11-05 为排查游戏更新后的启动故障，暂时移除游戏版本、Unity 版本和 ABI 的启动拦截。
 现已将内置 Unity 依赖更新至游戏 13084 使用的 `6000.3.27f2`。Android 14 真机已进入
-游戏登录页，插件入口可见，当前会话与插件摘要校验通过。日志仍出现
-`CardAssetDataSO.get_cardMaterial()` 的 `MissingMethodException`；登录后功能尚未验收。
+游戏登录页，插件入口可见，当前会话与插件摘要校验通过。游戏 13084 移除了
+`CardAssetDataSO.get_cardMaterial()`；历史图片导出改从 `cardMaterialReference` 加载材质，
+同设备登录后进入现有休闲对局，已导出卡图且不再出现该异常。其他登录后功能尚未全量验收。
 本次依赖来自 Unity 官方 Android 支持包，构建需要已校验的本地依赖缓存。
 详见[真机记录](docs/device-validation.md)。
 启动器 test.12 将 BepInEx 的 Unity 基础库来源固定为清单中已校验 ZIP 的本地文件名，

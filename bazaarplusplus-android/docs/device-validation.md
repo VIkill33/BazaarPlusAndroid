@@ -1,5 +1,27 @@
 # Android 真机验证
 
+## 游戏 13084 历史卡图材质接口修复（2026-11-05）
+
+设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14），官方游戏
+`1.0.13084-production-android-4670b82d`；测试前为已登录的休闲对局，
+启动器身份与签名沿用现有 `0.3.0`。旧插件的 `AndroidHistoryArtwork.Update` 每帧
+调用 `CardAssetDataSO.get_cardMaterial()`，修复前进程的 `logcat` 反复出现
+`MissingMethodException`。设备上的 `TheBazaarRuntime.dll` 仍是 2026-10-20 生成的旧代理；
+从当前游戏 APK 读取的 IL2CPP 元数据含 `cardMaterialReference`，不含旧 getter。
+
+历史图片导出改为通过运行时字段 `cardMaterialReference` 异步加载材质，再读取纹理，
+不再直接引用旧 getter。用设备代理进行插件 Release 构建，零警告、零错误；
+历史图片读写测试通过。签名 APK SHA-256 为
+`17b22e3470a10e2181c0ffa7c03ef2a2b49ef7c0b6463927f86d27bcfd9c7ce5`，
+`apksigner` 验证通过、v2=true、证书为 `CN=BazaarPlusPlus Android Test`。
+`adb install --no-streaming -r` 覆盖安装后从启动器启动，12 项当前会话与插件摘要检查通过。
+进入原有对局后，当前新进程日志记录 196 次 `history.art.saved key=card-...`，
+未出现 `get_cardMaterial`、`history.art.unavailable` 或 IL2CPP trampoline 异常。
+设备缓存中有 1011 张卡图，抽取其中一张确认为可解码的 384×384 PNG 并人工查看内容正常。
+未逐张核对全部卡图与历史页面展示，也未验证其他 Android 设备。
+证据位于忽略目录 `artifacts/card-material-13084/` 的 `verify/verification.json`、
+`logcat-current.txt`、`game.png` 和 `sample-card.png`。
+
 ## 游戏 13084 的 Unity 依赖更新与启动复测（2026-11-05）
 
 设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14），官方游戏
