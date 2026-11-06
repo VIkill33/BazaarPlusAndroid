@@ -21,6 +21,11 @@ Check(clock.Text == "1:00.05", "Minute rollover");
 Check(clock.Complete(replay, false) && !clock.HasPlayback, "Cancellation hides partial timer");
 var leaving = clock.Begin(); clock.Advance(); clock.Reset();
 Check(!clock.Complete(leaving, true) && !clock.HasPlayback && clock.Frames == 0, "State exit rejects late result");
+Check(AndroidCombatClock.Blend(0, true, .1f) == .5f, "Running brightens over 0.2s");
+Check(AndroidCombatClock.Blend(.5f, true, 1) == 1, "Brightening stops at running ink");
+Check(AndroidCombatClock.Blend(1, false, .1f) == .5f, "Completion mutes over 0.2s");
+Check(AndroidCombatClock.Blend(.5f, false, 1) == 0, "Muting stops at completed ink");
+Check(AndroidCombatClock.Blend(.3f, true, -1) == .3f, "Negative frame time holds blend");
 foreach (var json in new[] { "null", "[]", "broken", "{}", "{\"schema\":2,\"shown\":false}", "{\"schema\":\"1\",\"shown\":false}", "{\"schema\":1,\"shown\":\"false\"}" })
     Check(AndroidCombatTimerSettings.Parse(json), "Invalid settings default visible: " + json);
 Check(!AndroidCombatTimerSettings.Parse("{\"schema\":1,\"shown\":false}"), "Hidden setting parsed");

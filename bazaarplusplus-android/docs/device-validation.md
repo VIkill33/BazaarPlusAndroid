@@ -2553,3 +2553,21 @@ SHA-256 均为 `c66b964a9dde372ad28644df701e293cb9c92f6d4a57e0bc758814b8b00c9ad6
 
 截图为人工复核，没有自动视觉断言。证据在忽略目录 `artifacts/preview-ui/` 与
 `artifacts/phone/preview-ui-adv-longpress*`。
+
+## 战斗计时器原生牌匾与状态配色（2026-11-07，用户自测通过）
+
+以桌面 `CombatStatusBar.Canvas`、`CombatStatusBarNativeSkin` 与 `CombatStatusBar.AdvanceVisualBlend` 为参考：
+`AndroidCombatTimer` 在内缩 2 的棕色底上叠游戏原生金框（九宫格，切片厚度与面板按钮一致），两张素材都就绪前
+保留原深色底；文字计时中为桌面 `Ink`，结束后按不受游戏时间缩放的 0.2 秒渐变到 `MutedInk`。尺寸 210×56、
+字号 28，拖动、吸附与位置持久化不变。素材加载从 `AndroidPanelButtonSkin` 提取为 `AndroidNativeButtonArt`，
+由计时器自行驱动，避免战斗中未打开图鉴／构筑面板时素材不加载。
+
+离线：`CombatTimer.Tests` 42 项（新增 5 项渐变）、Python unittest 25 项通过；`build_probe.py --mod` 零警告／零错误，
+日志 `artifacts/mod/combat-timer-plaque-build.log`。本目录缺 Unity 6000.3.27f2 依赖缓存，签名包以
+`--dependency-dir` 指向同机另一工作树的已校验缓存构建，脚本逐项复核大小与 SHA-256；`apksigner` 报告 `Verifies`、
+v2 true，APK SHA-256 `60ceee1b3dfcd9f34d84b915c8cbb5fe0deeb3036643a2f6f19d09f0a7284820`，内置 DLL 与本次构建一致
+（`fe86ceb210f9a2f78c142a4e474ec648d86a88dd33a6185e2f62bb08e4867008`）。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14），游戏 13084，启动器 0.1.1；`adb install -r` 成功。按用户要求
+未由代理启动游戏或推进战斗。交付时列出外观、结束渐变与下一场恢复、拖动／吸附／重启位置、数字抖动及面板按钮
+五项，用户确认「验证通过」，未逐项报告结果、输入模式或屏幕变化，不扩大为所有边界已验收。无代理截图。

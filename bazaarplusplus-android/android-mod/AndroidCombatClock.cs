@@ -28,6 +28,12 @@ internal sealed class AndroidCombatClock
         Active = HasPlayback = false;
         Frames = 0;
     }
+    // Matches the desktop status bar: running ink fades in and out over 0.2s of unscaled time.
+    internal static float Blend(float current, bool active, float deltaTime)
+    {
+        var step = Math.Max(deltaTime, 0f) * 5f;
+        return active ? Math.Min(current + step, 1f) : Math.Max(current - step, 0f);
+    }
     internal string Text
     {
         get

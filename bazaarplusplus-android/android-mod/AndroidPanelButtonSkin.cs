@@ -1,7 +1,5 @@
-using TheBazaar.AppFramework;
 using UnityEngine;
 using UnityEngine.UI;
-using NativeSpriteTask = Il2CppSystem.Threading.Tasks.Task<UnityEngine.Sprite>;
 
 namespace BazaarPlusPlus.Android;
 
@@ -10,14 +8,6 @@ namespace BazaarPlusPlus.Android;
 // frame sits on top of either. Card tiles and the choice-popup scrim stay bare.
 internal static class AndroidPanelButtonSkin
 {
-    private const string Root = "Assets/TheBazaar/Art/UI/Buttons/Btn_Rectangle/";
-    private static readonly string[] Addresses =
-    [
-        Root + "Btn_Rct_Frame_S_TUI.png",
-        Root + "Btn_Rct_Brown_S_Center_Active_TUI.png",
-        Root + "Btn_Rct_Blue_S_Center_Active_TUI.png",
-    ];
-
     private static readonly Color Disabled = new(.62f, .62f, .62f, .5f);
 
     private sealed class Binding(Button button, bool selected)
@@ -30,9 +20,6 @@ internal static class AndroidPanelButtonSkin
     }
 
     private static readonly List<Binding> Bindings = new();
-    private static readonly Sprite?[] Sprites = new Sprite?[3];
-    private static readonly NativeSpriteTask?[] Pending = new NativeSpriteTask?[3];
-    private static float _retryAt;
 
     internal static void Register(Button? button, bool selected = false)
     {
@@ -56,40 +43,9 @@ internal static class AndroidPanelButtonSkin
     {
         Bindings.RemoveAll(item => item.Button == null);
         if (Bindings.Count == 0) return;
-        var changed = false;
-        if (Time.realtimeSinceStartup >= _retryAt
-            && Services.TryGet<AssetLoader>(out var loader) && loader != null)
-        {
-            for (var index = 0; index < Addresses.Length; index++)
-            {
-                if (Sprites[index] != null) continue;
-                try
-                {
-                    var task = Pending[index];
-                    if (task == null)
-                    {
-                        Pending[index] = loader.LoadAssetAsyncByAddress<Sprite>(Addresses[index],
-                            NativeNullableValue.Box<AssetScope>(AssetScope.Global));
-                        continue;
-                    }
-                    if (!task.IsCompleted) continue;
-                    Pending[index] = null;
-                    if (!task.IsFaulted && !task.IsCanceled && task.Result != null)
-                    {
-                        Sprites[index] = task.Result;
-                        changed = true;
-                    }
-                    else _retryAt = Time.realtimeSinceStartup + 10;
-                }
-                catch (Exception error)
-                {
-                    Pending[index] = null;
-                    _retryAt = Time.realtimeSinceStartup + 10;
-                    Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.panel_button_art.failed index={index} type={error.GetType().Name}");
-                }
-            }
-        }
-        if (Sprites[0] == null && Sprites[1] == null && Sprites[2] == null) return;
+        var changed = AndroidNativeButtonArt.Tick();
+        if (AndroidNativeButtonArt.Frame == null && AndroidNativeButtonArt.Brown == null
+            && AndroidNativeButtonArt.Blue == null) return;
         foreach (var binding in Bindings)
         {
             if (changed || !binding.Painted || binding.Button.interactable != binding.PaintedInteractable)
@@ -102,18 +58,18 @@ internal static class AndroidPanelButtonSkin
         if (binding.Button == null || binding.Button.targetGraphic is not Image image) return;
         var tint = binding.Button.interactable ? Color.white : Disabled;
         var painted = false;
-        var backing = Sprites[binding.Selected ? 2 : 1];
+        var backing = binding.Selected ? AndroidNativeButtonArt.Blue : AndroidNativeButtonArt.Brown;
         if (backing != null)
         {
             image.sprite = backing;
             image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = Slice(backing);
+            image.pixelsPerUnitMultiplier = AndroidNativeButtonArt.Slice(backing);
             image.color = tint;
             var outline = binding.Button.GetComponent<Outline>();
             if (outline != null) outline.enabled = false;
             painted = true;
         }
-        if (Sprites[0] is { } frameSprite)
+        if (AndroidNativeButtonArt.Frame is { } frameSprite)
         {
             if (binding.Frame == null)
             {
@@ -124,7 +80,7 @@ internal static class AndroidPanelButtonSkin
             }
             binding.Frame.sprite = frameSprite;
             binding.Frame.type = Image.Type.Sliced;
-            binding.Frame.pixelsPerUnitMultiplier = Slice(frameSprite);
+            binding.Frame.pixelsPerUnitMultiplier = AndroidNativeButtonArt.Slice(frameSprite);
             binding.Frame.color = tint;
             painted = true;
         }
@@ -132,7 +88,4 @@ internal static class AndroidPanelButtonSkin
         binding.Painted = true;
         binding.PaintedInteractable = binding.Button.interactable;
     }
-
-    private static float Slice(Sprite sprite) =>
-        sprite.rect.height / 38f * 100f / sprite.pixelsPerUnit;
 }

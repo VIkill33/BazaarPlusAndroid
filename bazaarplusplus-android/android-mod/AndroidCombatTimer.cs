@@ -11,8 +11,16 @@ namespace BazaarPlusPlus.Android;
 public sealed class AndroidCombatTimer(IntPtr pointer) : MonoBehaviour(pointer)
 {
     internal static readonly AndroidCombatClock Clock = new();
+    private static readonly Color Ink = new(.96f, .89f, .73f);
+    private static readonly Color MutedInk = new(.78f, .70f, .57f);
+    private static readonly Color Fallback = new(.08f, .065f, .045f, .85f);
     private GameObject? _root;
     private TextMeshProUGUI? _label;
+    private Image? _background;
+    private Image? _backing;
+    private Image? _frame;
+    private bool _skinned;
+    private float _blend;
     private RectTransform? _rect;
     private Canvas? _canvas;
     private int? _pointer;
@@ -48,8 +56,11 @@ public sealed class AndroidCombatTimer(IntPtr pointer) : MonoBehaviour(pointer)
                 if (_pointer.HasValue) FinishDrag();
                 return;
             }
+            if (!_skinned) Skin();
             var text = Clock.Text;
             if (_label!.text != text) _label.text = text;
+            _blend = AndroidCombatClock.Blend(_blend, Clock.Active, Time.unscaledDeltaTime);
+            _label.color = Color.Lerp(MutedInk, Ink, _blend);
             if (_screen != new Vector2(Screen.width, Screen.height) || _safe != Screen.safeArea
                 || _scale != _canvas!.scaleFactor)
             {
@@ -84,16 +95,46 @@ public sealed class AndroidCombatTimer(IntPtr pointer) : MonoBehaviour(pointer)
         var rect = NativeUi.Rect("BPP.CombatTimer", host.transform, Vector2.zero, Vector2.zero);
         rect.pivot = Vector2.zero;
         _rect = rect;
-        rect.sizeDelta = new Vector2(210, 60);
-        var background = rect.gameObject.AddComponent<Image>();
-        background.color = new Color(.08f, .065f, .045f, .85f);
-        background.raycastTarget = true;
-        _label = NativeUi.Label(rect, font, Clock.Text, 32);
+        rect.sizeDelta = new Vector2(210, 56);
+        _background = rect.gameObject.AddComponent<Image>();
+        _background.color = Fallback;
+        _background.raycastTarget = true;
+        _backing = Layer("BPP.CombatTimerBacking", rect, new Vector2(2, 2));
+        _frame = Layer("BPP.CombatTimerFrame", rect, Vector2.zero);
+        _label = NativeUi.Label(rect, font, Clock.Text, 28);
+        _label.color = MutedInk;
         _root = rect.gameObject;
         _edge = AndroidCombatTimerSettings.Position.Edge;
         _along = AndroidCombatTimerSettings.Position.Along / 10000f;
         BindDrag();
         Layout();
+    }
+
+    private static Image Layer(string name, RectTransform parent, Vector2 inset)
+    {
+        var image = NativeUi.Rect(name, parent, Vector2.zero, Vector2.one, inset, -inset).gameObject.AddComponent<Image>();
+        image.raycastTarget = false;
+        image.enabled = false;
+        return image;
+    }
+
+    // Keep the plain backdrop until both plaque sprites exist, so the timer never renders half-skinned.
+    private void Skin()
+    {
+        AndroidNativeButtonArt.Tick();
+        if (AndroidNativeButtonArt.Brown is not { } brown || AndroidNativeButtonArt.Frame is not { } frame) return;
+        Paint(_backing!, brown);
+        Paint(_frame!, frame);
+        _background!.color = Color.clear;
+        _skinned = true;
+        static void Paint(Image image, Sprite sprite)
+        {
+            image.sprite = sprite;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = AndroidNativeButtonArt.Slice(sprite);
+            image.color = Color.white;
+            image.enabled = true;
+        }
     }
 
     private void BindDrag()
