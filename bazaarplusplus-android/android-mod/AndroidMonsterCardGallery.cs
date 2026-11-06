@@ -3,13 +3,11 @@ using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Players;
-using Il2CppInterop.Runtime;
 using TMPro;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using TheBazaar.UI;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 using NativePreviewTask = Il2CppSystem.Threading.Tasks.Task<TheBazaar.UI.CardPreviewBase>;
 
@@ -32,52 +30,43 @@ internal sealed class AndroidMonsterCardGallery
         internal int NextFitFrame;
     }
 
-    internal const float DetailHeight = 350;
     private const float CanvasHeight = 1080;
     private const float SkillSlotScale = 1.2f;
     private const float SkillSeparatorGap = 14;
     private const float HealthHeaderHeight = 44;
+    private const float HealthHeaderRightInset = 58;
 
     private readonly RectTransform _root;
     private readonly RectTransform _panel;
-    private readonly Action<string, string[]> _onSelect;
-    private readonly TextMeshProUGUI _healthLabel;
+    private readonly RectTransform _healthHeader;
+    private readonly AndroidMonsterHealthBar _healthBar;
     private readonly List<Request> _requests = new();
     private RectTransform? _separator;
     private string? _monsterId;
 
-    private string? _health;
-
-    internal AndroidMonsterCardGallery(RectTransform panel, TMP_FontAsset font, Action<string, string[]> onSelect)
+    internal AndroidMonsterCardGallery(RectTransform panel, TMP_FontAsset font)
     {
         _panel = panel;
-        _onSelect = onSelect;
         _root = NativeUi.Rect("BPP.MonsterCards", panel, Vector2.zero, Vector2.one,
             new Vector2(16, 12), new Vector2(-16, -36));
-        var background = _root.gameObject.AddComponent<Image>();
-        background.color = new Color(.08f, .07f, .05f, .35f);
-        background.raycastTarget = false;
         _root.gameObject.AddComponent<RectMask2D>();
         _root.gameObject.SetActive(false);
-        var healthHeader = NativeUi.Rect("BPP.MonsterHealth", panel, Vector2.up, Vector2.one,
-            new Vector2(12, -HealthHeaderHeight - 8), new Vector2(-58, -8));
-        _healthLabel = NativeUi.Label(healthHeader, font,
-            () => $"{NativeUi.Text("Health", "生命值")}：{_health}", 26);
-        _healthLabel.alignment = TextAlignmentOptions.MidlineLeft;
-        healthHeader.gameObject.SetActive(false);
+        _healthHeader = NativeUi.Rect("BPP.MonsterHealth", panel, Vector2.up, Vector2.one,
+            new Vector2(12, -HealthHeaderHeight - 8), new Vector2(-HealthHeaderRightInset, -8));
+        _healthBar = new AndroidMonsterHealthBar(_healthHeader, font);
+        _healthHeader.gameObject.SetActive(false);
     }
 
     internal void Show(TMonster? monster)
     {
         var id = monster?.Id.ToString();
-        if (_monsterId == id && (_root.gameObject.activeSelf ||
-            _healthLabel.transform.parent.gameObject.activeSelf)) return;
+        if (_monsterId == id && (_root.gameObject.activeSelf || _healthHeader.gameObject.activeSelf)) return;
         Hide();
-        _health = monster?.Player?.Attributes != null &&
-            monster.Player.Attributes.TryGetValue(EPlayerAttributeType.HealthMax, out var health)
-                ? health.ToString() : null;
-        var hasHealth = _health != null;
-        _healthLabel.transform.parent.gameObject.SetActive(hasHealth);
+        var health = monster?.Player?.Attributes != null &&
+            monster.Player.Attributes.TryGetValue(EPlayerAttributeType.HealthMax, out var maxHealth)
+                ? maxHealth.ToString() : null;
+        var hasHealth = health != null;
+        _healthHeader.gameObject.SetActive(hasHealth);
         var items = monster?.Player?.Hand?.Items;
         var skills = new List<TCardInstanceSkill>();
         if (monster?.Player?.Skills != null)
@@ -121,9 +110,8 @@ internal sealed class AndroidMonsterCardGallery
         var panelWidth = hasHealth ? Math.Max(contentWidth + 40, 240) : contentWidth + 40;
         var headerHeight = hasHealth ? HealthHeaderHeight : 0;
         var panelHeight = contentHeight + 44 + headerHeight;
-        // Card details later grow the panel upward by DetailHeight; keep that inside the canvas.
         var centerY = Mathf.Max(panelHeight / 2 + 16,
-            Mathf.Min(520, CanvasHeight - 16 - DetailHeight - panelHeight / 2));
+            Mathf.Min(520, CanvasHeight - 16 - panelHeight / 2));
         _panel.offsetMin = new Vector2(-550 - panelWidth, centerY - panelHeight / 2);
         _panel.offsetMax = new Vector2(-550, centerY + panelHeight / 2);
         _root.anchorMin = Vector2.zero;
@@ -132,6 +120,7 @@ internal sealed class AndroidMonsterCardGallery
         _root.offsetMin = new Vector2(16, 16);
         _root.offsetMax = new Vector2(-16, panelHeight - 24 - headerHeight);
         _root.gameObject.SetActive(count + skillCount > 0);
+        if (hasHealth) _healthBar.Show(health!, panelWidth - 12 - HealthHeaderRightInset, HealthHeaderHeight);
         if (count > 0 && skillCount > 0)
         {
             _separator = NativeUi.Rect("BPP.MonsterSkillSeparator", _root, Vector2.up, Vector2.one);
@@ -148,14 +137,7 @@ internal sealed class AndroidMonsterCardGallery
             host.pivot = Vector2.up;
             host.sizeDelta = placement.Size;
             host.anchoredPosition = placement.Position;
-            var request = new Request { Host = host, Instance = placement.Instance };
-            var hitArea = host.gameObject.AddComponent<Image>();
-            hitArea.color = new Color(0, 0, 0, .01f);
-            hitArea.raycastTarget = true;
-            var button = host.gameObject.AddComponent<Button>();
-            button.targetGraphic = hitArea;
-            button.onClick.AddListener(DelegateSupport.ConvertDelegate<UnityAction>(() => Select(request)));
-            _requests.Add(request);
+            _requests.Add(new Request { Host = host, Instance = placement.Instance });
         }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.started monster={monster.InternalName} items={count} skills={skillCount} slots={widestRow} item_rows={(count == 0 ? 0 : row + 1)} skill_rows={skillRows} slot_width_px={slotWidth * scale:0.#} screen_width={Screen.width}");
     }
@@ -166,23 +148,6 @@ internal sealed class AndroidMonsterCardGallery
         ECardSize.Large => 3,
         _ => 1,
     };
-
-    private void Select(Request request)
-    {
-        if (!request.Ready || request.Card?._tooltipData == null) return;
-        var tooltip = request.Card._tooltipData;
-        var detail = AndroidItemDescription.Build(tooltip);
-        var skill = request.Instance.TryCast<TCardInstanceSkill>() != null;
-        if (string.IsNullOrWhiteSpace(detail))
-            detail = skill ? NativeUi.Text("No skill description available.", "暂无技能描述。")
-                : NativeUi.Text("No item description available.", "暂无物品描述。");
-        var template = Data.GetStatic()?.GetCardById(request.Instance.TemplateId)?.TryCast<TCardBase>();
-        var tags = new List<ECardTag>();
-        if (template?.Tags != null) foreach (var tag in template.Tags) tags.Add(tag);
-        _onSelect($"<b>{NativeUi.TitleText(tooltip.GetTitle())}</b>\n{detail}",
-            AndroidCardTagText.Labels(skill ? null : template?.Size, tags));
-        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.card_selected template_id={request.Instance.TemplateId} skill={skill}");
-    }
 
     internal void Tick()
     {
@@ -278,8 +243,8 @@ internal sealed class AndroidMonsterCardGallery
     internal void Hide()
     {
         _root.gameObject.SetActive(false);
-        _healthLabel.transform.parent.gameObject.SetActive(false);
-        _health = null;
+        _healthHeader.gameObject.SetActive(false);
+        _healthBar.Hide();
         _monsterId = null;
         if (_separator != null) UnityEngine.Object.Destroy(_separator.gameObject);
         _separator = null;

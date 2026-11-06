@@ -30,6 +30,7 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
     private readonly HashSet<int> _seenTouches = new();
     private int? _holderTouchId;
     internal static int Revision { get; private set; }
+    internal static bool TargetInFocusPanel { get; private set; }
     internal static bool Active => _instance?._gesture.Active == true;
     internal Button? Button => _button;
 
@@ -119,6 +120,8 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
                 HideOwned();
                 _ownedData = data;
                 _hideRequested = false;
+                var focusPanel = AndroidTooltipObserver.FocusPanel;
+                TargetInFocusPanel = focusPanel != null && hit.gameObject.transform.IsChildOf(focusPanel);
                 Revision++;
                 parent.ShowCardTooltipController(card != null ? card.transform : preview!.transform,
                     card != null ? card.TooltipOffset : preview!._tooltipWorldSpaceOffset,

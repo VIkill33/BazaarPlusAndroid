@@ -23,6 +23,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     // their frame. Reserve that space while keeping the preview 370 units wide.
     private const float PreviewRightInset = 640;
     private const float PreviewWidth = 370;
+    private static readonly Color PanelBackground = new(.055f, .035f, .02f, .94f);
 
     private float _nextScan;
     private string? _language;
@@ -36,25 +37,14 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private AndroidLongPressPreviewMode? _lastLongPressMode;
     private GameObject? _canvasRoot;
     private RectTransform? _panel;
+    private Image? _panelBackground;
     private RectTransform? _content;
     private TextMeshProUGUI? _text;
-    private RectTransform? _monsterTags;
-    private string[] _selectedMonsterTags = Array.Empty<string>();
-
-    private sealed class MonsterDetailSink(AndroidTooltipObserver owner)
-    {
-        internal void Accept(string description, string[] tags)
-        {
-            owner._selectedMonsterTags = tags;
-            owner.ShowMonsterDetails(description);
-        }
-    }
     private ScrollRect? _scroll;
     private AndroidMonsterCardGallery? _monsterGallery;
     private GameObject? _monsterBackdrop;
     private Button? _monsterClose;
     private bool _monsterPinned;
-    private bool _monsterDetailVisible;
     private int _monsterScene;
     private IntPtr _dismissedMonster;
     private IntPtr _dismissedGalleryItem;
@@ -80,8 +70,9 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         _historySuppressed = false;
         var holdPreview = AndroidHoldPreview.Active;
         // Monster galleries have their own backdrop/close controls and outlive
-        // the native tooltip. A new hold target still retires the old gallery.
-        if (_holdRevision != AndroidHoldPreview.Revision) Hide();
+        // the native tooltip. A new hold target outside the gallery retires it.
+        if (_holdRevision != AndroidHoldPreview.Revision
+            && !(_monsterPinned && AndroidHoldPreview.TargetInFocusPanel)) Hide();
         else if (_wasHoldPreview && !holdPreview)
         {
             if (!_monsterPinned) Hide();
@@ -101,7 +92,10 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 // Retire native descriptions and in-flight gallery cards in the old language.
                 Hide();
             }
-            if (_monsterPinned && (Data.IsInCombat || SceneManager.GetActiveScene().handle != _monsterScene))
+            // Standard input already shows monster boards natively; the gallery is advanced-input only.
+            var advancedInput = PlayerPreferences.Data?.AlternativeInput == true;
+            if (_monsterPinned && (!advancedInput || Data.IsInCombat
+                || SceneManager.GetActiveScene().handle != _monsterScene))
                 Hide();
             var visible = false;
             foreach (var controller in Resources.FindObjectsOfTypeAll<CardTooltipController>())
@@ -113,14 +107,15 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 var card = data?.CardInstance;
                 var item = card?.TryCast<ItemCard>();
                 var eventCard = item == null ? card?.TryCast<EventEncounterCard>() : null;
-                var monsterCard = item == null && eventCard == null ? card?.TryCast<CombatEncounterCard>() : null;
+                var monsterCard = item == null && eventCard == null && advancedInput
+                    ? card?.TryCast<CombatEncounterCard>() : null;
                 if (item == null && eventCard == null && monsterCard == null && levelData == null) continue;
                 if (_monsterPinned && monsterCard == null) continue;
                 var id = controller.GetInstanceID();
                 var locked = controller.IsLocked;
                 // Advanced mobile input can keep the live tooltip unlocked while
                 // the card is inspected; standard mode uses the locked long press.
-                if (levelData == null && !locked && !AndroidHoldPreview.Active && PlayerPreferences.Data?.AlternativeInput != true) continue;
+                if (levelData == null && !locked && !AndroidHoldPreview.Active && !advancedInput) continue;
                 var longPressMode = AndroidLongPressPreviewSettings.Mode;
                 if (item != null && longPressMode == AndroidLongPressPreviewMode.None)
                 {
@@ -209,12 +204,13 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             overlayCanvas.sortingOrder = leftEdge ? Math.Max(30002, nativeCanvas.sortingOrder + 1)
                 : nativeCanvas.sortingOrder + 1;
         var monsterPreview = _currentMonster != null;
+        // The panel Image stays a raycast target while clear so taps on gaps do not dismiss.
+        if (_panelBackground != null) _panelBackground.color = monsterPreview ? Color.clear : PanelBackground;
         _panel.anchorMin = _panel.anchorMax = Vector2.right;
         if (monsterPreview)
         {
-            if (_lastCard != _currentMonster!.Pointer) _monsterDetailVisible = false;
-            _monsterGallery?.Show(AndroidMonsterPreview.GetMonster(_currentMonster, _currentCardData!));
-            _scroll.gameObject.SetActive(_monsterDetailVisible);
+            _monsterGallery?.Show(AndroidMonsterPreview.GetMonster(_currentMonster!, _currentCardData!));
+            _scroll.gameObject.SetActive(false);
             _monsterBackdrop?.SetActive(true);
             _monsterClose?.gameObject.SetActive(true);
             _monsterPinned = true;
@@ -236,29 +232,15 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _monsterGallery?.Hide();
             _monsterPinned = false;
         }
-        NativeUi.RichDescription(_text, monsterPreview ? string.Empty : preview);
-        _monsterTags?.gameObject.SetActive(false);
-        _text.rectTransform.offsetMax = new Vector2(-12, -6);
-        var scrollRect = _scroll.GetComponent<RectTransform>();
-        scrollRect.anchorMin = monsterPreview ? Vector2.up : Vector2.zero;
-        scrollRect.anchorMax = Vector2.one;
-        if (monsterPreview)
+        if (!monsterPreview)
         {
-            scrollRect.pivot = new Vector2(.5f, 1);
-            scrollRect.sizeDelta = new Vector2(0, 310);
-            scrollRect.anchoredPosition = new Vector2(0, -36);
+            NativeUi.RichDescription(_text, preview);
+            var height = _text.GetPreferredValues(preview, 330f, 0).y + 32;
+            _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            if (_currentItem == null)
+                _panel.offsetMin = new Vector2(_panel.offsetMin.x, Mathf.Max(45, 1000 - height - 12));
+            _scroll.verticalNormalizedPosition = 1;
         }
-        else
-        {
-            scrollRect.pivot = new Vector2(.5f, .5f);
-            scrollRect.offsetMin = Vector2.zero;
-            scrollRect.offsetMax = Vector2.zero;
-        }
-        var height = _text.GetPreferredValues(preview, monsterPreview ? 600f : 330f, 0).y + 32;
-        _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(height, monsterPreview ? 300 : 0));
-        if (!monsterPreview && _currentItem == null)
-            _panel.offsetMin = new Vector2(_panel.offsetMin.x, Mathf.Max(45, 1000 - height - 12));
-        _scroll.verticalNormalizedPosition = 1;
         _panel.gameObject.SetActive(true);
         FocusPanel = _panel;
         return true;
@@ -295,16 +277,13 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _monsterBackdrop.SetActive(false);
             _panel = NativeUi.Rect("BPP.EnchantPreview", _canvasRoot.transform, Vector2.right, Vector2.right,
                 new Vector2(-PreviewRightInset - PreviewWidth, 45), new Vector2(-PreviewRightInset, 1000));
-            var background = _panel.gameObject.AddComponent<Image>();
-            background.color = new Color(.055f, .035f, .02f, .94f);
-            background.raycastTarget = true;
+            _panelBackground = _panel.gameObject.AddComponent<Image>();
+            _panelBackground.color = PanelBackground;
+            _panelBackground.raycastTarget = true;
             (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font, Vector2.zero, Vector2.one);
-            _monsterTags = NativeUi.Rect("BPP.MonsterItemTags", _content,
-                new Vector2(0, 1), Vector2.one);
-            _monsterTags.gameObject.SetActive(false);
             _text.fontSize = 24;
             _text.enableAutoSizing = false;
-            _monsterGallery = new AndroidMonsterCardGallery(_panel, font, new MonsterDetailSink(this).Accept);
+            _monsterGallery = new AndroidMonsterCardGallery(_panel, font);
             _monsterClose = NativeUi.Button(_panel, font, "×", Vector2.one, Vector2.one,
                 DismissMonster, new Vector2(-54, -42), new Vector2(-8, -4));
             _monsterClose.gameObject.SetActive(false);
@@ -315,6 +294,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             UnityEngine.Object.Destroy(_canvasRoot);
             _canvasRoot = null;
             _panel = _content = null;
+            _panelBackground = null;
             _text = null;
             _scroll = null;
             _monsterGallery = null;
@@ -331,7 +311,6 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         _monsterGallery?.Hide();
         _monsterBackdrop?.SetActive(false);
         _monsterPinned = false;
-        _monsterDetailVisible = false;
         _lastController = 0;
         _lastCard = IntPtr.Zero;
         _lastLocked = false;
@@ -345,29 +324,6 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         _currentLevelData = null;
         _currentController = null;
         _mode = PreviewMode.Enchant;
-    }
-
-    private void ShowMonsterDetails(string description)
-    {
-        if (!_monsterPinned || _panel == null || _scroll == null || _content == null || _text == null) return;
-        if (!_monsterDetailVisible)
-        {
-            _panel.offsetMax += new Vector2(0, AndroidMonsterCardGallery.DetailHeight);
-            _monsterDetailVisible = true;
-        }
-        NativeUi.RichDescription(_text, description);
-        var tagHeight = _monsterTags == null ? 0 : AndroidCardTagChips.Render(
-            _monsterTags, _text, _selectedMonsterTags, _content.rect.width);
-        if (_monsterTags != null && tagHeight > 0)
-        {
-            _monsterTags.offsetMin = new Vector2(0, -tagHeight);
-            _monsterTags.offsetMax = Vector2.zero;
-        }
-        _text.rectTransform.offsetMax = new Vector2(-12, -tagHeight - 6);
-        var height = tagHeight + _text.GetPreferredValues(description, _panel.rect.width - 24, 0).y + 24;
-        _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(height, 300));
-        _scroll.verticalNormalizedPosition = 1;
-        _scroll.gameObject.SetActive(true);
     }
 
     private void DismissMonster()

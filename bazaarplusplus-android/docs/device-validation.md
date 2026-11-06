@@ -2459,3 +2459,33 @@ Java 源码和中英文资源，排除 ARM64 `.so`，加入明确标记为 `emul
 `artifacts/tag-style-mod-build.log`、`artifacts/tag-style-apk-build.log`。
 野怪详情需要进入相应遭遇，未在本次现有对局阶段触发；长词条换行、滚动末尾、英文及标准输入模式仍待真机验证。
 用户于 2026-11-06 确认本次词条样式真机验证通过；上述未逐项记录的边界场景仍保留为待扩大验证。
+
+## 2026-11-06：野怪浮层透明背景、原生血条并删除说明区（高级模式真机通过）
+
+参考 Android README／功能清单、本文件按住预览与野怪保留记录、桌面 previews／input-and-settings 架构文档，
+以及手机版生成代理 `HealthBarController`（`BarParent`、`HealthBar`、`HealthNumber`）。
+`AndroidMonsterHealthBar` 在非激活暂存节点下克隆原生血条的可见部件，去除脚本与碰撞体，
+使用独立材质副本并按浮层宽度拉伸；找不到原生血条时退回自绘绿色血条。浮层背景对野怪透明，
+物品／事件附加预览保留原深色背景。用户确认标准模式已原生显示野怪阵容后，
+`AndroidTooltipObserver` 仅在高级输入模式观察野怪，退出高级模式时清理浮层；
+删除 `AndroidMonsterCardGallery` 的点击说明区及其词条渲染。
+按住预览命中浮层内卡牌时 `AndroidHoldPreview.TargetInFocusPanel` 为真，野怪浮层不再因新目标被清理。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14，2460×1080），游戏 `1.0.13084-production-android-4670b82d`，
+高级输入模式；从大厅「普通」继续既有对局的野怪选择画面，未选择野怪、购买或推进战斗，未验证标准模式（用户要求跳过）。
+插件零警告／零错误构建、25 项 Python 回归通过；签名 APK v2 校验通过，内置 DLL 与本次构建一致，
+覆盖安装后从启动器进入，`bpp-launch-loaded.json` 与磁盘插件 SHA-256 均为
+`7515a592cb5674460e444866d9bebb34dd2fc356d46e230694ddd00e674c9e34`。
+
+- Boarrior 浮层日志 `android.monster_health_bar.rendered source=native health=350`，7 物品＋1 技能卡图就绪；
+  截图人工复核透明背景、原生样式血条与数字。单击面板卡牌无说明区弹出，也无选择或命令日志。
+- `final-hold-gallery/`：按住中依次查看面板内第一、二张物品，13 项断言全部为真，含两目标均显示、
+  松手后 `monster_preview.retained_after_hold`、无对局命令／状态转换／错误及崩溃缓冲区不变。
+  修复前同一路径的 `hold-gallery/` 显示原生详情后浮层被清理并换成物品附魔预览，未计通过。
+- `hold-switch/`：按住中改点左侧野怪，浮层重建为 Rogue Scrapper（血条 300）并在松手后保留。
+  该次首个触点落在两张卡之间的空隙，射线穿过浮层背景命中棋盘 `PassthroughBlocker`，记为坐标误差；
+  定位用的临时诊断日志已删除，最终构建与诊断前构建摘要一致。
+- × 关闭、重新打开及点空白关闭通过，`final-closed.png`、`final-reopen.png`、`final-blank.png` 为人工复核。
+
+证据在忽略目录 `artifacts/monster-ui-polish/`。技能卡的原生详情、无生命值野怪的自绘回退、多行阵容、
+标准模式禁用及英文显示未在本轮真机验证。
