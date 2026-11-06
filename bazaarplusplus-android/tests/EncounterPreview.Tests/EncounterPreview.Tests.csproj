@@ -10,6 +10,7 @@
   <ItemGroup>
     <Reference Include="BazaarGameShared" HintPath="$(InteropPath)/BazaarGameShared.dll" />
     <Compile Include="../../android-mod/AndroidEncounterTierDistribution.cs" Link="AndroidEncounterTierDistribution.cs" />
+    <Compile Include="../../android-mod/AndroidPreviewText.cs" Link="AndroidPreviewText.cs" />
     <Compile Include="../../../bazaarplusplus-mod/src/BazaarPlusPlus/GameInterop/DayTiers/GameDataDayTierTable.cs" Link="GameDataDayTierTable.cs" />
   </ItemGroup>
 </Project>

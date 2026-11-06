@@ -35,10 +35,10 @@ internal static class AndroidQuestRewardPreview
                 var rendered = new[] { passive, active }.Where(value => !string.IsNullOrWhiteSpace(value))
                     .Distinct().ToArray();
                 if (rendered.Length == 0) continue;
-                lines.Add($"<b>{NativeUi.Text("Quest reward", "任务奖励")} {lines.Count + 1}</b>\n" +
+                lines.Add(AndroidPreviewText.Heading($"{NativeUi.Text("Quest reward", "任务奖励")} {lines.Count + 1}") + "\n" +
                     string.Join("\n", rendered));
             }
         }
-        return string.Join("\n\n", lines);
+        return AndroidPreviewText.Sections(lines);
     }
 }

@@ -23,7 +23,14 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     // their frame. Reserve that space while keeping the preview 370 units wide.
     private const float PreviewRightInset = 640;
     private const float PreviewWidth = 370;
-    private static readonly Color PanelBackground = new(.055f, .035f, .02f, .94f);
+    private static readonly Color PanelBackground = new(.07f, .05f, .035f, .96f);
+    private static readonly Color Frame = new(.88f, .70f, .39f, .85f);
+    // Scroll viewport inset inside the frame; the right inset holds the scroll thumb.
+    private static readonly Vector2 ViewportMin = new(4, 8);
+    private static readonly Vector2 ViewportMax = new(-12, -8);
+    // ScrollText's label adds 12 units of horizontal padding on each side.
+    private const float TextWidth = PreviewWidth - 16 - 24;
+    private static AndroidTooltipObserver? _instance;
 
     private float _nextScan;
     private string? _language;
@@ -38,9 +45,12 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private GameObject? _canvasRoot;
     private RectTransform? _panel;
     private Image? _panelBackground;
+    private Outline? _panelFrame;
     private RectTransform? _content;
     private TextMeshProUGUI? _text;
     private ScrollRect? _scroll;
+    private RectTransform? _scrollThumb;
+    private GameObject? _moreHint;
     private AndroidMonsterCardGallery? _monsterGallery;
     private GameObject? _monsterBackdrop;
     private Button? _monsterClose;
@@ -81,6 +91,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         _holdRevision = AndroidHoldPreview.Revision;
         _wasHoldPreview = holdPreview;
         _monsterGallery?.Tick();
+        RefreshScrollCue();
         if (Time.realtimeSinceStartup < _nextScan) return;
         _nextScan = Time.realtimeSinceStartup + .25f;
         try
@@ -185,7 +196,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         {
             var rewards = AndroidQuestRewardPreview.Build(_currentItem);
             if (!string.IsNullOrWhiteSpace(rewards))
-                preview = string.IsNullOrWhiteSpace(preview) ? rewards : preview + "\n\n" + rewards;
+                preview = AndroidPreviewText.Sections([preview, rewards]);
         }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.tooltip.preview_ready mode={_mode} characters={preview.Length}");
         if (string.IsNullOrWhiteSpace(preview))
@@ -206,6 +217,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         var monsterPreview = _currentMonster != null;
         // The panel Image stays a raycast target while clear so taps on gaps do not dismiss.
         if (_panelBackground != null) _panelBackground.color = monsterPreview ? Color.clear : PanelBackground;
+        if (_panelFrame != null) _panelFrame.enabled = !monsterPreview;
         _panel.anchorMin = _panel.anchorMax = Vector2.right;
         if (monsterPreview)
         {
@@ -235,10 +247,10 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         if (!monsterPreview)
         {
             NativeUi.RichDescription(_text, preview);
-            var height = _text.GetPreferredValues(preview, 330f, 0).y + 32;
+            var height = _text.GetPreferredValues(preview, TextWidth, 0).y + 32;
             _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            if (_currentItem == null)
-                _panel.offsetMin = new Vector2(_panel.offsetMin.x, Mathf.Max(45, 1000 - height - 12));
+            _panel.offsetMin = new Vector2(_panel.offsetMin.x,
+                Mathf.Max(45, 1000 - height - (ViewportMin.y - ViewportMax.y)));
             _scroll.verticalNormalizedPosition = 1;
         }
         _panel.gameObject.SetActive(true);
@@ -280,9 +292,20 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _panelBackground = _panel.gameObject.AddComponent<Image>();
             _panelBackground.color = PanelBackground;
             _panelBackground.raycastTarget = true;
+            _panelFrame = _panel.gameObject.AddComponent<Outline>();
+            _panelFrame.effectColor = Frame;
+            _panelFrame.effectDistance = new Vector2(1.5f, -1.5f);
+            _panelFrame.useGraphicAlpha = false;
             (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font, Vector2.zero, Vector2.one);
+            var viewport = _scroll.GetComponent<RectTransform>();
+            viewport.offsetMin = ViewportMin;
+            viewport.offsetMax = ViewportMax;
             _text.fontSize = 24;
             _text.enableAutoSizing = false;
+            _text.color = ParseColor(AndroidPreviewText.BodyColor);
+            _text.lineSpacing = 4;
+            BuildScrollCue(font);
+            _instance = this;
             _monsterGallery = new AndroidMonsterCardGallery(_panel, font);
             _monsterClose = NativeUi.Button(_panel, font, "×", Vector2.one, Vector2.one,
                 DismissMonster, new Vector2(-54, -42), new Vector2(-8, -4));
@@ -295,14 +318,79 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _canvasRoot = null;
             _panel = _content = null;
             _panelBackground = null;
+            _panelFrame = null;
             _text = null;
             _scroll = null;
+            _scrollThumb = null;
+            _moreHint = null;
             _monsterGallery = null;
             _monsterBackdrop = null;
             _monsterClose = null;
             throw;
         }
     }
+
+    // The thumb and hint only report position; dragging stays with the ScrollRect
+    // (or the hold-preview finger), so neither intercepts raycasts.
+    private void BuildScrollCue(TMP_FontAsset font)
+    {
+        var track = NativeUi.Rect("BPP.PreviewScrollTrack", _panel!, new Vector2(1, 0), Vector2.one,
+            new Vector2(-8, 10), new Vector2(-5, -10));
+        var trackImage = track.gameObject.AddComponent<Image>();
+        trackImage.color = new Color(1, 1, 1, .08f);
+        trackImage.raycastTarget = false;
+        _scrollThumb = NativeUi.Rect("BPP.PreviewScrollThumb", track, Vector2.zero, Vector2.one);
+        var thumb = _scrollThumb.gameObject.AddComponent<Image>();
+        thumb.color = Frame;
+        thumb.raycastTarget = false;
+        var hint = NativeUi.Rect("BPP.PreviewMoreHint", _panel!, Vector2.zero, new Vector2(1, 0),
+            new Vector2(4, 8), new Vector2(-12, 42));
+        var hintImage = hint.gameObject.AddComponent<Image>();
+        hintImage.color = new Color(PanelBackground.r, PanelBackground.g, PanelBackground.b, .9f);
+        hintImage.raycastTarget = false;
+        var label = NativeUi.Label(hint, font, () => NativeUi.Text("▼ Swipe up for more", "▼ 上滑查看更多"), 18);
+        label.color = ParseColor(AndroidPreviewText.MutedColor);
+        _moreHint = hint.gameObject;
+        track.gameObject.SetActive(false);
+        _moreHint.SetActive(false);
+    }
+
+    private void RefreshScrollCue()
+    {
+        if (_scroll == null || _content == null || _scrollThumb == null || _moreHint == null) return;
+        var track = _scrollThumb.parent.gameObject;
+        // Monster details sit above the card gallery, which the bottom hint would cover.
+        var visible = _panel != null && _panel.gameObject.activeSelf && _scroll.gameObject.activeSelf && !_monsterPinned;
+        var viewport = _scroll.viewport.rect.height;
+        var content = _content.rect.height;
+        var overflow = visible && content > viewport + 1;
+        if (track.activeSelf != overflow) track.SetActive(overflow);
+        var more = overflow && _scroll.verticalNormalizedPosition > .01f;
+        if (_moreHint.activeSelf != more) _moreHint.SetActive(more);
+        if (!overflow) return;
+        var size = Mathf.Clamp(viewport / content, .08f, 1);
+        var top = 1 - (1 - Mathf.Clamp01(_scroll.verticalNormalizedPosition)) * (1 - size);
+        _scrollThumb.anchorMin = new Vector2(0, top - size);
+        _scrollThumb.anchorMax = new Vector2(1, top);
+        _scrollThumb.offsetMin = _scrollThumb.offsetMax = Vector2.zero;
+    }
+
+    // Hold preview keeps an input shield above this panel, so it forwards a
+    // finger that starts on the panel as a scroll distance in screen pixels.
+    internal static void ScrollBy(float screenDelta)
+    {
+        var observer = _instance;
+        if (observer?._scroll == null || observer._content == null || FocusPanel == null) return;
+        var scale = observer._canvasRoot?.GetComponent<Canvas>()?.scaleFactor ?? 1;
+        var limit = Mathf.Max(0, observer._content.rect.height - observer._scroll.viewport.rect.height);
+        var position = observer._content.anchoredPosition;
+        position.y = Mathf.Clamp(position.y + screenDelta / Mathf.Max(scale, .01f), 0, limit);
+        observer._scroll.StopMovement();
+        observer._content.anchoredPosition = position;
+    }
+
+    private static Color ParseColor(string hex) =>
+        ColorUtility.TryParseHtmlString("#" + hex, out var color) ? color : Color.white;
 
     private void Hide()
     {
@@ -341,6 +429,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     public void OnDestroy()
     {
         FocusPanel = null;
+        if (_instance == this) _instance = null;
         if (_canvasRoot != null) UnityEngine.Object.Destroy(_canvasRoot);
     }
 }

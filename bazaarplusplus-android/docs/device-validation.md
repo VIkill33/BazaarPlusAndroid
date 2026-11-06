@@ -2517,3 +2517,39 @@ Java 源码和中英文资源，排除 ARM64 `.so`，加入明确标记为 `emul
 
 证据在忽略目录 `artifacts/monster-ui-polish/`。技能卡的原生详情、无生命值野怪的自绘回退、多行阵容、
 标准模式禁用及英文显示未在本轮真机验证。
+
+## 2026-11-07：附加预览面板原生风格与溢出滚动（高级模式真机通过，标准模式用户确认通过）
+
+参考 Android README／功能清单、本文件附魔／升级／事件与按住预览记录、桌面 `previews.md`、
+`input-and-settings.md`、`text.md`、根 `docs/design.md`，以及桌面 `EncounterPreviewText`（品质色与标签拼接，
+本次经源码链接复用）。新增 `AndroidPreviewText` 统一标题、圆点列表、弱化文字与分段；附魔、升级、任务、
+事件、商店与等级构建器改用它，商店供货组共用品质时只显示一次。`AndroidTooltipObserver` 改为暖黑底与淡金细框，
+非野怪面板按内容收紧高度，内容超出视口时显示右侧滚动条与底部「上滑查看更多」；`AndroidHoldPreview`
+在按住期间把落在面板内的新触点作为面板滚动（`android.hold_preview.panel_scroll_started`），不切换预览目标。
+
+离线：`build_probe.py --mod` 零警告／零错误；24 项 Python 回归；EncounterPreview（含新增预览文字分组）、
+HoldPreview、PreviewTooltips、UpgradePolicy、EnchantPolicy 测试通过。签名 APK `apksigner` 报告 `Verifies`、v2 true，
+内置 DLL 与本次构建一致。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14，2460×1080 横屏），游戏 `1.0.13084-production-android-4670b82d`，
+启动器 0.3.0；覆盖安装后从启动器进入，会话 `c456761a-4232-42a2-ac9c-9172f635c853` 加载 DLL 与磁盘插件
+SHA-256 均为 `c66b964a9dde372ad28644df701e293cb9c92f6d4a57e0bc758814b8b00c9ad6`。测试前为大厅，选「普通」后
+继续既有 Vanessa 第 2 天对局；面板位置靠左。未购买、附魔、升级、选择事件或推进战斗。
+
+- 高级模式、长按「升级」，`verify_hold_preview.py` 按住预览腺体：11 项断言通过；三档标题白银／黄金／钻石着色，
+  面板收紧到内容高度、无滚动条（`hold-upgrade/during.png`）。
+- 高级模式、长按「附魔」，`verify_hold_preview.py --scroll-panel 300 800 300`：13 项断言通过，
+  含 `panel_scroll_started` 与只显示一个目标；`enchant_preview.rendered lines=12 source_unchanged=True`。
+  滚动前显示「附魔效果」标题、彩色圆点、悬挂缩进、滚动条与更多提示；滚动后到达最后一条「长青」，
+  提示消失、滚动条到底（`hold-enchant-scroll/during.png`、`scrolled.png`）。
+- 高级模式单指 5 秒长按（`verify_encounter_preview.py`）提取物：附加面板以同一新样式显示，无命令／状态切换／预览异常；
+  该脚本的 `event_preview_rendered` 仅适用事件，对物品为假属预期。紧接按住预览后长按同一腺体不显示附加面板，
+  因 `AndroidHoldPreview.SuppressRetired` 拒绝刚退出的提示数据（既有行为），换物品正常。
+- 标准模式：单击只开原生侧栏；1.2 秒长按打开游戏原生「级别／附魔」放大检视，但 `CardTooltipController.IsLocked`
+  为假，观察器按既有标准模式门槛跳过，日志无新增预览记录，附加面板未显示。正确操作是先单击物品打开原生详情、
+  再长按锁定；用户按此操作真机确认标准模式附加面板显示通过（用户人工验证，未留本轮自动断言证据）。
+  自动测试结束后已恢复高级模式与长按「附魔」。
+- 事件、商店与任务奖励面板未在真机打开；前序截图中英雄等级提示读到异常等级值、奖励为空，属既有问题待查。
+
+截图为人工复核，没有自动视觉断言。证据在忽略目录 `artifacts/preview-ui/` 与
+`artifacts/phone/preview-ui-adv-longpress*`。

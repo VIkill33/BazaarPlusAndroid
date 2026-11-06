@@ -149,7 +149,7 @@ internal sealed class AndroidHoldPreviewVisuals
             _holes.Add(new(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax));
     }
 
-    private Rect? UiBounds(RectTransform? rect)
+    internal static Rect? UiBounds(RectTransform? rect)
     {
         if (rect == null || !rect.gameObject.activeInHierarchy) return null;
         var nearestCanvas = rect.GetComponentInParent<Canvas>();

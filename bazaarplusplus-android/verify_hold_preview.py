@@ -21,13 +21,14 @@ def main():
     parser.add_argument("--hold", type=int, nargs=2, required=True, metavar=("X", "Y"))
     parser.add_argument("--target", type=int, nargs=2, required=True, metavar=("X", "Y"))
     parser.add_argument("--next-target", type=int, nargs=2, metavar=("X", "Y"), help="Inspect a second target during the same hold")
+    parser.add_argument("--scroll-panel", type=int, nargs=3, metavar=("X", "FROM_Y", "TO_Y"), help="Drag a second finger across the preview panel during the same hold")
     parser.add_argument("--expand-dock", type=int, nargs=2, metavar=("X", "Y"), help="Tap the BPP handle just before injection, after tool preparation")
     parser.add_argument("--holder-first", action="store_true", help="Release the mode button while the inspecting finger remains down")
     parser.add_argument("--expect-monster-retained", action="store_true", help="Assert the monster gallery survives releasing the hold; review released.png for visual confirmation")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.next_target and args.holder_first:
-        parser.error("--next-target and --holder-first are separate test paths")
+    if sum(map(bool, (args.next_target, args.holder_first, args.scroll_panel))) > 1:
+        parser.error("--next-target, --holder-first and --scroll-panel are separate test paths")
     root = Path(__file__).resolve().parent
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -47,6 +48,8 @@ def main():
     coordinates = [args.hold, args.target] + ([args.next_target] if args.next_target else [])
     if args.expand_dock:
         coordinates.append(args.expand_dock)
+    if args.scroll_panel:
+        coordinates += [args.scroll_panel[:2], [args.scroll_panel[0], args.scroll_panel[2]]]
     for x, y in coordinates:
         if not (0 <= x < width and 0 <= y < height):
             parser.error("Coordinates lie outside the current screen")
@@ -69,10 +72,15 @@ def main():
         command += " holder-first"
     if args.next_target:
         command += " " + " ".join(str(n) for n in args.next_target)
+    if args.scroll_panel:
+        command += " scroll " + " ".join(str(n) for n in args.scroll_panel)
     process = subprocess.Popen(adb + ["shell", command])
     try:
         time.sleep(3)
         screenshot("during.png")
+        if args.scroll_panel:
+            time.sleep(2.5)
+            screenshot("scrolled.png")
         if args.next_target:
             time.sleep(3)
             screenshot("next.png")
@@ -101,6 +109,9 @@ def main():
     }
     if args.next_target:
         assertions["both_targets_shown"] = added.count("event=android.hold_preview.shown") == 2
+    if args.scroll_panel:
+        assertions["panel_scroll_started"] = "event=android.hold_preview.panel_scroll_started" in added
+        assertions["single_target_shown"] = added.count("event=android.hold_preview.shown") == 1
     if args.expect_monster_retained:
         assertions["monster_retained_after_hold"] = "event=android.monster_preview.retained_after_hold" in added
     (output / "validation.json").write_text(json.dumps(assertions, indent=2) + "\n")

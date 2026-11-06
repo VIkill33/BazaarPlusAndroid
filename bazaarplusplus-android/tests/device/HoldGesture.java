@@ -56,7 +56,22 @@ public class HoldGesture {
                 send(MotionEvent.ACTION_POINTER_UP | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT),
                         2, hx, hy, tx, ty);
             }
-            if (args.length == 6) {
+            if (args.length == 8 && args[4].equals("scroll")) {
+                SystemClock.sleep(1500);
+                tx = Float.parseFloat(args[5]);
+                float from = Float.parseFloat(args[6]), to = Float.parseFloat(args[7]);
+                send(MotionEvent.ACTION_POINTER_DOWN | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                        2, hx, hy, tx, from);
+                for (int step = 1; step <= 20; step++) {
+                    SystemClock.sleep(30);
+                    send(MotionEvent.ACTION_MOVE, 2, hx, hy, tx, from + (to - from) * step / 20);
+                }
+                SystemClock.sleep(150);
+                send(MotionEvent.ACTION_POINTER_UP | (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                        2, hx, hy, tx, to);
+                ty = to;
+                SystemClock.sleep(4000);
+            } else if (args.length == 6) {
                 SystemClock.sleep(3000);
                 tx = Float.parseFloat(args[4]);
                 ty = Float.parseFloat(args[5]);

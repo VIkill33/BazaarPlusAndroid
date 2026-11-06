@@ -29,6 +29,8 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
     private bool _hideRequested;
     private readonly HashSet<int> _seenTouches = new();
     private int? _holderTouchId;
+    private int? _scrollTouchId;
+    private float _scrollTouchY;
     internal static int Revision { get; private set; }
     internal static bool TargetInFocusPanel { get; private set; }
     internal static bool Active => _instance?._gesture.Active == true;
@@ -176,11 +178,26 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
         foreach (var touch in PressedTouches(includeBegan: true))
         {
             pressed.Add(touch.Id);
+            if (touch.Id == _scrollTouchId)
+            {
+                AndroidTooltipObserver.ScrollBy(touch.Position.y - _scrollTouchY);
+                _scrollTouchY = touch.Position.y;
+                continue;
+            }
             if (!_seenTouches.Add(touch.Id)) continue;
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.hold_preview.touch id={touch.Id}");
+            if (AndroidHoldPreviewVisuals.UiBounds(AndroidTooltipObserver.FocusPanel) is { } panel
+                && panel.Contains(touch.Position))
+            {
+                _scrollTouchId = touch.Id;
+                _scrollTouchY = touch.Position.y;
+                Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.hold_preview.panel_scroll_started id={touch.Id}");
+                continue;
+            }
             Preview(new PointerEventData(EventSystem.current) { pointerId = touch.Id, position = touch.Position });
         }
         _seenTouches.IntersectWith(pressed);
+        if (_scrollTouchId.HasValue && !pressed.Contains(_scrollTouchId.Value)) _scrollTouchId = null;
         _visuals?.Refresh();
     }
 
@@ -221,6 +238,7 @@ public sealed class AndroidHoldPreview(IntPtr pointer) : MonoBehaviour(pointer)
     {
         if (!_gesture.Active) return;
         _gesture.Stop();
+        _scrollTouchId = null;
         _visuals?.Hide();
         HideOwned();
         Plugin.PluginLog?.LogInfo("[BPP][Android] event=android.hold_preview.stopped");

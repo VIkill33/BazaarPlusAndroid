@@ -5,6 +5,7 @@ using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Runs;
 using BazaarGameShared.Domain.Values;
+using BazaarPlusPlus.Game.EventPreview;
 using Il2CppInterop.Runtime;
 using TheBazaar;
 using TheBazaar.Localization;
@@ -34,14 +35,15 @@ internal static class AndroidUpgradePreview
             var description = BuildTier(source, template, tier, section, enchantment);
             if (string.IsNullOrWhiteSpace(description)) continue;
             var label = new LocalizableText(tier.ToString()).GetLocalizedText();
-            previews.Add($"<b>{NativeUi.Text("Upgrade to", "升级至")} · {label}</b>\n{description}");
+            previews.Add(AndroidPreviewText.Colored($"{NativeUi.Text("Upgrade to", "升级至")} · {label}",
+                EncounterPreviewText.TierColorHex(tier)) + "\n" + description);
         }
         if (source.Tier != sourceTier || AndroidEnchantPreview.AttributeDigest(source) != before)
             throw new InvalidOperationException("Upgrade preview changed the source item.");
         if (previews.Count == 0)
             return NativeUi.Text("No higher tier description is available.", "暂时无法生成更高品质的描述。");
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.upgrade_preview.rendered template_id={source.TemplateId} current_tier={sourceTier} tiers={previews.Count} characters={previews.Sum(value => value.Length)} source_unchanged=True");
-        return string.Join("\n\n", previews);
+        return AndroidPreviewText.Sections(previews);
     }
 
     private static string BuildTier(ItemCard source, TCardItem template,

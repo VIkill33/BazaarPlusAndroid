@@ -7,6 +7,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Runs;
 using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Domain.Spawning.SpawnBehaviors;
+using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarGameShared.Domain.Spawning;
 using BazaarGameShared.Domain.Spawning.SpawnFilters;
@@ -42,8 +43,8 @@ internal static class AndroidEventPreview
                 var text = requirement.Tooltip?.Content;
                 var rendered = text == null ? string.Empty : RenderText(template, TooltipExtensions.GetLocalizedText(text));
                 if (!string.IsNullOrWhiteSpace(condition) || !string.IsNullOrWhiteSpace(rendered))
-                    sections.Add(NativeUi.Text("Selection requirement: ", "选择条件：") + string.Join(" · ",
-                        new[] { condition, rendered }.Where(value => !string.IsNullOrWhiteSpace(value))));
+                    sections.Add(AndroidPreviewText.Heading(NativeUi.Text("Selection requirement", "选择条件")) + "\n" +
+                        string.Join(" · ", new[] { condition, rendered }.Where(value => !string.IsNullOrWhiteSpace(value))));
             }
         var next = new List<string>();
         var transitions = template?.NextEncounterOnSelection;
@@ -55,13 +56,14 @@ internal static class AndroidEventPreview
                 if (!CanEncounter(transition.Id, CurrentHero())) continue;
                 var detail = DescribeCard(transition.Id, context, new HashSet<string>(), 0);
                 var condition = AndroidEncounterConditions.Prerequisites(transition.Prerequisites, context);
-                if (!string.IsNullOrWhiteSpace(detail)) next.Add(detail + (string.IsNullOrEmpty(condition) ? string.Empty : "\n" + condition));
+                if (!string.IsNullOrWhiteSpace(detail))
+                    next.Add(AndroidPreviewText.Bullet(AndroidPreviewText.Lines(detail, RequiresLine(condition))));
             }
         }
         if (next.Count > 0)
-            sections.Add($"<b>{NativeUi.Text("Following encounters", "后续遭遇")}</b>\n" +
+            sections.Add(AndroidPreviewText.Heading(NativeUi.Text("Following encounters", "后续遭遇")) + "\n" +
                 string.Join("\n", next.Distinct()));
-        var result = string.Join("\n\n", sections);
+        var result = AndroidPreviewText.Sections(sections);
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.event_preview.rendered template_id={source.TemplateId} merchant={merchant} hero={CurrentHero()?.ToString() ?? "unknown"} characters={result.Length}");
         return result;
     }
@@ -71,17 +73,16 @@ internal static class AndroidEventPreview
         if (Data.IsInCombat || currentLevel < 0) return string.Empty;
         var level = Data.GetStatic()?.GetLevelUpById(currentLevel);
         if (level == null) return string.Empty;
-        var sections = new List<string>();
+        var gains = new List<string>();
         if (level.HealthIncrease > 0)
-            sections.Add($"{NativeUi.Text("Maximum health", "生命上限")} +{level.HealthIncrease}");
+            gains.Add($"{NativeUi.Text("Maximum health", "生命上限")} +{level.HealthIncrease}");
         if (currentLevel < 4)
-            sections.Add($"{NativeUi.Text("Board slots", "场上格数")} +2");
+            gains.Add($"{NativeUi.Text("Board slots", "场上格数")} +2");
         var query = level.Rewards?.TryCast<TSpawnContextQuery>();
         var rewards = BuildQuery(query,
             NativeUi.Text("Possible next level reward choices", "下一级可能出现的奖励选项"),
             offerChoices: true);
-        if (!string.IsNullOrWhiteSpace(rewards)) sections.Add(rewards);
-        return string.Join("\n", sections);
+        return AndroidPreviewText.Sections([string.Join("\n", gains), rewards]);
     }
 
     internal static string BuildQuery(TSpawnContextQuery? query, string heading, bool offerChoices,
@@ -93,7 +94,7 @@ internal static class AndroidEventPreview
         path ??= new HashSet<string>();
         var currentHero = CurrentHero();
 
-        var groups = new List<(string Text, uint Weight, bool Conditional)>();
+        var groups = new List<(string Text, string? Quality, uint Weight, bool Conditional)>();
         for (var groupIndex = 0; groupIndex < query.Groups.Count; groupIndex++)
         {
             var group = query.Groups[groupIndex];
@@ -101,7 +102,7 @@ internal static class AndroidEventPreview
             if (!CanMeetHeroPrerequisites(group.Prerequisites, currentHero)) continue;
             if (group.Filters == null)
             {
-                groups.Add((NativeUi.Text("other outcome", "其他结果"), group.RandomWeight, true));
+                groups.Add((NativeUi.Text("other outcome", "其他结果"), null, group.RandomWeight, true));
                 continue;
             }
             var cards = new List<string>();
@@ -112,7 +113,8 @@ internal static class AndroidEventPreview
                 var filter = group.Filters[filterIndex];
                 if (filter?.TryCast<TSpawnFilterQuery>() is { } pool)
                 {
-                    cards.Add(NativeUi.Text("Random reward: ", "随机奖励：") + AndroidEncounterConditions.Pool(pool.Constraints));
+                    cards.Add(NativeUi.Text("Random reward: ", "随机奖励：") +
+                        AndroidPreviewText.Unwrap(AndroidEncounterConditions.Pool(pool.Constraints)));
                     continue;
                 }
                 var ids = filter?.TryCast<TSpawnFilterIdList>()?.Ids;
@@ -138,25 +140,24 @@ internal static class AndroidEventPreview
             if (cards.Count == 0)
             {
                 if (heroFiltered && !hasUnsupportedFilter) continue;
-                groups.Add((NativeUi.Text("other outcome", "其他结果"), group.RandomWeight, true));
+                groups.Add((NativeUi.Text("other outcome", "其他结果"), null, group.RandomWeight, true));
                 continue;
             }
             var text = string.Join("\n", cards.Distinct());
             if (group.SelectionMethod == ESpawnSelectionMethod.Random && cards.Count > 1)
                 text = NativeUi.Text("Random from: ", "随机取自：") + text;
             var conditions = AndroidEncounterConditions.Prerequisites(group.Prerequisites, context);
-            if (!string.IsNullOrWhiteSpace(conditions))
-                text += "\n" + NativeUi.Text("Requires: ", "条件：") + conditions;
-            if (group.Limit != null)
-                text += "\n" + NativeUi.Text("Quantity: ", "数量：") + AndroidEncounterConditions.Number(group.Limit, context);
-            var quality = Quality(query.Behaviors, group.Behaviors);
-            if (AndroidEncounterConditions.Read(group.Filters).Any(filter => filter.TryCast<TSpawnFilterQuery>() != null) && !string.IsNullOrWhiteSpace(quality))
-                text += "\n" + quality;
-            groups.Add((text, group.RandomWeight,
+            var quantity = group.Limit == null ? null
+                : NativeUi.Text("Quantity: ", "数量：") + AndroidEncounterConditions.Number(group.Limit, context);
+            text = AndroidPreviewText.Lines(text, RequiresLine(conditions), AndroidPreviewText.Muted(quantity ?? string.Empty));
+            var quality = AndroidEncounterConditions.Read(group.Filters).Any(filter => filter.TryCast<TSpawnFilterQuery>() != null)
+                ? Quality(query.Behaviors, group.Behaviors) : null;
+            groups.Add((text, string.IsNullOrWhiteSpace(quality) ? null : quality, group.RandomWeight,
                 group.Prerequisites?.Count > 0 || hasUnsupportedFilter));
         }
 
         if (groups.Count == 0) return string.Empty;
+        var sharedQuality = AndroidPreviewText.Shared(groups.Select(group => group.Quality).ToArray());
         var outerRandom = query.SelectionMethod == ESpawnSelectionMethod.Random;
         var choice = outerRandom && !offerChoices
             ? NativeUi.Text(" (random selection)", "（随机选取）") : string.Empty;
@@ -166,13 +167,18 @@ internal static class AndroidEventPreview
         var lines = groups.Select(group =>
         {
             var chance = showPercent
-                ? $"{Math.Round(group.Weight * 100d / totalWeight, 1):0.#}% " : string.Empty;
+                ? $"<b>{Math.Round(group.Weight * 100d / totalWeight, 1):0.#}%</b> " : string.Empty;
             var condition = group.Conditional
-                ? NativeUi.Text(" (conditional)", "（有条件）") : string.Empty;
-            return "• " + chance + group.Text + condition;
+                ? AndroidPreviewText.Muted(NativeUi.Text(" (conditional)", "（有条件）")) : string.Empty;
+            return AndroidPreviewText.Bullet(AndroidPreviewText.Lines(chance + group.Text + condition,
+                sharedQuality == null ? group.Quality : null));
         });
-        return $"<b>{heading}{choice}</b>\n" + string.Join("\n", lines);
+        var title = depth == 0 ? AndroidPreviewText.Heading(heading + choice) : $"<b>{heading}{choice}</b>";
+        return AndroidPreviewText.Lines(title, sharedQuality, string.Join("\n", lines));
     }
+
+    private static string RequiresLine(string condition) => string.IsNullOrWhiteSpace(condition)
+        ? string.Empty : AndroidPreviewText.Muted(NativeUi.Text("Requires: ", "条件：") + condition);
 
     internal static string? ResolveCardName(Il2CppSystem.Guid id)
     {
@@ -262,7 +268,7 @@ internal static class AndroidEventPreview
     private static string BuildMerchant(TSpawnContextQuery? query, ValueContext context)
     {
         if (query?.Groups == null) return string.Empty;
-        var lines = new List<string>();
+        var groups = new List<(string Quality, string Detail)>();
         var currentHero = CurrentHero();
         var filteredGroups = 0;
         foreach (var group in query.Groups)
@@ -277,20 +283,18 @@ internal static class AndroidEventPreview
                     if (filter.TryCast<TSpawnFilterQuery>() is { } pool)
                     {
                         if (CanMatchPoolHero(pool.Constraints, currentHero))
-                            pools.Add(AndroidEncounterConditions.Pool(pool.Constraints));
+                            pools.Add(AndroidPreviewText.Unwrap(AndroidEncounterConditions.Pool(pool.Constraints)));
                         else excludedPools++;
                     }
             if (excludedPools > 0 && pools.Count == 0) { filteredGroups++; continue; }
             var quantity = group.Limit == null ? string.Empty :
                 NativeUi.Text("Offers: ", "供货数量：") + AndroidEncounterConditions.Number(group.Limit, context);
-            lines.Add(string.Join("\n", new[] { quality, quantity, string.Join("\n", pools),
-                string.IsNullOrEmpty(condition) ? string.Empty : NativeUi.Text("Requires: ", "条件：") + condition }
-                .Where(value => !string.IsNullOrWhiteSpace(value))));
+            groups.Add((quality, AndroidPreviewText.Lines(string.Join(" / ", pools),
+                AndroidPreviewText.Muted(quantity), RequiresLine(condition))));
         }
-        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.event_preview.merchant_groups hero={currentHero?.ToString() ?? "unknown"} shown={lines.Count} filtered={filteredGroups}");
-        if (lines.Count == 0) return string.Empty;
-        return "<b>" + NativeUi.Text("Shop quality probabilities", "商店品质概率") + "</b>\n" +
-            string.Join("\n\n", lines.Distinct());
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.event_preview.merchant_groups hero={currentHero?.ToString() ?? "unknown"} shown={groups.Count} filtered={filteredGroups}");
+        if (groups.Count == 0) return string.Empty;
+        return AndroidPreviewText.Grouped(NativeUi.Text("Shop quality probabilities", "商店品质概率"), groups);
     }
 
     private static string Quality(Il2CppSystem.Collections.Generic.List<ITSpawnBehavior>? parent,
@@ -323,7 +327,7 @@ internal static class AndroidEventPreview
         if (probabilities != null)
             return (fixedTiers.Count > 0 ? string.Empty : NativeUi.Text($"Day {day}: ", $"第 {day} 天：")) +
                 string.Join(" · ", probabilities.Select(entry =>
-                    $"{AndroidEncounterConditions.Label(entry.Tier)} {entry.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%"));
+                    $"<color=#{EncounterPreviewText.TierColorHex(entry.Tier)}>{AndroidEncounterConditions.Label(entry.Tier)} {entry.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%</color>"));
         if (tiers.Length > 1) return NativeUi.Text("Fixed tier pool: ", "指定品质池：") +
             string.Join(" / ", tiers.Select(AndroidEncounterConditions.Label));
         if (fixedTiers.Count > 0 || !usesDay)
@@ -358,7 +362,7 @@ internal static class AndroidEventPreview
             var description = Description(template);
             var text = $"<b>{name}</b>" + (string.IsNullOrWhiteSpace(description) ? string.Empty : "\n" + description);
             if (template.TryCast<TCardEncounter>() is { ExperienceAwardUponSelection: > 0 } encounter)
-                text += "\n" + NativeUi.Text("Experience +", "经验 +") + encounter.ExperienceAwardUponSelection;
+                text += "\n" + AndroidPreviewText.Muted(NativeUi.Text("Experience +", "经验 +") + encounter.ExperienceAwardUponSelection);
             if (template.TryCast<TCardEncounterEvent>() is { } nextEvent)
             {
                 var rewards = BuildQuery(nextEvent.SelectionContext?.SpawnContext?.TryCast<TSpawnContextQuery>(),
@@ -373,7 +377,7 @@ internal static class AndroidEventPreview
                     if (!CanEncounter(next.Id, CurrentHero())) continue;
                     var result = DescribeCard(next.Id, context, path, depth + 1);
                     var condition = AndroidEncounterConditions.Prerequisites(next.Prerequisites, context);
-                    text += "\n→ " + result + (string.IsNullOrEmpty(condition) ? string.Empty : "\n" + condition);
+                    text += "\n" + AndroidPreviewText.Bullet(AndroidPreviewText.Lines(result, RequiresLine(condition)), "→");
                 }
             return text;
         }

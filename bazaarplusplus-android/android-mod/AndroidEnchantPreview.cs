@@ -5,6 +5,7 @@ using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Runs;
 using BazaarGameShared.Domain.Values;
+using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using Il2CppInterop.Runtime;
 using TheBazaar;
@@ -53,13 +54,15 @@ internal static class AndroidEnchantPreview
             if (effects.Count == 0) continue;
             var label = new LocalizableText(kind.ToString()).GetLocalizedText();
             var color = ItemEnchantPreviewPalette.GetEnchantmentColorHex(kind);
-            lines.Add($"<color=#{color}><b>{label}</b></color>: {string.Join(" ", effects)}");
+            lines.Add(AndroidPreviewText.Bullet(EncounterPreviewText.JoinTooltipLabel(
+                AndroidPreviewText.Colored(label, color), string.Join(" ", effects)), $"<color=#{color}>•</color>"));
         }
         var unchanged = before == AttributeDigest(source)
             && current == NativeNullableValue.Read<EEnchantmentType>(source, "get_Enchantment");
         if (!unchanged) throw new InvalidOperationException("Enchant preview changed the source item.");
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.enchant_preview.rendered template_id={source.TemplateId} candidates={candidates.Count} lines={lines.Count} elapsed_ms={clock.ElapsedMilliseconds} source_unchanged={unchanged}");
-        return lines.Count == 0 ? string.Empty : "<b>BazaarPlusAndroid</b>\n" + string.Join("\n", lines);
+        return lines.Count == 0 ? string.Empty : AndroidPreviewText.Heading(NativeUi.Text("Enchantments", "附魔效果"))
+            + "\n" + string.Join("\n", lines);
     }
 
     internal static ItemCard Clone(ItemCard source, EEnchantmentType? kind, EInventorySection? section)
