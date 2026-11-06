@@ -2442,3 +2442,20 @@ Java 源码和中英文资源，排除 ARM64 `.so`，加入明确标记为 `emul
 离线：`HistoryArtCache` 文件策略 25 项通过。`python3 -m unittest discover -s bazaarplusplus-android/tests -v` 共 24 项，其中 23 项通过；`test_history_artwork.py` 因本机没有 `dotnet` 未能执行，该测试不是本次改动引入的失败。JDK 24 的 `:fusionApp:compileReleaseJavaWithJavac` 通过。隔离目录上的 `verify_history_store.py --reader` 118 项通过，覆盖购牌第一页导出、第一页之后不再导出，以及账号范围和启动器范围的保留集合；成功后测试目录已删除。证据在忽略目录 `artifacts/history-art/cache-cleanup/reader.json`。
 
 设置里的「清理缓存」、首页自动清理、清理后的历史页和购牌第一页显示，都还没有在正式启动器上操作，不能记为真机通过。切换英雄、时间或体型后的缺图提示也未看过。
+
+## 2026-11-06：详情词条统一为游戏内圆角标签（图鉴与构筑真机通过）
+
+`AndroidCardTagText.Labels` 从卡牌模板取得体型与公开词条并读取游戏当前语言；
+`AndroidCardTagChips.Render` 统一绘制深紫色圆角底、浅蓝文字和自动换行。
+图鉴详情、推荐构筑物品详情、野怪物品及技能详情复用该绘制器；
+词条行位于物品说明前并属于同一滚动内容。没有标签的技能只显示原说明。
+
+使用固定框架与 Android 生成互操作程序集运行 `build_probe.py --mod`，插件、加载探针和运行时探针
+均零警告／零错误；25 项 Python 回归通过。设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14）
+覆盖安装包含新插件的签名 APK 后，`verify_launcher.py --expect-loaded` 的 12 项会话及摘要断言全部为真。
+当前中文横屏对局中，图鉴点击物品后显示「中型」「武器」圆角标签，说明从标签下方开始；
+选择构筑候选并点击推荐阵容物品后，同样显示「中型」「武器」标签，位置在状态文字与物品说明之间，未遮挡标题。
+截图、验证 JSON 和构建日志保存在忽略目录 `artifacts/tag-style/`、
+`artifacts/tag-style-mod-build.log`、`artifacts/tag-style-apk-build.log`。
+野怪详情需要进入相应遭遇，未在本次现有对局阶段触发；长词条换行、滚动末尾、英文及标准输入模式仍待真机验证。
+用户于 2026-11-06 确认本次词条样式真机验证通过；上述未逐项记录的边界场景仍保留为待扩大验证。

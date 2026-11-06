@@ -21,6 +21,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private Button? _previewModeButton;
     private AndroidLongPressPreviewMode? _shownPreviewMode;
     private TextMeshProUGUI? _text;
+    private TextMeshProUGUI? _detailText;
+    private RectTransform? _tagFrame;
     private RectTransform? _content;
     private ScrollRect? _scroll;
     private AndroidBuildBoard? _board;
@@ -50,8 +52,20 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private string? _language;
     private string? _lastDescription;
     private string? _itemDetail;
+    private string[] _itemTags = Array.Empty<string>();
 
     private enum CandidateSource { Board, Stash, Shop }
+
+    private sealed class DetailSink(AndroidBuildPanelController owner)
+    {
+        internal void Accept(string detail, string[] tags)
+        {
+            owner._itemDetail = detail;
+            owner._itemTags = tags;
+            owner._lastDescription = null;
+            owner._nextRefresh = 0;
+        }
+    }
 
     public void Update()
     {
@@ -174,7 +188,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             }
             _boardHost = NativeUi.Rect("BPP.RecommendedBoard", _panel,
                 new Vector2(.03f, .36f), new Vector2(.97f, .65f));
-            _board = new AndroidBuildBoard(_boardHost, ShowItemDetail);
+            _board = new AndroidBuildBoard(_boardHost, new DetailSink(this).Accept);
             _previousBuildButton = NativeUi.Button(_panel, font, "‹",
                 new Vector2(.03f, .31f), new Vector2(.15f, .36f), PreviousBuild);
             _buildPosition = NativeUi.Label(NativeUi.Rect("BPP.BuildPosition", _panel,
@@ -185,6 +199,13 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 new Vector2(.03f, .04f), new Vector2(.97f, .30f));
             _text.fontSize = 29;
             _text.enableAutoSizing = false;
+            _detailText = NativeUi.Label(_content!, font, string.Empty, 29);
+            _detailText.alignment = TextAlignmentOptions.TopLeft;
+            _detailText.overflowMode = TextOverflowModes.Overflow;
+            _detailText.enableAutoSizing = false;
+            _detailText.gameObject.SetActive(false);
+            _tagFrame = NativeUi.Rect("BPP.BuildItemTags", _content!, new Vector2(0, 1), Vector2.one);
+            _tagFrame.gameObject.SetActive(false);
             if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
             foreach (var button in new[]
             {
@@ -443,20 +464,51 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         _nextRefresh = 0;
     }
 
-    private void ShowItemDetail(string detail)
-    {
-        _itemDetail = detail;
-        _lastDescription = null;
-        _nextRefresh = 0;
-    }
-
     private void Show(string description)
     {
         if (_text == null || _content == null || _scroll == null) return;
         if (_lastDescription == description) return;
         _lastDescription = description;
-        NativeUi.RichDescription(_text, description);
-        var height = _text.GetPreferredValues(description, 1650f, 0).y + 40;
+        var top = description;
+        var bottom = string.Empty;
+        if (!string.IsNullOrWhiteSpace(_itemDetail) && _itemTags.Length > 0)
+        {
+            var start = description.IndexOf(_itemDetail, StringComparison.Ordinal);
+            if (start >= 0)
+            {
+                top = description[..start].TrimEnd('\n');
+                bottom = description[start..];
+            }
+        }
+        NativeUi.RichDescription(_text, top);
+        var topHeight = _text.GetPreferredValues(top, 1650f, 0).y + 12;
+        var tagHeight = 0f;
+        if (_tagFrame != null)
+        {
+            tagHeight = AndroidCardTagChips.Render(_tagFrame, _text,
+                bottom.Length > 0 ? _itemTags : Array.Empty<string>(), _content.rect.width);
+            if (tagHeight > 0)
+            {
+                _tagFrame.anchorMin = new Vector2(0, 1);
+                _tagFrame.anchorMax = Vector2.one;
+                _tagFrame.offsetMin = new Vector2(12, -topHeight - tagHeight);
+                _tagFrame.offsetMax = new Vector2(-12, -topHeight);
+                tagHeight += 6;
+            }
+        }
+        var height = topHeight + tagHeight + 28;
+        if (_detailText != null)
+        {
+            _detailText.gameObject.SetActive(bottom.Length > 0);
+            if (bottom.Length > 0)
+            {
+                NativeUi.RichDescription(_detailText, bottom);
+                height += _detailText.GetPreferredValues(bottom, 1650f, 0).y;
+                var bodyRect = _detailText.GetComponent<RectTransform>();
+                bodyRect.offsetMax = new Vector2(-12, -topHeight - tagHeight);
+            }
+        }
+        _text.GetComponent<RectTransform>().offsetMax = new Vector2(-12, -6);
         _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(height, 820));
         _scroll.verticalNormalizedPosition = 1;
     }

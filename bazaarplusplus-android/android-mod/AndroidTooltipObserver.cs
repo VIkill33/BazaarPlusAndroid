@@ -38,6 +38,17 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private RectTransform? _panel;
     private RectTransform? _content;
     private TextMeshProUGUI? _text;
+    private RectTransform? _monsterTags;
+    private string[] _selectedMonsterTags = Array.Empty<string>();
+
+    private sealed class MonsterDetailSink(AndroidTooltipObserver owner)
+    {
+        internal void Accept(string description, string[] tags)
+        {
+            owner._selectedMonsterTags = tags;
+            owner.ShowMonsterDetails(description);
+        }
+    }
     private ScrollRect? _scroll;
     private AndroidMonsterCardGallery? _monsterGallery;
     private GameObject? _monsterBackdrop;
@@ -226,6 +237,8 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _monsterPinned = false;
         }
         NativeUi.RichDescription(_text, monsterPreview ? string.Empty : preview);
+        _monsterTags?.gameObject.SetActive(false);
+        _text.rectTransform.offsetMax = new Vector2(-12, -6);
         var scrollRect = _scroll.GetComponent<RectTransform>();
         scrollRect.anchorMin = monsterPreview ? Vector2.up : Vector2.zero;
         scrollRect.anchorMax = Vector2.one;
@@ -286,9 +299,12 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             background.color = new Color(.055f, .035f, .02f, .94f);
             background.raycastTarget = true;
             (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font, Vector2.zero, Vector2.one);
+            _monsterTags = NativeUi.Rect("BPP.MonsterItemTags", _content,
+                new Vector2(0, 1), Vector2.one);
+            _monsterTags.gameObject.SetActive(false);
             _text.fontSize = 24;
             _text.enableAutoSizing = false;
-            _monsterGallery = new AndroidMonsterCardGallery(_panel, font, ShowMonsterDetails);
+            _monsterGallery = new AndroidMonsterCardGallery(_panel, font, new MonsterDetailSink(this).Accept);
             _monsterClose = NativeUi.Button(_panel, font, "×", Vector2.one, Vector2.one,
                 DismissMonster, new Vector2(-54, -42), new Vector2(-8, -4));
             _monsterClose.gameObject.SetActive(false);
@@ -340,7 +356,15 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _monsterDetailVisible = true;
         }
         NativeUi.RichDescription(_text, description);
-        var height = _text.GetPreferredValues(description, _panel.rect.width - 24, 0).y + 24;
+        var tagHeight = _monsterTags == null ? 0 : AndroidCardTagChips.Render(
+            _monsterTags, _text, _selectedMonsterTags, _content.rect.width);
+        if (_monsterTags != null && tagHeight > 0)
+        {
+            _monsterTags.offsetMin = new Vector2(0, -tagHeight);
+            _monsterTags.offsetMax = Vector2.zero;
+        }
+        _text.rectTransform.offsetMax = new Vector2(-12, -tagHeight - 6);
+        var height = tagHeight + _text.GetPreferredValues(description, _panel.rect.width - 24, 0).y + 24;
         _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(height, 300));
         _scroll.verticalNormalizedPosition = 1;
         _scroll.gameObject.SetActive(true);

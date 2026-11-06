@@ -29,11 +29,11 @@ internal sealed class AndroidBuildBoard
     }
 
     private readonly RectTransform _root;
-    private readonly Action<string> _onSelect;
+    private readonly Action<string, string[]> _onSelect;
     private readonly List<Request> _requests = new();
     private AndroidBuild? _shownBuild;
 
-    internal AndroidBuildBoard(RectTransform root, Action<string> onSelect)
+    internal AndroidBuildBoard(RectTransform root, Action<string, string[]> onSelect)
     {
         _root = root;
         _onSelect = onSelect;
@@ -167,14 +167,15 @@ internal sealed class AndroidBuildBoard
     {
         if (!request.Ready || request.Card?._tooltipData == null) return;
         var tooltip = request.Card._tooltipData;
-        var nativeTags = Data.GetStatic()?.GetCardById(
-            Il2CppSystem.Guid.Parse(request.Item.TemplateId.ToString()))?.TryCast<TCardBase>()?.Tags;
+        var template = Data.GetStatic()?.GetCardById(
+            Il2CppSystem.Guid.Parse(request.Item.TemplateId.ToString()))?.TryCast<TCardBase>();
         var tags = new List<ECardTag>();
-        if (nativeTags != null) foreach (var tag in nativeTags) tags.Add(tag);
-        var detail = AndroidCardTagText.Append(AndroidItemDescription.Build(tooltip), tags);
+        if (template?.Tags != null) foreach (var tag in template.Tags) tags.Add(tag);
+        var detail = AndroidItemDescription.Build(tooltip);
         if (string.IsNullOrWhiteSpace(detail))
             detail = NativeUi.Text("No item description available.", "暂无物品描述。");
-        _onSelect($"<b>{NativeUi.TitleText(tooltip.GetTitle())}</b>\n{detail}");
+        _onSelect($"<b>{NativeUi.TitleText(tooltip.GetTitle())}</b>\n{detail}",
+            AndroidCardTagText.Labels(template?.Size, tags));
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.card_selected template_id={request.Item.TemplateId}");
     }
 

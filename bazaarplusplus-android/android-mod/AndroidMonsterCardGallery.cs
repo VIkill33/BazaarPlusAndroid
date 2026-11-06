@@ -40,7 +40,7 @@ internal sealed class AndroidMonsterCardGallery
 
     private readonly RectTransform _root;
     private readonly RectTransform _panel;
-    private readonly Action<string> _onSelect;
+    private readonly Action<string, string[]> _onSelect;
     private readonly TextMeshProUGUI _healthLabel;
     private readonly List<Request> _requests = new();
     private RectTransform? _separator;
@@ -48,7 +48,7 @@ internal sealed class AndroidMonsterCardGallery
 
     private string? _health;
 
-    internal AndroidMonsterCardGallery(RectTransform panel, TMP_FontAsset font, Action<string> onSelect)
+    internal AndroidMonsterCardGallery(RectTransform panel, TMP_FontAsset font, Action<string, string[]> onSelect)
     {
         _panel = panel;
         _onSelect = onSelect;
@@ -176,7 +176,11 @@ internal sealed class AndroidMonsterCardGallery
         if (string.IsNullOrWhiteSpace(detail))
             detail = skill ? NativeUi.Text("No skill description available.", "暂无技能描述。")
                 : NativeUi.Text("No item description available.", "暂无物品描述。");
-        _onSelect($"<b>{tooltip.GetTitle()}</b>\n{detail}");
+        var template = Data.GetStatic()?.GetCardById(request.Instance.TemplateId)?.TryCast<TCardBase>();
+        var tags = new List<ECardTag>();
+        if (template?.Tags != null) foreach (var tag in template.Tags) tags.Add(tag);
+        _onSelect($"<b>{NativeUi.TitleText(tooltip.GetTitle())}</b>\n{detail}",
+            AndroidCardTagText.Labels(skill ? null : template?.Size, tags));
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.card_selected template_id={request.Instance.TemplateId} skill={skill}");
     }
 

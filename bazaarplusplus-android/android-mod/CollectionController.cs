@@ -63,6 +63,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     private TextMeshProUGUI? _description;
     private RectTransform? _descriptionContent;
     private ScrollRect? _descriptionScroll;
+    private RectTransform? _descriptionTags;
     private bool _open;
     private bool _uiBuilt;
     private int _page;
@@ -215,6 +216,9 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             NativeUi.Text("Select a card", "点选左侧卡牌"), 28);
         (_description, _descriptionContent, _descriptionScroll) = NativeUi.ScrollText(_panel, font,
             new Vector2(.64f, .04f), new Vector2(.97f, .35f));
+        _descriptionTags = NativeUi.Rect("BPP.CollectionItemTags", _descriptionContent,
+            new Vector2(0, 1), Vector2.one);
+        _descriptionTags.gameObject.SetActive(false);
         if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
         foreach (var button in new Button?[]
         {
@@ -561,12 +565,21 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 }
                 if (_description != null && _descriptionContent != null && _preview._tooltipData != null)
                 {
-                    var tags = _catalog.Cards.FirstOrDefault(card => card.Id == _pendingTemplate)?.Tags;
-                    NativeUi.RichDescription(_description, AndroidCardTagText.Append(
-                        AndroidItemDescription.Build(_preview._tooltipData), tags));
+                    var card = _catalog.Cards.FirstOrDefault(card => card.Id == _pendingTemplate);
+                    var description = AndroidItemDescription.Build(_preview._tooltipData);
+                    NativeUi.RichDescription(_description, description);
                     var width = Math.Max(1, _descriptionContent.rect.width - 24);
-                    var preferred = _description.GetPreferredValues(_description.text, width, float.PositiveInfinity);
-                    _descriptionContent.sizeDelta = new Vector2(0, Math.Max(60, preferred.y + 24));
+                    var labels = AndroidCardTagText.Labels(card?.Type == ECardType.Item ? card.Size : null, card?.Tags);
+                    var tagHeight = _descriptionTags == null ? 0 : AndroidCardTagChips.Render(
+                        _descriptionTags, _description, labels, _descriptionContent.rect.width);
+                    if (_descriptionTags != null && tagHeight > 0)
+                    {
+                        _descriptionTags.offsetMin = new Vector2(0, -tagHeight);
+                        _descriptionTags.offsetMax = Vector2.zero;
+                    }
+                    _description.rectTransform.offsetMax = new Vector2(-12, -tagHeight - 6);
+                    var preferred = _description.GetPreferredValues(description, width, float.PositiveInfinity);
+                    _descriptionContent.sizeDelta = new Vector2(0, Math.Max(60, preferred.y + tagHeight + 24));
                     if (_descriptionScroll != null) _descriptionScroll.verticalNormalizedPosition = 1;
                 }
                 _fitFrame = Time.frameCount + 2;
@@ -653,7 +666,12 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             _enchantments.Clear();
             UpdateVariantCaptions();
         }
-        if (_description != null) _description.text = string.Empty;
+        if (_description != null)
+        {
+            _description.text = string.Empty;
+            _description.rectTransform.offsetMax = new Vector2(-12, -6);
+        }
+        _descriptionTags?.gameObject.SetActive(false);
     }
 
     private bool EntryVisible => !_open && !AndroidBuildPanelController.AnyOpen && !AndroidHistoryPanel.AnyOpen

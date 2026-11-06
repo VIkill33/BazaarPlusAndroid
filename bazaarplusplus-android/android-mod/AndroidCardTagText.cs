@@ -17,12 +17,13 @@ internal static class AndroidCardTagText
         catch (Exception) { return key; }
     }
 
-    internal static string Append(string description, IEnumerable<ECardTag>? tags)
+    internal static string[] Labels(ECardSize? size, IEnumerable<ECardTag>? tags)
     {
-        if (tags == null) return description;
-        var names = tags.Distinct().OrderBy(tag => Name(tag)).Select(Name).ToArray();
-        if (names.Length == 0) return description;
-        var line = NativeUi.Text("Tags: ", "词条：") + string.Join(" · ", names);
-        return string.IsNullOrWhiteSpace(description) ? line : line + "\n" + description;
+        var names = new List<string>();
+        if (size.HasValue)
+            names.Add(new LocalizableText(size.Value.ToString()).GetLocalizedText());
+        if (tags != null)
+            names.AddRange(tags.Distinct().OrderBy(Name).Select(Name));
+        return names.Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().ToArray();
     }
 }
