@@ -2,6 +2,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
+using BazaarPlusPlus.Game.CardTags;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using Il2CppInterop.Runtime;
 using TheBazaar;
@@ -45,6 +46,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     private Button? _heroButton;
     private Button? _tierButton;
     private Button? _sizeButton;
+    private Button? _tagButton;
     private Button? _itemsButton;
     private Button? _skillsButton;
     private Button? _previewTierButton;
@@ -181,9 +183,10 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         var titleLabel = NativeUi.Label(title, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"), 44);
         var resetButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Reset filters", "重置筛选"), new Vector2(.64f, .88f), new Vector2(.82f, .98f), ResetFilters);
         var closeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"), new Vector2(.85f, .88f), new Vector2(.97f, .98f), () => SetOpen(false));
-        _heroButton = NativeUi.Button(_panel, font, NativeUi.Text("Hero: All", "英雄：全部"), new Vector2(.03f, .78f), new Vector2(.24f, .85f), ChooseHero);
-        _tierButton = NativeUi.Button(_panel, font, NativeUi.Text("Tier: All", "品质：全部"), new Vector2(.25f, .78f), new Vector2(.42f, .85f), ChooseTier);
-        _sizeButton = NativeUi.Button(_panel, font, NativeUi.Text("Size: All", "体型：全部"), new Vector2(.43f, .78f), new Vector2(.6f, .85f), ChooseSize);
+        _heroButton = NativeUi.Button(_panel, font, NativeUi.Text("Hero: All", "英雄：全部"), new Vector2(.03f, .78f), new Vector2(.17f, .85f), ChooseHero);
+        _tierButton = NativeUi.Button(_panel, font, NativeUi.Text("Tier: All", "品质：全部"), new Vector2(.18f, .78f), new Vector2(.31f, .85f), ChooseTier);
+        _sizeButton = NativeUi.Button(_panel, font, NativeUi.Text("Size: All", "体型：全部"), new Vector2(.32f, .78f), new Vector2(.45f, .85f), ChooseSize);
+        _tagButton = NativeUi.Button(_panel, font, NativeUi.Text("Tag: All", "词条：全部"), new Vector2(.46f, .78f), new Vector2(.60f, .85f), ChooseTag);
         _itemsButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Items", "物品"), new Vector2(.03f, .69f), new Vector2(.12f, .76f), () => { _filter.ActiveType = ECardType.Item; Changed(); });
         _skillsButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Skills", "技能"), new Vector2(.13f, .69f), new Vector2(.22f, .76f), () => { _filter.ActiveType = ECardType.Skill; Changed(); });
         _search = NativeUi.Search(_panel, font, new Vector2(.24f, .69f), new Vector2(.6f, .76f), text => { _filter.SearchQuery = text; Changed(); });
@@ -215,7 +218,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
         foreach (var button in new Button?[]
         {
-            resetButton, closeButton, _heroButton, _tierButton, _sizeButton, _itemsButton, _skillsButton,
+            resetButton, closeButton, _heroButton, _tierButton, _sizeButton, _tagButton, _itemsButton, _skillsButton,
             _sourceButton, _dayButton, previousButton, nextButton, _previewTierButton, _enchantmentButton,
             _search?.GetComponentInChildren<Button>(),
         })
@@ -257,6 +260,28 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         foreach (var size in Sizes)
             options.Add((SizeName(size), () => { _filter.Sizes.Clear(); _filter.Sizes.Add(size); Changed(); }));
         _choices?.Show(NativeUi.Text("Size", "体型"), options);
+    }
+
+    private void ChooseTag()
+    {
+        var options = new List<(string, Action)>
+        {
+            (NativeUi.Text("All tags", "全部词条"), () => { _filter.Tags.Clear(); Changed(); })
+        };
+        var present = _catalog.Cards.Where(card => card.Type == _filter.ActiveType && !card.IsPackage)
+            .SelectMany(card => card.Tags).ToHashSet();
+        foreach (var tag in PlayerFacingCardTags.Ordered.Where(present.Contains))
+        {
+            var choice = tag;
+            options.Add((AndroidCardTagText.Name(choice), () =>
+            {
+                _filter.Tags.Clear();
+                _filter.Tags.Add(choice);
+                Changed();
+            }));
+        }
+        _choices?.Show(_filter.ActiveType == ECardType.Item
+            ? NativeUi.Text("Item tags", "物品词条") : NativeUi.Text("Skill tags", "技能词条"), options);
     }
 
     private EHero SourceHero() => _filter.AllHeroesSelected && AndroidCollectionContext.InRun && Data.Run?.Player != null
@@ -353,6 +378,9 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     {
         _loadingHint?.gameObject.SetActive(!_catalog.Ready && _catalog.Error == null);
         var items = _filter.ActiveType == ECardType.Item;
+        if (_catalog.Ready && _filter.Tags.Count > 0 && !_catalog.Cards.Any(card =>
+                card.Type == _filter.ActiveType && !card.IsPackage && card.Tags.Contains(_filter.Tags.First())))
+            _filter.Tags.Clear();
         _sizeButton?.gameObject.SetActive(items);
         if (_itemsButton != null) _itemsButton.GetComponent<Image>().color = AndroidLauncherSettings.MarketPanels
             ? items ? AndroidMarketPanelTheme.Selected : AndroidMarketPanelTheme.Surface
@@ -379,6 +407,8 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             ? NativeUi.Text("All", "全部") : HeroName(_filter.EffectiveHero)) + " v");
         Caption(_tierButton, NativeUi.Text("Tier: ", "品质：") + (_filter.Tiers.Count == 0 ? NativeUi.Text("All", "全部") : TierName(_filter.Tiers.First())) + " v");
         Caption(_sizeButton, NativeUi.Text("Size: ", "体型：") + (_filter.Sizes.Count == 0 ? NativeUi.Text("All", "全部") : SizeName(_filter.Sizes.First())) + " v");
+        Caption(_tagButton, NativeUi.Text("Tag: ", "词条：") + (_filter.Tags.Count == 0
+            ? NativeUi.Text("All", "全部") : AndroidCardTagText.Name(_filter.Tags.First())) + " v");
         Caption(_sourceButton, (_followSource ? NativeUi.Text("Auto: ", "自动：") : string.Empty) +
             (source == null ? NativeUi.Text("All sources", "全部来源") : SourceName(source)) + " v");
         Caption(_dayButton, !_filter.UseRunDayFilter ? NativeUi.Text("All days v", "不限天数 v") :
@@ -531,7 +561,9 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
                 }
                 if (_description != null && _descriptionContent != null && _preview._tooltipData != null)
                 {
-                    NativeUi.RichDescription(_description, AndroidItemDescription.Build(_preview._tooltipData));
+                    var tags = _catalog.Cards.FirstOrDefault(card => card.Id == _pendingTemplate)?.Tags;
+                    NativeUi.RichDescription(_description, AndroidCardTagText.Append(
+                        AndroidItemDescription.Build(_preview._tooltipData), tags));
                     var width = Math.Max(1, _descriptionContent.rect.width - 24);
                     var preferred = _description.GetPreferredValues(_description.text, width, float.PositiveInfinity);
                     _descriptionContent.sizeDelta = new Vector2(0, Math.Max(60, preferred.y + 24));

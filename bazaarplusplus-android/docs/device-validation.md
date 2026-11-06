@@ -1,5 +1,36 @@
 # Android 真机验证
 
+## 图鉴词条筛选与详情展示（2026-11-06，中文真机通过）
+
+`CollectionController.ChooseTag` 按当前分类列出目录中实际存在的玩家可见公开词条，
+交由共享 `CollectionFilterEngine.Apply` 与其余条件求交；重置时清除词条。
+`AndroidCardTagText.Append` 在图鉴与推荐构筑物品详情顶部显示模板公开词条，
+标签文字取游戏当前语言的字符串表。使用另一工作树缓存的固定 .NET SDK 与
+当前 Android 生成代理构建插件 Release，零警告／零错误；25 项 Android Python 回归通过。
+同签名启动器 `0.3.0` 的 APK v2 签名验证通过并覆盖安装。设备
+`OBJVWSPNSCFQU48L`（22041216C／Android 14），游戏
+`1.0.13084-production-android-4670b82d`，2460×1080 横屏，中文，
+原有 Vanessa 休闲对局。新会话 `6a95d0a8-7227-45c7-9524-3ac3e0fb9dca`
+的 12 项加载与摘要断言均通过；设备与构建插件 SHA-256 同为
+`72338fbf3e3fa1aeae022fd711f7ae9511e66a27dd0e446568b08daf6ca2626b`，
+APK SHA-256 为 `e21676920ecd353bf973eae6b842632124e0cf3fbf2243e9c6915e61f466b382`。
+
+图鉴目录载入 `1883` 张卡。当前英雄物品从 `141` 张分别筛为伙伴 `26`、
+工具 `23`、地产 `11`、科技 `15`、武器 `62`、乐器 `1`；截图人工复核下拉文字、
+选中词条、卡图与页码，日志记录筛选张数。点击“三花”，右侧详情显示
+「词条：伙伴 · 武器」与原有效果。重置筛选后词条恢复「全部」，切换技能页显示
+`527` 张且体型条件隐藏。用户随后在已有对局中确认推荐构筑物品详情的词条展示通过；
+当前会话日志记录两次 `android.build_board.card_selected`。本次未切换英文或标准输入模式，
+也未对六类筛选结果逐卡比对全部模板。
+
+证据在忽略目录 `bazaarplusplus-android/artifacts/phone/`：
+`tags-verification/verification.json`、`tags-picker.png`、
+`tags-friend-results.png`、`tags-friend-detail.png`、
+`tags-tool-results.png`、`tags-property-results.png`、
+`tags-tech-results.png`、`tags-weapon-results.png`、
+`tags-instrument-results.png`、`tags-skills-after-reset.png`、
+`tags-build-detail-user-confirmed.png`、`tags-final-session.log`。
+
 ## 事件预览按玩家英雄筛选（2026-11-06，高级模式部分通过）
 
 `AndroidEventPreview` 使用当前对局英雄筛选遭遇模板 `Heroes`、英雄限定的选项组和商人供货池；

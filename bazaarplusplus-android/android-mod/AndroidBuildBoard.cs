@@ -167,7 +167,11 @@ internal sealed class AndroidBuildBoard
     {
         if (!request.Ready || request.Card?._tooltipData == null) return;
         var tooltip = request.Card._tooltipData;
-        var detail = AndroidItemDescription.Build(tooltip);
+        var nativeTags = Data.GetStatic()?.GetCardById(
+            Il2CppSystem.Guid.Parse(request.Item.TemplateId.ToString()))?.TryCast<TCardBase>()?.Tags;
+        var tags = new List<ECardTag>();
+        if (nativeTags != null) foreach (var tag in nativeTags) tags.Add(tag);
+        var detail = AndroidCardTagText.Append(AndroidItemDescription.Build(tooltip), tags);
         if (string.IsNullOrWhiteSpace(detail))
             detail = NativeUi.Text("No item description available.", "暂无物品描述。");
         _onSelect($"<b>{NativeUi.TitleText(tooltip.GetTitle())}</b>\n{detail}");
