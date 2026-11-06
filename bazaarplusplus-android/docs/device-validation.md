@@ -2571,3 +2571,36 @@ v2 true，APK SHA-256 `60ceee1b3dfcd9f34d84b915c8cbb5fe0deeb3036643a2f6f19d09f0a
 设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14），游戏 13084，启动器 0.1.1；`adb install -r` 成功。按用户要求
 未由代理启动游戏或推进战斗。交付时列出外观、结束渐变与下一场恢复、拖动／吸附／重启位置、数字抖动及面板按钮
 五项，用户确认「验证通过」，未逐项报告结果、输入模式或屏幕变化，不扩大为所有边界已验收。无代理截图。
+
+## 战斗计时器倍速与暂停（2026-11-07，用户自测通过）
+
+以桌面 `CombatStatusBar.State`（`SpeedSteps`、`SetCombatPaused`、`OnVisibilitySettingChanged`）与
+`Patches/Combat/CombatSpeedPatch` 为参考实现：
+
+- 布局：`AndroidCombatTimer` 牌匾 460×88，与桌面一致按「倍速｜时间｜暂停」单排，宽度 26%／74% 处为金色竖分隔线
+  （高 28%–72%）；两侧控件触控区约 114×82，时间字号 32。先试过上下两排（210×104、按钮约 97×46），用户反馈
+  「1x」难按：该设备 1080 px 高、440 dpi，画布 1 单位约 1 px，46 px 仅约 2.6 mm，且 Unity 约 10 px 的拖动阈值会让
+  点按抖动变成拖动并取消 `Button` 点击。现改为无 `Button` 的控件区，由根 `EventTrigger` 统一处理按下／抬起；
+  位移不超过 `AndroidCombatControls.IsDrag` 的 24 单位（接近 Android 8dp 触控容差）且在同一控件内抬起视为点击，
+  超过则只拖动牌匾。
+- 倍速：`AndroidCombatControls.NextSpeed` 在 0.5x／0.67x／1x 间循环，`AndroidCombatTimerSettings.SaveSpeed` 写入原有
+  `combat-timer.json`（旧文件缺省 1x）。新增原生钩子 `AndroidCombatSpeedHook` 挂接 Android 生成代理中的
+  `CombatSimHandler.SetSpeed(float, bool)`：战斗进行中只把不高于 1x 的请求替换为所选倍速，游戏自身加速不变；
+  `AndroidHistoryNativeCapture` 在 `Simulate` 开始时绑定本场处理器，开场及点击后按本场代次立即应用，过期代次不复用。
+  钩子安装失败只记录日志并禁用倍速按钮。所选倍速在计时器隐藏时仍生效（同桌面）。
+- 暂停：调用游戏 `GameServiceManager.PauseOrUnpauseGame` 并读取 `GamePaused`，仅战斗进行中可用；只解除由计时器发起的
+  暂停，时机为战斗结束、离开战斗、隐藏计时器、异常重试或组件销毁（`AndroidCombatControls.ReleasePause`）。
+
+离线：`CombatTimer.Tests` 61 项（倍速循环、覆盖规则、暂停解除、点击阈值、速度持久化及旧／非法配置）、
+Python unittest 25 项、`BuildCorpus.Tests` 通过；`build_probe.py --mod` 零警告／零错误。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14，2460×1080 横屏，440 dpi），游戏 13084。应用户要求，本次与独立分支
+`fix/android-monster-preview-card-scale` 的怪物预览卡图比例修复在临时工作树合并打包（两份未提交改动均无冲突应用），
+签名包 `apksigner` 报告 `Verifies`、v2 true，APK SHA-256
+`5179c51f69722f9a7b9c69c57d72745ef9bf4553ed792fd51b90b1631001b7f4`，内置 DLL 与合并构建一致
+（`76569e1c706ea060e481a1f4fea930233229d7ffb62cb4cec9cecf60b3a3ae26`），`adb install -r` 成功。本提交只含计时器改动，
+该包的怪物预览部分由其分支另行记录。
+
+代理未启动游戏或操作设备，无代理截图。用户自测确认：单排布局、按钮易点中、倍速三档切换即时生效且游戏加速保留、
+暂停／继续与结束后自动解除并置灰、从按钮起拖不误触、四边吸附及重启后倍速与位置保留均通过。未单独报告标准／高级输入模式、
+原生回放中的倍速与暂停、多指同时操作、分辨率或安全区域变化、隐藏计时器时的倍速，以及钩子安装失败路径，不扩大为全部边界已验收。

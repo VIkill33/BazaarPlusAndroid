@@ -9,5 +9,6 @@
   <ItemGroup>
     <Compile Include="../../android-mod/AndroidCombatClock.cs" />
     <Compile Include="../../android-mod/AndroidCombatTimerSettings.cs" />
+    <Compile Include="../../android-mod/AndroidCombatControls.cs" />
   </ItemGroup>
 </Project>

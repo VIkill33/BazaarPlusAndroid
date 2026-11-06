@@ -10,20 +10,26 @@ internal static class AndroidCombatTimerSettings
     private static string SettingsPath => Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.Android", "combat-timer.json");
     internal static bool Shown { get; private set; } = Load();
     internal static AndroidCombatTimerPosition Position { get; private set; } = LoadPosition();
-    internal static void Save(bool shown) => Save(shown, Position);
+    internal static float Speed { get; private set; } = LoadSpeed();
+    internal static void Save(bool shown) => Save(shown, Position, Speed);
     internal static void SavePosition(int edge, int along) => Save(Shown,
-        new(Math.Clamp(edge, 0, 3), Math.Clamp(along, 0, 10000)));
-    private static void Save(bool shown, AndroidCombatTimerPosition position)
+        new(Math.Clamp(edge, 0, 3), Math.Clamp(along, 0, 10000)), Speed);
+    internal static void SaveSpeed(float speed)
+    {
+        if (AndroidCombatControls.Step(speed) is { } step) Save(Shown, Position, step);
+    }
+    private static void Save(bool shown, AndroidCombatTimerPosition position, float speed)
     {
         var path = SettingsPath;
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temporary = path + ".part";
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(new { schema = 1, shown, edge = position.Edge, along = position.Along }));
+            File.WriteAllText(temporary, JsonSerializer.Serialize(new { schema = 1, shown, edge = position.Edge, along = position.Along, speed }));
             File.Move(temporary, path, overwrite: true);
             Shown = shown;
             Position = position;
+            Speed = speed;
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
@@ -58,6 +64,22 @@ internal static class AndroidCombatTimerSettings
         catch (JsonException) { }
         return new();
     }
+    internal static float ParseSpeed(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("schema", out var schema) && schema.ValueKind == JsonValueKind.Number
+                && schema.TryGetInt32(out var version) && version == 1
+                && root.TryGetProperty("speed", out var speed) && speed.ValueKind == JsonValueKind.Number
+                && speed.TryGetSingle(out var value) && AndroidCombatControls.Step(value) is { } step)
+                return step;
+        }
+        catch (JsonException) { }
+        return 1;
+    }
     private static AndroidCombatTimerPosition LoadPosition()
     {
         try { return File.Exists(SettingsPath) ? ParsePosition(File.ReadAllText(SettingsPath)) : new(); }
@@ -65,6 +87,15 @@ internal static class AndroidCombatTimerSettings
         {
             Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.combat_timer.position_failed type={error.GetType().Name}");
             return new();
+        }
+    }
+    private static float LoadSpeed()
+    {
+        try { return File.Exists(SettingsPath) ? ParseSpeed(File.ReadAllText(SettingsPath)) : 1; }
+        catch (Exception error)
+        {
+            Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.combat_timer.speed_failed type={error.GetType().Name}");
+            return 1;
         }
     }
     private static bool Load()

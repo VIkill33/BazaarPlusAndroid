@@ -57,6 +57,7 @@ internal static class AndroidHistoryNativeCapture
         }
         catch (Exception error) { observer?.Failure(error); }
         var generation = AndroidCombatTimer.Clock.Begin();
+        AndroidCombatSpeedHook.Bind(self, generation);
         // History failure must never skip the game's original simulation.
         var result = _original!(self, message, cancellation, method);
         try

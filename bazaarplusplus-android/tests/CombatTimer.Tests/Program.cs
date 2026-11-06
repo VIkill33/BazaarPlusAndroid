@@ -26,6 +26,17 @@ Check(AndroidCombatClock.Blend(.5f, true, 1) == 1, "Brightening stops at running
 Check(AndroidCombatClock.Blend(1, false, .1f) == .5f, "Completion mutes over 0.2s");
 Check(AndroidCombatClock.Blend(.5f, false, 1) == 0, "Muting stops at completed ink");
 Check(AndroidCombatClock.Blend(.3f, true, -1) == .3f, "Negative frame time holds blend");
+Check(AndroidCombatControls.NextSpeed(.5f) == .67f && AndroidCombatControls.NextSpeed(.67f) == 1
+    && AndroidCombatControls.NextSpeed(1) == .5f, "Speed cycles like desktop");
+Check(AndroidCombatControls.NextSpeed(.9f) == .5f && AndroidCombatControls.NextSpeed(.55f) == .67f, "Off-step speed advances from nearest step");
+Check(AndroidCombatControls.Overrides(1) && AndroidCombatControls.Overrides(.5f) && !AndroidCombatControls.Overrides(1.5f),
+    "Only requests at or below 1x are slowed");
+Check(AndroidCombatControls.SpeedText(.67f) == "0.67x" && AndroidCombatControls.SpeedText(1) == "1x", "Speed label");
+Check(AndroidCombatControls.ReleasePause(true, false, true) && AndroidCombatControls.ReleasePause(true, true, false)
+    && !AndroidCombatControls.ReleasePause(true, true, true) && !AndroidCombatControls.ReleasePause(false, false, false),
+    "Timer pause released when combat ends or timer hides");
+Check(!AndroidCombatControls.IsDrag(0, 0) && !AndroidCombatControls.IsDrag(16, -16) && AndroidCombatControls.IsDrag(0, 25)
+    && AndroidCombatControls.IsDrag(-20, 20), "Finger jitter stays a tap; longer travel drags");
 foreach (var json in new[] { "null", "[]", "broken", "{}", "{\"schema\":2,\"shown\":false}", "{\"schema\":\"1\",\"shown\":false}", "{\"schema\":1,\"shown\":\"false\"}" })
     Check(AndroidCombatTimerSettings.Parse(json), "Invalid settings default visible: " + json);
 Check(!AndroidCombatTimerSettings.Parse("{\"schema\":1,\"shown\":false}"), "Hidden setting parsed");
@@ -47,6 +58,19 @@ try
     Check(AndroidCombatTimerSettings.Position == new AndroidCombatTimerPosition(1, 7300)
         && AndroidCombatTimerSettings.ParsePosition(File.ReadAllText(path)) == AndroidCombatTimerSettings.Position,
         "Visibility toggle preserves position");
+    Check(AndroidCombatTimerSettings.Speed == 1, "Default speed 1x");
+    AndroidCombatTimerSettings.SaveSpeed(.67f);
+    Check(AndroidCombatTimerSettings.Speed == .67f && AndroidCombatTimerSettings.ParseSpeed(File.ReadAllText(path)) == .67f
+        && AndroidCombatTimerSettings.Position == new AndroidCombatTimerPosition(1, 7300)
+        && !AndroidCombatTimerSettings.Parse(File.ReadAllText(path)), "Speed saved without changing visibility or position");
+    AndroidCombatTimerSettings.SaveSpeed(.8f);
+    Check(AndroidCombatTimerSettings.Speed == .67f, "Unsupported speed ignored");
+    AndroidCombatTimerSettings.SavePosition(0, 100);
+    Check(AndroidCombatTimerSettings.ParseSpeed(File.ReadAllText(path)) == .67f, "Position save keeps speed");
+    foreach (var json in new[] { "null", "[]", "broken", "{}", "{\"schema\":1,\"shown\":true}", "{\"schema\":2,\"speed\":0.5}",
+        "{\"schema\":1,\"speed\":0.8}", "{\"schema\":1,\"speed\":\"0.5\"}", "{\"schema\":1,\"speed\":2}" })
+        Check(AndroidCombatTimerSettings.ParseSpeed(json) == 1, "Old or invalid speed defaults to 1x: " + json);
+    AndroidCombatTimerSettings.SaveSpeed(1);
     AndroidCombatTimerSettings.SavePosition(-5, 15000);
     Check(!AndroidCombatTimerSettings.Shown && AndroidCombatTimerSettings.Position == new AndroidCombatTimerPosition(0, 10000),
         "Position clamps without changing visibility");
