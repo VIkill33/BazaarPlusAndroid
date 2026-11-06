@@ -1,5 +1,31 @@
 # Android 真机验证
 
+## 事件预览按玩家英雄筛选（2026-11-06，高级模式部分通过）
+
+`AndroidEventPreview` 使用当前对局英雄筛选遭遇模板 `Heroes`、英雄限定的选项组和商人供货池；
+英雄未知时保留原候选。`verify_encounter_preview.py` 按启动器清单读取当前插件日志目录。
+设备 `OBJVWSPNSCFQU48L`（22041216C／Android 14），游戏
+`1.0.13084-production-android-4670b82d`，启动器 `0.3.0`，当前对局英雄 Vanessa，
+2460×1080 横屏。新插件 Release 编译零警告、零错误，25 项 Android Python 回归通过。
+签名 APK SHA-256 为 `a035cf2db6cea5d34109614f2eac7ab3385d267217ed2257d7a558c779cda135`；
+安装后设备插件 SHA-256 为 `55dc8f35ea09ce21cdf82303f99a39b3fa5a762e330efa37c9a9cc5ef2f3f87b`。
+
+在三选一界面长按第 1 天商人“杰杰”，日志记录 `hero=Vanessa shown=1 filtered=8`，
+最终预览长度 30 字符；截图仅显示“第 1 天：青铜 100% 物品”。
+随后在另一个三选一界面，以当前高级操作模式长按中间普通事件“草草小怪兽”
+（坐标 1228,347），日志记录 `merchant=False hero=Vanessa characters=1075`。
+按住时截图可见原生事件说明及“选项、条件与奖励”，松开后回到原三选一界面。
+脚本确认同一日志会话、预览渲染、本次操作无网络命令、无状态切换且无预览异常；
+截图经人工复核。该事件的通用条件选项仍使提示文字超出屏幕，尚未解决长内容布局。
+本次长按验证未选择事件；未验证其他英雄、标准模式或其他复杂普通事件。
+
+证据位于忽略目录 `bazaarplusplus-android/artifacts/phone/` 的
+`event-hero-v030-jj-holding.png`、`event-hero-v030-jj.log`、
+`event-hero-v030-middle-advanced-before.png`、
+`event-hero-v030-middle-advanced-holding.png`、
+`event-hero-v030-middle-advanced-released.png`、
+`event-hero-v030-middle-advanced.json` 与同名前缀的 `.log`。
+
 ## 野怪预览常驻生命值（2026-11-05，双输入模式真机通过）
 
 `AndroidMonsterCardGallery.Show` 在默认卡图视图上方显示野怪模板的 `HealthMax`，
