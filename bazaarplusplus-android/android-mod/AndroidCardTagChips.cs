@@ -8,6 +8,7 @@ namespace BazaarPlusPlus.Android;
 // the native card header; the row wraps within the scrollable detail content.
 internal static class AndroidCardTagChips
 {
+    private const float FontSize = 24;
     private static Sprite? _background;
 
     internal static float Render(RectTransform row, TextMeshProUGUI measure,
@@ -25,10 +26,17 @@ internal static class AndroidCardTagChips
         var available = Mathf.Max(64, width - 24);
         var x = 12f;
         var y = 0f;
-        foreach (var label in labels)
+        // Measure at the chip's own size: callers pass labels of differing sizes.
+        var (size, style) = (measure.fontSize, measure.fontStyle);
+        measure.fontSize = FontSize;
+        measure.fontStyle = FontStyles.Bold;
+        var widths = labels.Select(label => measure.GetPreferredValues(label, float.PositiveInfinity, 34).x).ToArray();
+        (measure.fontSize, measure.fontStyle) = (size, style);
+        for (var index = 0; index < labels.Count; index++)
         {
-            var chipWidth = Mathf.Min(available, Mathf.Max(48,
-                measure.GetPreferredValues(label, float.PositiveInfinity, 34).x + 20));
+            var label = labels[index];
+            // NativeUi.Label insets its text 12 units on each side.
+            var chipWidth = Mathf.Min(available, Mathf.Max(48, widths[index] + 24 + 12));
             if (x > 12 && x + chipWidth > available + 12)
             {
                 x = 12;
@@ -40,8 +48,9 @@ internal static class AndroidCardTagChips
             image.sprite = Background();
             image.type = Image.Type.Sliced;
             image.raycastTarget = false;
-            var text = NativeUi.Label(chip, measure.font, label, 24);
+            var text = NativeUi.Label(chip, measure.font, label, FontSize);
             text.fontStyle = FontStyles.Bold;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.color = new Color(.68f, .75f, .94f, 1);
             text.enableAutoSizing = false;
             x += chipWidth + 8;

@@ -1,5 +1,33 @@
 # Android 真机验证
 
+## 构筑页左右分栏与紧凑阵容（2026-11-07，双输入模式真机通过）
+
+`AndroidBuildPanelController.BuildUi` 将候选、阵容切换与推荐阵容放在左栏，
+`BPP.Description` 详情列放在右栏；`AndroidBuildBoard.Layout` 按原生卡牌根宽 260、
+框高 518.5 的比例排布一行，`AndroidBuildBoard.Show` 以当前模板体型计算跨格，
+`NativePreviewTooltips.Suppress` 关闭阵容卡原生提示。设备 `OBJVWSPNSCFQU48L`
+（22041216C／Android 14），游戏 `1.0.13084-production-android-4670b82d`，2460×1080 横屏，
+中文，原有 Vanessa 休闲对局，从主界面「普通 → 就绪」回到对局。改动前日志可见点击阵容卡
+`b02a2b57-…` 后出现 `android.tooltip.observed` 与 `android.enchant_preview.rendered`。
+
+插件 Release 零警告／零错误；25 项 Android Python 回归（需 PATH 含 .NET 与 JDK）及构筑语料测试通过。
+签名启动器 `0.3.0` 覆盖安装，新会话 `7e8cf1cc-aec8-407d-aa79-1e757d32b7ce` 的确认文件与设备插件
+SHA-256 同为 `02019672eb84104b44b9db3337b15b8a35cbe01693746f6203206de8a8106428`。
+单独 push DLL 会在启动器准备阶段被内置插件覆盖，真机验证须安装对应 APK。
+
+截图人工复核：第一套阵容的「沉眠元初体」语料记录为 2 格、当前模板为大型，日志记录
+`android.build_board.native_span recorded=2 native=3`，整行按 11 格显示且各卡同比例；
+第二套十件小型物品紧密排列。高级模式点击章鱼、獠牙、手斧、展品柜，标准模式点击三件物品，
+右栏依次显示物品标题、词条与效果，附魔物品标题合并为一行（「致命 展品柜」），
+两模式日志均无 `tooltip.observed`／`enchant_preview.rendered`，无 `build_panel.failed`／`card_failed`。
+切换阵容后清除旧物品详情；关闭重开恢复未选候选与左栏提示。图鉴「刺刀」详情词条单行显示。
+测试后输入模式恢复为高级模式。未验证 16:9 等其他比例、英文显示及断网状态。
+
+证据在忽略目录 `bazaarplusplus-android/artifacts/build-ui/`：`before.png`、`panel-open.png`、
+`panel3.png`、`panel4.png`、`tap-cabinet.png`、`next-build.png`、`reopened.png`、
+`standard-panel.png`、`collection-detail.png`、`plugin-run1.log`、`plugin-run3.log`、
+`plugin-run3-standard.log`。
+
 ## 图鉴词条筛选与详情展示（2026-11-06，中文真机通过）
 
 `CollectionController.ChooseTag` 按当前分类列出目录中实际存在的玩家可见公开词条，

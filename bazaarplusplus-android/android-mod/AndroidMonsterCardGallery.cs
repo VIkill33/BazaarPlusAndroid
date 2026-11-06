@@ -142,7 +142,7 @@ internal sealed class AndroidMonsterCardGallery
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.started monster={monster.InternalName} items={count} skills={skillCount} slots={widestRow} item_rows={(count == 0 ? 0 : row + 1)} skill_rows={skillRows} slot_width_px={slotWidth * scale:0.#} screen_width={Screen.width}");
     }
 
-    private static int SizeInSlots(ECardSize size) => size switch
+    internal static int SizeInSlots(ECardSize size) => size switch
     {
         ECardSize.Medium => 2,
         ECardSize.Large => 3,

@@ -352,7 +352,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
 
     private static string HeroName(EHero hero) => AndroidChoicePopup.HeroName(hero);
 
-    private static string TierName(ETier tier) => tier switch
+    internal static string TierName(ETier tier) => tier switch
     {
         ETier.Bronze => NativeUi.Text("Bronze", "青铜"), ETier.Silver => NativeUi.Text("Silver", "白银"),
         ETier.Gold => NativeUi.Text("Gold", "黄金"), ETier.Diamond => NativeUi.Text("Diamond", "钻石"),
