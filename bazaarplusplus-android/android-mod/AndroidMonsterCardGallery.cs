@@ -21,6 +21,7 @@ internal sealed class AndroidMonsterCardGallery
     {
         internal required RectTransform Host;
         internal required TCardInstance Instance;
+        internal required bool Skill;
         internal NativePreviewTask? Creation;
         internal Il2CppSystem.Threading.Tasks.Task? Setup;
         internal Il2CppSystem.Threading.CancellationTokenSource? Cancellation;
@@ -79,9 +80,9 @@ internal sealed class AndroidMonsterCardGallery
         var canvas = _panel.GetComponentInParent<Canvas>();
         var scale = canvas != null && canvas.scaleFactor > 0 ? canvas.scaleFactor : 1f;
         var slotWidth = Screen.width / 26f / scale;
-        var cardHeight = slotWidth * 2.05f;
+        var cardHeight = slotWidth / NativeCardFit.UnitAspect;
         var rowHeight = cardHeight + 12;
-        var placements = new List<(TCardInstance Instance, Vector2 Position, Vector2 Size)>();
+        var placements = new List<(TCardInstance Instance, bool Skill, Vector2 Position, Vector2 Size)>();
         var row = 0;
         var occupied = 0;
         var widestRow = 0;
@@ -89,9 +90,9 @@ internal sealed class AndroidMonsterCardGallery
         {
             var instance = items![index];
             var template = Data.GetStatic()?.GetCardById(instance.TemplateId)?.TryCast<TCardBase>();
-            var size = SizeInSlots(template?.Size ?? ECardSize.Small);
+            var size = NativeCardFit.SizeInSlots(template?.Size ?? ECardSize.Small);
             if (occupied + size > 10) { row++; occupied = 0; }
-            placements.Add((instance, new Vector2(occupied * slotWidth + 4, -row * rowHeight - 8),
+            placements.Add((instance, false, new Vector2(occupied * slotWidth + 4, -row * rowHeight - 8),
                 new Vector2(size * slotWidth, cardHeight)));
             occupied += size;
             widestRow = Math.Max(widestRow, occupied);
@@ -103,7 +104,7 @@ internal sealed class AndroidMonsterCardGallery
         var skillRows = (skillCount + skillsPerRow - 1) / skillsPerRow;
         var skillsTop = itemsHeight + (count > 0 && skillCount > 0 ? SkillSeparatorGap : 0);
         for (var index = 0; index < skillCount; index++)
-            placements.Add((skills[index], new Vector2(index % skillsPerRow * skillPitch + 4,
+            placements.Add((skills[index], true, new Vector2(index % skillsPerRow * skillPitch + 4,
                 -skillsTop - index / skillsPerRow * skillPitch - 8), new Vector2(skillSize, skillSize)));
         var contentWidth = Math.Max(widestRow * slotWidth, Math.Min(skillCount, skillsPerRow) * skillPitch);
         var contentHeight = skillsTop + skillRows * skillPitch;
@@ -137,17 +138,10 @@ internal sealed class AndroidMonsterCardGallery
             host.pivot = Vector2.up;
             host.sizeDelta = placement.Size;
             host.anchoredPosition = placement.Position;
-            _requests.Add(new Request { Host = host, Instance = placement.Instance });
+            _requests.Add(new Request { Host = host, Instance = placement.Instance, Skill = placement.Skill });
         }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.monster_gallery.started monster={monster.InternalName} items={count} skills={skillCount} slots={widestRow} item_rows={(count == 0 ? 0 : row + 1)} skill_rows={skillRows} slot_width_px={slotWidth * scale:0.#} screen_width={Screen.width}");
     }
-
-    internal static int SizeInSlots(ECardSize size) => size switch
-    {
-        ECardSize.Medium => 2,
-        ECardSize.Large => 3,
-        _ => 1,
-    };
 
     internal void Tick()
     {
@@ -180,16 +174,7 @@ internal sealed class AndroidMonsterCardGallery
                     request.Card = request.Creation.Result;
                     var template = Data.GetStatic()?.GetCardById(request.Instance.TemplateId)?.TryCast<TCardBase>();
                     if (request.Card == null || template == null) { request.Ready = true; continue; }
-                    var rect = request.Card.GetComponent<RectTransform>();
-                    rect.SetParent(request.Host, false);
-                    rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
-                    rect.pivot = new Vector2(.5f, .5f);
-                    rect.anchoredPosition = Vector2.zero;
-                    rect.localScale = Vector3.one;
-                    rect.localRotation = Quaternion.identity;
-                    request.Card.gameObject.SetActive(true);
-                    PrepareLayoutSize(request.Card);
-                    request.Card.Resize();
+                    NativeCardFit.Attach(request.Card, request.Host);
                     request.Setup = request.Card.SetUp(template, false, request.Instance, request.Cancellation!.Token);
                 }
                 if (request.Setup is { IsCompleted: true } && !request.Ready)
@@ -214,30 +199,8 @@ internal sealed class AndroidMonsterCardGallery
 
     private static void Fit(Request request)
     {
-        var card = request.Card!;
-        var rect = card.GetComponent<RectTransform>();
-        PrepareLayoutSize(card);
-        card.Resize();
-        Canvas.ForceUpdateCanvases();
-        var frame = card._currentFrame?.GetComponent<RectTransform>()
-            ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
-        var bounds = request.Host.rect;
-        if (frame.rect.width <= 1 || frame.rect.height <= 1) return;
-        var scale = Mathf.Min(bounds.width / frame.rect.width,
-            bounds.height / frame.rect.height);
-        rect.localScale = new Vector3(scale, scale, scale);
-        var center = request.Host.InverseTransformPoint(frame.TransformPoint(frame.rect.center));
-        rect.anchoredPosition += bounds.center - new Vector2(center.x, center.y);
-    }
-
-    private static void PrepareLayoutSize(CardPreviewBase card)
-    {
-        var rect = card.GetComponent<RectTransform>();
-        if (rect.rect.width > 1 && rect.rect.height > 1) return;
-        var fitter = card.GetComponent<AspectRatioFitter>();
-        var ratio = fitter != null && fitter.aspectRatio > .01f ? fitter.aspectRatio : .8f;
-        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500);
-        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 500 * ratio);
+        if (request.Skill) NativeCardFit.FitFrame(request.Card!, request.Host);
+        else NativeCardFit.FitItem(request.Card!, request.Host);
     }
 
     internal void Hide()
