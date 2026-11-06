@@ -1,5 +1,8 @@
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards;
+using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Game.CollectionPanel.Tooltips;
+using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using Il2CppInterop.Runtime;
 using TheBazaar;
@@ -21,6 +24,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private Button? _previewModeButton;
     private AndroidLongPressPreviewMode? _shownPreviewMode;
     private TextMeshProUGUI? _text;
+    private TextMeshProUGUI? _detailText;
+    private RectTransform? _tagFrame;
     private RectTransform? _content;
     private ScrollRect? _scroll;
     private AndroidBuildBoard? _board;
@@ -49,9 +54,28 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private int _failures;
     private string? _language;
     private string? _lastDescription;
+    private string? _itemTitle;
     private string? _itemDetail;
+    private string[] _itemTags = Array.Empty<string>();
+    private TextMeshProUGUI? _boardHint;
+
+    // Left column holds candidates and the board; the right column holds details.
+    private const float LeftMin = .02f, LeftMax = .675f, RightMin = .69f, RightMax = .98f;
+    private const string Gold = "F2C46B", Muted = "A89F8E", Faint = "7D7466";
 
     private enum CandidateSource { Board, Stash, Shop }
+
+    private sealed class DetailSink(AndroidBuildPanelController owner)
+    {
+        internal void Accept(string title, string detail, string[] tags)
+        {
+            owner._itemTitle = title;
+            owner._itemDetail = detail;
+            owner._itemTags = tags;
+            owner._lastDescription = null;
+            owner._nextRefresh = 0;
+        }
+    }
 
     public void Update()
     {
@@ -76,7 +100,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             if (_language != language)
             {
                 _language = language;
-                _itemDetail = null;
+                ClearItemDetail();
                 _lastDescription = null;
                 _board?.Hide();
                 _candidateCards.Hide();
@@ -141,12 +165,13 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 new Vector2(.70f, .89f), new Vector2(.82f, .98f), UpdateBuilds);
             var closeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"),
                 new Vector2(.85f, .89f), new Vector2(.97f, .98f), () => SetOpen(false));
+            const float candidateStep = (LeftMax - LeftMin) / 10;
             for (var slot = 0; slot < 10; slot++)
             {
                 var captured = slot;
-                var left = .03f + slot * .095f;
+                var left = LeftMin + slot * candidateStep;
                 var button = NativeUi.Button(_panel, font, string.Empty,
-                    new Vector2(left, .68f), new Vector2(left + .085f, .86f),
+                    new Vector2(left, .64f), new Vector2(left + candidateStep * .92f, .86f),
                     () => ToggleCandidate(captured));
                 var label = button.GetComponentInChildren<TextMeshProUGUI>();
                 label.fontSize = 25;
@@ -172,19 +197,30 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 button.gameObject.SetActive(false);
                 _candidateButtons.Add(button);
             }
-            _boardHost = NativeUi.Rect("BPP.RecommendedBoard", _panel,
-                new Vector2(.03f, .36f), new Vector2(.97f, .65f));
-            _board = new AndroidBuildBoard(_boardHost, ShowItemDetail);
             _previousBuildButton = NativeUi.Button(_panel, font, "‹",
-                new Vector2(.03f, .31f), new Vector2(.15f, .36f), PreviousBuild);
+                new Vector2(LeftMin, .54f), new Vector2(LeftMin + .08f, .61f), PreviousBuild);
             _buildPosition = NativeUi.Label(NativeUi.Rect("BPP.BuildPosition", _panel,
-                new Vector2(.16f, .31f), new Vector2(.84f, .36f)), font, string.Empty, 25);
+                new Vector2(LeftMin + .09f, .54f), new Vector2(LeftMax - .09f, .61f)), font, string.Empty, 26);
             _nextBuildButton = NativeUi.Button(_panel, font, "›",
-                new Vector2(.85f, .31f), new Vector2(.97f, .36f), NextBuild);
+                new Vector2(LeftMax - .08f, .54f), new Vector2(LeftMax, .61f), NextBuild);
+            // A transparent area, not the panel-framed root, so only the compact row is decorated.
+            var boardArea = NativeUi.Rect("BPP.RecommendedBoardArea", _panel,
+                new Vector2(LeftMin, .06f), new Vector2(LeftMax, .52f));
+            _boardHint = NativeUi.Label(boardArea, font, string.Empty, 26);
+            _boardHint.color = new Color(.66f, .62f, .56f, 1);
+            _boardHost = NativeUi.Rect("BPP.RecommendedBoard", boardArea, new Vector2(0, .3f), Vector2.one);
+            _board = new AndroidBuildBoard(_boardHost, new DetailSink(this).Accept);
             (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font,
-                new Vector2(.03f, .04f), new Vector2(.97f, .30f));
-            _text.fontSize = 29;
+                new Vector2(RightMin, .03f), new Vector2(RightMax, .86f));
+            _text.fontSize = 24;
             _text.enableAutoSizing = false;
+            _detailText = NativeUi.Label(_content!, font, string.Empty, 24);
+            _detailText.alignment = TextAlignmentOptions.TopLeft;
+            _detailText.overflowMode = TextOverflowModes.Overflow;
+            _detailText.enableAutoSizing = false;
+            _detailText.gameObject.SetActive(false);
+            _tagFrame = NativeUi.Rect("BPP.BuildItemTags", _content!, new Vector2(0, 1), Vector2.one);
+            _tagFrame.gameObject.SetActive(false);
             if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
             foreach (var button in new[]
             {
@@ -216,7 +252,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             var message = NativeUi.Text("Build data is loading or no run is active.", "构筑数据加载中，或当前没有对局。");
             if (_manualUpdate?.IsCompleted == false)
                 message += "\n" + NativeUi.Text("Updating build data...", "正在更新阵容数据…");
-            Show(message);
+            ClearItemDetail();
+            if (_boardHint != null) _boardHint.text = message;
+            Show(Colored(Muted, message));
             return;
         }
 
@@ -269,7 +307,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 (match.Build.Id != matches[index].Build.Id || match.LiveStateScore != matches[index].LiveStateScore ||
                  match.MatchedCards != matches[index].MatchedCards)).Any();
         _matches = matches;
-        if (changed) { _buildIndex = 0; _itemDetail = null; }
+        if (changed) { _buildIndex = 0; ClearItemDetail(); }
         if (_buildIndex >= matches.Length) _buildIndex = 0;
         var chosen = matches.Length > 0 ? matches[_buildIndex] : null;
         _board?.Show(chosen?.Build);
@@ -277,59 +315,84 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (_previousBuildButton != null) _previousBuildButton.gameObject.SetActive(chosen != null);
         if (_nextBuildButton != null) _nextBuildButton.gameObject.SetActive(chosen != null);
         if (_buildPosition != null) _buildPosition.gameObject.SetActive(chosen != null);
-        if (_scroll != null)
-            _scroll.GetComponent<RectTransform>().anchorMax =
-                new Vector2(.97f, chosen == null ? .66f : .30f);
         if (_buildPosition != null) _buildPosition.text = matches.Length == 0 ? string.Empty :
-            $"{_buildIndex + 1}/{matches.Length} · {NativeUi.Text("Matched", "匹配")} " +
+            $"{NativeUi.Text("Build", "推荐阵容")} {_buildIndex + 1}/{matches.Length} · {NativeUi.Text("Matched", "匹配")} " +
             $"{chosen!.MatchedCards}/{_selectedCandidates.Count}";
         if (_previousBuildButton != null) _previousBuildButton.interactable = matches.Length > 1;
         if (_nextBuildButton != null) _nextBuildButton.interactable = matches.Length > 1;
-        var lines = new List<string>
-        {
-            $"<b>{TheBazaar.Utilities.LocalizableShared.GetLocalizedHero(player.Hero)}</b> · {NativeUi.Text("Board/Stash/Shop", "场上／仓库／商店")} " +
-            $"{board.Count}/{stash.Count}/{shop.Count} · " +
-            $"{NativeUi.Text("Candidates", "候选")} {_selectedCandidates.Count} · " +
-            $"{NativeUi.Text("Data generated", "数据生成于")} {corpus.GeneratedAt:yyyy-MM-dd} · " +
-            $"{NativeUi.Text("Statistics through", "统计至")} {corpus.WindowEnd:yyyy-MM-dd}"
-        };
-        if (_manualUpdate?.IsCompleted == false)
-            lines.Add(NativeUi.Text("Updating build data...", "正在更新阵容数据…"));
-        else if (Plugin.BuildRepository?.LastOnlineFailure is "rejected")
-            lines.Add(NativeUi.Text("Online update was not adopted; showing local data.",
-                "在线更新未采用，仍显示本地数据"));
-        else if (Plugin.BuildRepository?.LastOnlineFailure is "failed")
-            lines.Add(NativeUi.Text("Online update failed; showing local data.",
-                "在线更新失败，仍显示本地数据"));
+
+        string? guidance = null;
         if (board.Count + stash.Count + shop.Count == 0)
-            lines.Add(NativeUi.Text("No items are available to select.", "目前没有可选择的物品。"));
+            guidance = NativeUi.Text("No items are available to select.", "目前没有可选择的物品。");
         else if (_selectedCandidates.Count == 0)
-            lines.Add(NativeUi.Text("Tap a card above to select a candidate.", "点击上方物品，选择用于查询的候选卡。"));
+            guidance = NativeUi.Text("Tap a card above to select a candidate.", "点击上方物品，选择用于查询的候选卡。");
         else if (corpus.CountForHero(hero) == 0)
-            lines.Add(NativeUi.Text("No ten-win build data is available for this hero yet.",
-                "当前构筑库尚无该英雄的十胜数据。"));
+            guidance = NativeUi.Text("No ten-win build data is available for this hero yet.",
+                "当前构筑库尚无该英雄的十胜数据。");
         else if (matches.Length == 0)
-            lines.Add(NativeUi.Text("No matching ten-win builds in the current data.", "当前数据中没有匹配的十胜构筑。"));
+            guidance = NativeUi.Text("No matching ten-win builds in the current data.", "当前数据中没有匹配的十胜构筑。");
+        if (_boardHint != null) _boardHint.text = chosen == null ? guidance ?? string.Empty : string.Empty;
+
+        var body = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_itemDetail)) body.Add(_itemDetail + "\n");
         if (chosen != null)
         {
             var build = chosen.Build;
-            if (!string.IsNullOrWhiteSpace(_itemDetail))
-                lines.Add("\n" + _itemDetail);
-            lines.Add($"\n<b>#{_buildIndex + 1} · {NativeUi.Text("Matched", "匹配")} {chosen.MatchedCards}/{_selectedCandidates.Count} " +
-                $"· {NativeUi.Text("Ten-win runs", "十胜场次")} {build.TenWinRuns} " +
-                $"· {build.TenWinRateBps / 100.0:0.#}%</b>");
-            foreach (var item in build.Items.OrderBy(value => value.Slot))
-            {
-                var name = ResolveName(item.TemplateId);
-                var owned = board.Contains(item.TemplateId) ? NativeUi.Text("Board", "场上")
-                    : stash.Contains(item.TemplateId) ? NativeUi.Text("Stash", "仓库")
-                    : shop.Contains(item.TemplateId) ? NativeUi.Text("Shop", "商店")
-                    : NativeUi.Text("Missing", "未拥有");
-                lines.Add($"{item.Slot + 1:00} · {name} · {owned} · {item.Tier} " +
-                    (string.IsNullOrWhiteSpace(item.Enchantment) ? string.Empty : $"· {item.Enchantment}"));
-            }
+            body.Add(Heading($"{NativeUi.Text("Build", "推荐阵容")} #{_buildIndex + 1}"));
+            body.Add(Colored(Muted, $"{NativeUi.Text("Matched", "匹配")} {chosen.MatchedCards}/{_selectedCandidates.Count}" +
+                $" · {NativeUi.Text("Ten-win runs", "十胜场次")} {build.TenWinRuns}" +
+                $" · {build.TenWinRateBps / 100.0:0.#}%"));
+            body.Add("<line-height=135%>" + string.Join("\n", build.Items.OrderBy(value => value.Slot)
+                .Select(item => BuildItemLine(item, board, stash, shop))) + "</line-height>");
         }
-        Show(string.Join("\n", lines));
+        else if (guidance != null) body.Add(Colored(Muted, guidance));
+
+        var status = new List<string>
+        {
+            $"{TheBazaar.Utilities.LocalizableShared.GetLocalizedHero(player.Hero)} · " +
+            $"{NativeUi.Text("Board/Stash/Shop", "场上／仓库／商店")} {board.Count}/{stash.Count}/{shop.Count} · " +
+            $"{NativeUi.Text("Candidates", "候选")} {_selectedCandidates.Count}",
+            $"{NativeUi.Text("Data generated", "数据生成于")} {corpus.GeneratedAt:yyyy-MM-dd} · " +
+            $"{NativeUi.Text("Statistics through", "统计至")} {corpus.WindowEnd:yyyy-MM-dd}",
+        };
+        if (_manualUpdate?.IsCompleted == false)
+            status.Add(NativeUi.Text("Updating build data...", "正在更新阵容数据…"));
+        else if (Plugin.BuildRepository?.LastOnlineFailure is "rejected")
+            status.Add(NativeUi.Text("Online update was not adopted; showing local data.",
+                "在线更新未采用，仍显示本地数据"));
+        else if (Plugin.BuildRepository?.LastOnlineFailure is "failed")
+            status.Add(NativeUi.Text("Online update failed; showing local data.",
+                "在线更新失败，仍显示本地数据"));
+        body.Add($"\n<size=20>{Colored(Faint, string.Join("\n", status))}</size>");
+        Show(string.Join("\n", body));
+    }
+
+    private static string BuildItemLine(AndroidBuildItem item, HashSet<Guid> board, HashSet<Guid> stash, HashSet<Guid> shop)
+    {
+        // The analyzer stores tiers as 1..5; native ETier uses 0..4.
+        var tier = (ETier)(item.Tier - 1);
+        var tierColor = CollectionTierTooltipTextMerger.TierColorHex(tier);
+        var (ownedColor, owned) = board.Contains(item.TemplateId) ? ("8FE39A", NativeUi.Text("Board", "场上"))
+            : stash.Contains(item.TemplateId) ? ("82B8FF", NativeUi.Text("Stash", "仓库"))
+            : shop.Contains(item.TemplateId) ? ("F0B65A", NativeUi.Text("Shop", "商店"))
+            : (Faint, NativeUi.Text("Missing", "未拥有"));
+        var line = $"{Colored(Faint, $"{item.Slot + 1:00}")}  <b>{Colored(tierColor, ResolveName(item.TemplateId))}</b>" +
+            $"  <size=20>{Colored(tierColor, CollectionController.TierName(tier))}";
+        if (Enum.TryParse<EEnchantmentType>(item.Enchantment, true, out var enchantment))
+            line += " " + Colored(ItemEnchantPreviewPalette.GetEnchantmentColorHex(enchantment),
+                new TheBazaar.Utilities.LocalizableText(enchantment.ToString()).GetLocalizedText());
+        return line + $" · {Colored(ownedColor, owned)}</size>";
+    }
+
+    private static string Heading(string text) => $"<size=28><b>{Colored(Gold, text)}</b></size>";
+
+    private static string Colored(string hex, string text) => $"<color=#{hex}>{text}</color>";
+
+    private void ClearItemDetail()
+    {
+        _itemTitle = null;
+        _itemDetail = null;
+        _itemTags = Array.Empty<string>();
     }
 
     private void UpdateBuilds()
@@ -398,7 +461,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (slot < 0 || index >= candidates.Count) return;
         var id = candidates[index].Id;
         if (!_selectedCandidates.Add(id)) _selectedCandidates.Remove(id);
-        _itemDetail = null;
+        ClearItemDetail();
         _nextRefresh = 0;
     }
 
@@ -429,7 +492,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     {
         if (_matches.Length < 2) return;
         _buildIndex = (_buildIndex + _matches.Length - 1) % _matches.Length;
-        _itemDetail = null;
+        ClearItemDetail();
         _lastDescription = null;
         _nextRefresh = 0;
     }
@@ -438,26 +501,47 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     {
         if (_matches.Length < 2) return;
         _buildIndex = (_buildIndex + 1) % _matches.Length;
-        _itemDetail = null;
+        ClearItemDetail();
         _lastDescription = null;
         _nextRefresh = 0;
     }
 
-    private void ShowItemDetail(string detail)
+    // Item title, then its tag chips, then the body (item description, build and status).
+    private void Show(string body)
     {
-        _itemDetail = detail;
-        _lastDescription = null;
-        _nextRefresh = 0;
-    }
-
-    private void Show(string description)
-    {
-        if (_text == null || _content == null || _scroll == null) return;
-        if (_lastDescription == description) return;
-        _lastDescription = description;
-        NativeUi.RichDescription(_text, description);
-        var height = _text.GetPreferredValues(description, 1650f, 0).y + 40;
-        _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(height, 820));
+        if (_text == null || _content == null || _scroll == null || _detailText == null) return;
+        var title = string.IsNullOrWhiteSpace(_itemTitle) ? string.Empty
+            : $"<size=30><b>{Colored(Gold, _itemTitle!)}</b></size>";
+        var key = title + "\u0001" + string.Join("\u0002", _itemTags) + "\u0001" + body;
+        if (_lastDescription == key) return;
+        _lastDescription = key;
+        // The panel may have been activated this frame, before its first layout pass.
+        if (_scroll.viewport.rect.width <= 1) Canvas.ForceUpdateCanvases();
+        var viewport = _scroll.viewport.rect;
+        var textWidth = Mathf.Max(100, viewport.width - 24);
+        NativeUi.RichDescription(_text, title);
+        _text.gameObject.SetActive(title.Length > 0);
+        var top = title.Length > 0 ? _text.GetPreferredValues(title, textWidth, 0).y + 16 : 10;
+        if (_tagFrame != null)
+        {
+            var tagHeight = AndroidCardTagChips.Render(_tagFrame, _text,
+                title.Length > 0 ? _itemTags : Array.Empty<string>(), viewport.width);
+            if (tagHeight > 0)
+            {
+                _tagFrame.anchorMin = new Vector2(0, 1);
+                _tagFrame.anchorMax = Vector2.one;
+                _tagFrame.offsetMin = new Vector2(0, -top - tagHeight);
+                _tagFrame.offsetMax = new Vector2(0, -top);
+                top += tagHeight + 4;
+            }
+        }
+        NativeUi.RichDescription(_detailText, body);
+        _detailText.gameObject.SetActive(true);
+        var bodyRect = _detailText.GetComponent<RectTransform>();
+        bodyRect.offsetMin = new Vector2(12, 6);
+        bodyRect.offsetMax = new Vector2(-12, -top);
+        var height = top + _detailText.GetPreferredValues(body, textWidth, 0).y + 24;
+        _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(height, viewport.height));
         _scroll.verticalNormalizedPosition = 1;
     }
 
@@ -479,7 +563,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _nextRefresh = 0;
             _lastDescription = null;
             _selectedCandidates.Clear();
-            _itemDetail = null;
+            ClearItemDetail();
             _source = CandidateSource.Board;
             _candidatePage = 0;
         }

@@ -1,5 +1,191 @@
 # Android 真机验证
 
+## 构筑页左右分栏与紧凑阵容（2026-11-07，双输入模式真机通过）
+
+`AndroidBuildPanelController.BuildUi` 将候选、阵容切换与推荐阵容放在左栏，
+`BPP.Description` 详情列放在右栏；`AndroidBuildBoard.Layout` 按原生卡牌根宽 260、
+框高 518.5 的比例排布一行，`AndroidBuildBoard.Show` 以当前模板体型计算跨格，
+`NativePreviewTooltips.Suppress` 关闭阵容卡原生提示。设备 `OBJVWSPNSCFQU48L`
+（22041216C／Android 14），游戏 `1.0.13084-production-android-4670b82d`，2460×1080 横屏，
+中文，原有 Vanessa 休闲对局，从主界面「普通 → 就绪」回到对局。改动前日志可见点击阵容卡
+`b02a2b57-…` 后出现 `android.tooltip.observed` 与 `android.enchant_preview.rendered`。
+
+插件 Release 零警告／零错误；25 项 Android Python 回归（需 PATH 含 .NET 与 JDK）及构筑语料测试通过。
+签名启动器 `0.3.0` 覆盖安装，新会话 `7e8cf1cc-aec8-407d-aa79-1e757d32b7ce` 的确认文件与设备插件
+SHA-256 同为 `02019672eb84104b44b9db3337b15b8a35cbe01693746f6203206de8a8106428`。
+单独 push DLL 会在启动器准备阶段被内置插件覆盖，真机验证须安装对应 APK。
+
+截图人工复核：第一套阵容的「沉眠元初体」语料记录为 2 格、当前模板为大型，日志记录
+`android.build_board.native_span recorded=2 native=3`，整行按 11 格显示且各卡同比例；
+第二套十件小型物品紧密排列。高级模式点击章鱼、獠牙、手斧、展品柜，标准模式点击三件物品，
+右栏依次显示物品标题、词条与效果，附魔物品标题合并为一行（「致命 展品柜」），
+两模式日志均无 `tooltip.observed`／`enchant_preview.rendered`，无 `build_panel.failed`／`card_failed`。
+切换阵容后清除旧物品详情；关闭重开恢复未选候选与左栏提示。图鉴「刺刀」详情词条单行显示。
+测试后输入模式恢复为高级模式。未验证 16:9 等其他比例、英文显示及断网状态。
+
+证据在忽略目录 `bazaarplusplus-android/artifacts/build-ui/`：`before.png`、`panel-open.png`、
+`panel3.png`、`panel4.png`、`tap-cabinet.png`、`next-build.png`、`reopened.png`、
+`standard-panel.png`、`collection-detail.png`、`plugin-run1.log`、`plugin-run3.log`、
+`plugin-run3-standard.log`。
+
+## 图鉴词条筛选与详情展示（2026-11-06，中文真机通过）
+
+`CollectionController.ChooseTag` 按当前分类列出目录中实际存在的玩家可见公开词条，
+交由共享 `CollectionFilterEngine.Apply` 与其余条件求交；重置时清除词条。
+`AndroidCardTagText.Append` 在图鉴与推荐构筑物品详情顶部显示模板公开词条，
+标签文字取游戏当前语言的字符串表。使用另一工作树缓存的固定 .NET SDK 与
+当前 Android 生成代理构建插件 Release，零警告／零错误；25 项 Android Python 回归通过。
+同签名启动器 `0.3.0` 的 APK v2 签名验证通过并覆盖安装。设备
+`OBJVWSPNSCFQU48L`（22041216C／Android 14），游戏
+`1.0.13084-production-android-4670b82d`，2460×1080 横屏，中文，
+原有 Vanessa 休闲对局。新会话 `6a95d0a8-7227-45c7-9524-3ac3e0fb9dca`
+的 12 项加载与摘要断言均通过；设备与构建插件 SHA-256 同为
+`72338fbf3e3fa1aeae022fd711f7ae9511e66a27dd0e446568b08daf6ca2626b`，
+APK SHA-256 为 `e21676920ecd353bf973eae6b842632124e0cf3fbf2243e9c6915e61f466b382`。
+
+图鉴目录载入 `1883` 张卡。当前英雄物品从 `141` 张分别筛为伙伴 `26`、
+工具 `23`、地产 `11`、科技 `15`、武器 `62`、乐器 `1`；截图人工复核下拉文字、
+选中词条、卡图与页码，日志记录筛选张数。点击“三花”，右侧详情显示
+「词条：伙伴 · 武器」与原有效果。重置筛选后词条恢复「全部」，切换技能页显示
+`527` 张且体型条件隐藏。用户随后在已有对局中确认推荐构筑物品详情的词条展示通过；
+当前会话日志记录两次 `android.build_board.card_selected`。本次未切换英文或标准输入模式，
+也未对六类筛选结果逐卡比对全部模板。
+
+证据在忽略目录 `bazaarplusplus-android/artifacts/phone/`：
+`tags-verification/verification.json`、`tags-picker.png`、
+`tags-friend-results.png`、`tags-friend-detail.png`、
+`tags-tool-results.png`、`tags-property-results.png`、
+`tags-tech-results.png`、`tags-weapon-results.png`、
+`tags-instrument-results.png`、`tags-skills-after-reset.png`、
+`tags-build-detail-user-confirmed.png`、`tags-final-session.log`。
+
+## 事件预览按玩家英雄筛选（2026-11-06，高级模式部分通过）
+
+`AndroidEventPreview` 使用当前对局英雄筛选遭遇模板 `Heroes`、英雄限定的选项组和商人供货池；
+英雄未知时保留原候选。`verify_encounter_preview.py` 按启动器清单读取当前插件日志目录。
+设备 `OBJVWSPNSCFQU48L`（22041216C／Android 14），游戏
+`1.0.13084-production-android-4670b82d`，启动器 `0.3.0`，当前对局英雄 Vanessa，
+2460×1080 横屏。新插件 Release 编译零警告、零错误，25 项 Android Python 回归通过。
+签名 APK SHA-256 为 `a035cf2db6cea5d34109614f2eac7ab3385d267217ed2257d7a558c779cda135`；
+安装后设备插件 SHA-256 为 `55dc8f35ea09ce21cdf82303f99a39b3fa5a762e330efa37c9a9cc5ef2f3f87b`。
+
+在三选一界面长按第 1 天商人“杰杰”，日志记录 `hero=Vanessa shown=1 filtered=8`，
+最终预览长度 30 字符；截图仅显示“第 1 天：青铜 100% 物品”。
+随后在另一个三选一界面，以当前高级操作模式长按中间普通事件“草草小怪兽”
+（坐标 1228,347），日志记录 `merchant=False hero=Vanessa characters=1075`。
+按住时截图可见原生事件说明及“选项、条件与奖励”，松开后回到原三选一界面。
+脚本确认同一日志会话、预览渲染、本次操作无网络命令、无状态切换且无预览异常；
+截图经人工复核。该事件的通用条件选项仍使提示文字超出屏幕，尚未解决长内容布局。
+本次长按验证未选择事件；未验证其他英雄、标准模式或其他复杂普通事件。
+
+证据位于忽略目录 `bazaarplusplus-android/artifacts/phone/` 的
+`event-hero-v030-jj-holding.png`、`event-hero-v030-jj.log`、
+`event-hero-v030-middle-advanced-before.png`、
+`event-hero-v030-middle-advanced-holding.png`、
+`event-hero-v030-middle-advanced-released.png`、
+`event-hero-v030-middle-advanced.json` 与同名前缀的 `.log`。
+
+## 野怪预览常驻生命值（2026-11-05，双输入模式真机通过）
+
+`AndroidMonsterCardGallery.Show` 在默认卡图视图上方显示野怪模板的 `HealthMax`，
+沿用 `AndroidMonsterPreview.Build` 的数值来源；字段缺失时隐藏生命值行。
+面板为文字留出独立高度，点击卡牌展开说明时继续显示血量。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C／Android 14），官方游戏
+`1.0.13084-production-android-4670b82d`，2460×1080 横屏。测试前为已有的休闲对局，
+高级输入模式。根据当前设备生成的 interop 完成插件 Release 编译（0 警告、0 错误）；
+25 项 Python 离线测试通过。使用签名 `0.3.0` 测试 APK 覆盖安装，
+APK SHA-256 为 `9e076de5bd1e1c7ada8b010bf1f251a99c1c4710ee2fb482c394a33117e80875`，
+`apksigner` 确认 `Verifies`、v2=true、`CN=BazaarPlusPlus Android Test`。
+新会话的 12 项加载／内置与设备 DLL 摘要检查全部通过，插件 SHA-256 为
+`6b8ea70431f8f58d65e3de05700daae41db01e1e8e44138475b9f60c708ac60d`。
+
+从原对局继续后选择宝箱取得 5 金币，到达三只野怪的选择画面。
+高级模式长按毒蛇：卡图及技能加载后，浮层常驻显示「生命值：75」；
+点击物品卡展开说明，血量仍在上方，× 关闭后可长按獠牙英格狼，显示「生命值：100」。
+切换到标准模式后，长按毒蛇同样显示「生命值：75」，与游戏原生血条的 75 一致。
+截图经人工复核，日志记录对应 `android.monster_preview.rendered`、
+`android.monster_gallery.started`、五张卡 `card_ready` 及物品 `card_selected`，
+未见野怪预览失败或新增原生崩溃。标准模式的单击只打开原生侧栏，长按才显示附加浮层。
+验证结束恢复高级输入模式，关闭预览并停在选怪画面；未选择野怪或进入战斗。
+
+证据在忽略目录 `bazaarplusplus-android/artifacts/launcher/` 的
+`monster-health-verification/verification.json`、`monster-health-viper.png`、
+`monster-health-wolf.png`、`monster-health-detail.png`、
+`monster-health-standard-longpress.png` 与 `monster-health-final-screen.png`；
+插件日志、`logcat` 摘要及离线测试输出在忽略目录
+`bazaarplusplus-android/artifacts/monster-health/`。
+无生命值模板、无物品／技能野怪、多行阵容和其他屏幕比例仍待专项验证。
+
+## 游戏 13084 历史卡图材质接口修复（2026-11-05）
+
+设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14），官方游戏
+`1.0.13084-production-android-4670b82d`；测试前为已登录的休闲对局，
+启动器身份与签名沿用现有 `0.3.0`。旧插件的 `AndroidHistoryArtwork.Update` 每帧
+调用 `CardAssetDataSO.get_cardMaterial()`，修复前进程的 `logcat` 反复出现
+`MissingMethodException`。设备上的 `TheBazaarRuntime.dll` 仍是 2026-10-20 生成的旧代理；
+从当前游戏 APK 读取的 IL2CPP 元数据含 `cardMaterialReference`，不含旧 getter。
+
+历史图片导出改为通过运行时字段 `cardMaterialReference` 异步加载材质，再读取纹理，
+不再直接引用旧 getter。用设备代理进行插件 Release 构建，零警告、零错误；
+历史图片读写测试通过。签名 APK SHA-256 为
+`17b22e3470a10e2181c0ffa7c03ef2a2b49ef7c0b6463927f86d27bcfd9c7ce5`，
+`apksigner` 验证通过、v2=true、证书为 `CN=BazaarPlusPlus Android Test`。
+`adb install --no-streaming -r` 覆盖安装后从启动器启动，12 项当前会话与插件摘要检查通过。
+进入原有对局后，当前新进程日志记录 196 次 `history.art.saved key=card-...`，
+未出现 `get_cardMaterial`、`history.art.unavailable` 或 IL2CPP trampoline 异常。
+设备缓存中有 1011 张卡图，抽取其中一张确认为可解码的 384×384 PNG 并人工查看内容正常。
+未逐张核对全部卡图与历史页面展示，也未验证其他 Android 设备。
+证据位于忽略目录 `artifacts/card-material-13084/` 的 `verify/verification.json`、
+`logcat-current.txt`、`game.png` 和 `sample-card.png`。
+
+## 游戏 13084 的 Unity 依赖更新与启动复测（2026-11-05）
+
+设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14），官方游戏
+`1.0.13084-production-android-4670b82d`。从 Unity 官方 Android 支持包
+`6000.3.27f2` 提取 ARM64 `libunity.so`、`libunity.sym.so` 和 77 个 Managed DLL，
+官方包 MD5 `8c96704ee4727354cb92382b8c74a68f` 校验通过；三个内置依赖的大小
+和 SHA-256 固定于 `launcher/compatibility.json`。此版本尚无 FusionCore 依赖发布附件，
+构建使用本机已校验缓存，不宣称可从清单中的单文件 URL 下载。
+
+8 项启动器离线测试通过，Gradle `assembleRelease` 和 Lint 通过；签名报告为
+`Verifies`、v2=true、`CN=BazaarPlusPlus Android Test`。首次 ADB 流式覆盖安装被
+MIUI 取消，改用 `adb install --no-streaming -r` 成功。点按「重试初始化」后，
+游戏越过旧版 `Invalid serialized file version` 故障，进入官方游戏登录页，
+左侧插件入口可见。`verify_launcher.py --expect-loaded` 的当前会话、插件版本、
+摘要、加载事件和代理存在性检查均通过。未登录、创建账号或开始对局。
+最终清单重建包 SHA-256 为
+`243cfa71ba98207e5d22978e74b635be83e43367b601f749b31b8a5916adc1a9`；
+再次覆盖安装后冷启动，全部 12 项当前会话检查通过，登录页及插件入口仍可见。
+
+日志仍反复出现 `CardAssetDataSO.get_cardMaterial()` 的 `MissingMethodException`。
+这说明当前插件中的历史图片读取逻辑与新版游戏接口不匹配；虽然可打开登录页，
+不能将全部插件功能记为通过。证据位于忽略目录
+`artifacts/unity-6000.3.27f2-validation/` 的 `game-final.png`、`logcat-final.txt`、
+`verify-final/verification.json`，以及 `artifacts/launcher/signing-report.txt`。
+
+## 游戏 13084 更新后临时移除启动器兼容拦截（2026-11-05，未进入游戏）
+
+设备 `OBJVWSPNSCFQU48L`（Redmi 22041216C，Android 14），官方游戏
+`1.0.13084-production-android-4670b82d`，测试前启动器在首页、游戏进程未运行。
+以已安装的 `0.3.0` 同签名身份构建并覆盖安装测试包；签名验证为 `Verifies`、v2=true，
+证书 `CN=BazaarPlusPlus Android Test`。APK SHA-256：
+`959544f2c3eb6dd1f2373e538830ca015ef114ecaae8ece9d7a5ae7c4e51ad25`。
+针对启动器执行 6 项离线测试通过，Gradle `assembleRelease` 与 Lint 通过。
+
+本次移除 `LauncherRelease.check` 的游戏版本／ABI 拦截，以及 `LauncherPreparation.prepare` 的
+Unity 版本相等拦截；`LauncherActivity` 保留安装、授权与发行资源读取状态。
+首页对新版游戏显示「可以启动／启动游戏」。点按后进入 `BootstrapActivity`，完成资源准备并进入
+`StubActivity`；IL2CPP 代理生成完成，BepInEx Chainloader 初始化。随后弹出
+“Unable to initialize the Unity Engine”，未进入游戏大厅。`logcat` 明确报告：
+游戏为 Unity `6000.3.27f2`，内置 Unity 文件期望 `6000.3.11f1`，读取
+`globalgamemanagers` 时发生 `Invalid serialized file version`。因此本次仅验证绕过拦截的启动路径，
+**新版游戏启动失败，插件功能未验证**。当前包仍固定旧版 Unity 依赖；后续须更新并验证对应依赖。
+
+证据位于忽略目录 `artifacts/compatibility-bypass-13084/` 的 `after-launch.png`、
+`after-interop-2.png`、`launch-signals.log`，以及 `artifacts/launcher-apk-build.log`。
+测试未开始对局、操作账号或清除数据。本次启动失败，改动保持待验证，未作为已验收功能提交。
+
 ## 构筑推荐显示全部匹配阵容（2026-10-30，用户自测通过）
 
 `AndroidBuildPanelController.Refresh` 原先在 `AndroidBuildRepository.Find` 返回完整排序结果后调用 `Take(3)`，导致任一物品最多只能翻看三套阵容；桌面 `LiveBuildPanel.RefreshRecommendations` 没有此截断。现移除 Android 端限制，页码与左右按钮使用完整匹配集。内置 2026-10-26 快照按英雄统计，单件物品最多可对应 191–481 套阵容，故旧限制会隐藏大量有效结果。
@@ -2284,3 +2470,50 @@ Java 源码和中英文资源，排除 ARM64 `.so`，加入明确标记为 `emul
 离线：`HistoryArtCache` 文件策略 25 项通过。`python3 -m unittest discover -s bazaarplusplus-android/tests -v` 共 24 项，其中 23 项通过；`test_history_artwork.py` 因本机没有 `dotnet` 未能执行，该测试不是本次改动引入的失败。JDK 24 的 `:fusionApp:compileReleaseJavaWithJavac` 通过。隔离目录上的 `verify_history_store.py --reader` 118 项通过，覆盖购牌第一页导出、第一页之后不再导出，以及账号范围和启动器范围的保留集合；成功后测试目录已删除。证据在忽略目录 `artifacts/history-art/cache-cleanup/reader.json`。
 
 设置里的「清理缓存」、首页自动清理、清理后的历史页和购牌第一页显示，都还没有在正式启动器上操作，不能记为真机通过。切换英雄、时间或体型后的缺图提示也未看过。
+
+## 2026-11-06：详情词条统一为游戏内圆角标签（图鉴与构筑真机通过）
+
+`AndroidCardTagText.Labels` 从卡牌模板取得体型与公开词条并读取游戏当前语言；
+`AndroidCardTagChips.Render` 统一绘制深紫色圆角底、浅蓝文字和自动换行。
+图鉴详情、推荐构筑物品详情、野怪物品及技能详情复用该绘制器；
+词条行位于物品说明前并属于同一滚动内容。没有标签的技能只显示原说明。
+
+使用固定框架与 Android 生成互操作程序集运行 `build_probe.py --mod`，插件、加载探针和运行时探针
+均零警告／零错误；25 项 Python 回归通过。设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14）
+覆盖安装包含新插件的签名 APK 后，`verify_launcher.py --expect-loaded` 的 12 项会话及摘要断言全部为真。
+当前中文横屏对局中，图鉴点击物品后显示「中型」「武器」圆角标签，说明从标签下方开始；
+选择构筑候选并点击推荐阵容物品后，同样显示「中型」「武器」标签，位置在状态文字与物品说明之间，未遮挡标题。
+截图、验证 JSON 和构建日志保存在忽略目录 `artifacts/tag-style/`、
+`artifacts/tag-style-mod-build.log`、`artifacts/tag-style-apk-build.log`。
+野怪详情需要进入相应遭遇，未在本次现有对局阶段触发；长词条换行、滚动末尾、英文及标准输入模式仍待真机验证。
+用户于 2026-11-06 确认本次词条样式真机验证通过；上述未逐项记录的边界场景仍保留为待扩大验证。
+
+## 2026-11-06：野怪浮层透明背景、原生血条并删除说明区（高级模式真机通过）
+
+参考 Android README／功能清单、本文件按住预览与野怪保留记录、桌面 previews／input-and-settings 架构文档，
+以及手机版生成代理 `HealthBarController`（`BarParent`、`HealthBar`、`HealthNumber`）。
+`AndroidMonsterHealthBar` 在非激活暂存节点下克隆原生血条的可见部件，去除脚本与碰撞体，
+使用独立材质副本并按浮层宽度拉伸；找不到原生血条时退回自绘绿色血条。浮层背景对野怪透明，
+物品／事件附加预览保留原深色背景。用户确认标准模式已原生显示野怪阵容后，
+`AndroidTooltipObserver` 仅在高级输入模式观察野怪，退出高级模式时清理浮层；
+删除 `AndroidMonsterCardGallery` 的点击说明区及其词条渲染。
+按住预览命中浮层内卡牌时 `AndroidHoldPreview.TargetInFocusPanel` 为真，野怪浮层不再因新目标被清理。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14，2460×1080），游戏 `1.0.13084-production-android-4670b82d`，
+高级输入模式；从大厅「普通」继续既有对局的野怪选择画面，未选择野怪、购买或推进战斗，未验证标准模式（用户要求跳过）。
+插件零警告／零错误构建、25 项 Python 回归通过；签名 APK v2 校验通过，内置 DLL 与本次构建一致，
+覆盖安装后从启动器进入，`bpp-launch-loaded.json` 与磁盘插件 SHA-256 均为
+`7515a592cb5674460e444866d9bebb34dd2fc356d46e230694ddd00e674c9e34`。
+
+- Boarrior 浮层日志 `android.monster_health_bar.rendered source=native health=350`，7 物品＋1 技能卡图就绪；
+  截图人工复核透明背景、原生样式血条与数字。单击面板卡牌无说明区弹出，也无选择或命令日志。
+- `final-hold-gallery/`：按住中依次查看面板内第一、二张物品，13 项断言全部为真，含两目标均显示、
+  松手后 `monster_preview.retained_after_hold`、无对局命令／状态转换／错误及崩溃缓冲区不变。
+  修复前同一路径的 `hold-gallery/` 显示原生详情后浮层被清理并换成物品附魔预览，未计通过。
+- `hold-switch/`：按住中改点左侧野怪，浮层重建为 Rogue Scrapper（血条 300）并在松手后保留。
+  该次首个触点落在两张卡之间的空隙，射线穿过浮层背景命中棋盘 `PassthroughBlocker`，记为坐标误差；
+  定位用的临时诊断日志已删除，最终构建与诊断前构建摘要一致。
+- × 关闭、重新打开及点空白关闭通过，`final-closed.png`、`final-reopen.png`、`final-blank.png` 为人工复核。
+
+证据在忽略目录 `artifacts/monster-ui-polish/`。技能卡的原生详情、无生命值野怪的自绘回退、多行阵容、
+标准模式禁用及英文显示未在本轮真机验证。

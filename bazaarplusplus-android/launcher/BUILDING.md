@@ -9,11 +9,19 @@
 `../build_probe.py --help` 所述的插件构建；`build-inputs.json` 必须包含本次源码记录。
 
 `build_launcher.py::bundle_dependencies` 在构建时获取 `compatibility.json` 固定的 Unity 依赖，
-校验大小与 SHA-256 后一并写入 APK；手机初始化及修复仅提取内置资源。下载地址仍保留在
-发行清单中用于来源追溯，不作为运行时下载入口。默认依赖缓存位于被忽略的
+校验大小与 SHA-256 后一并写入 APK；手机初始化及修复仅提取内置资源。已有的单文件
+下载地址保留在发行清单中用于来源追溯，不作为运行时下载入口。默认依赖缓存位于被忽略的
 `artifacts/launcher-dependencies/`，也可通过 `--dependency-dir` 指定以 SHA-256 命名文件的缓存目录。
-缓存齐全可离线准备输入，缺失或损坏则重新获取；任何依赖无法校验都会终止构建。
+缓存齐全可离线准备输入；有单文件 URL 的依赖在缓存缺失时重新获取，其余依赖需先
+放入本地缓存。任何依赖无法校验都会终止构建。
 构建结束再次核对 APK 内框架、运行时、插件及全部 Unity 依赖的实际内容。
+
+游戏 13084 所需的 Unity `6000.3.27f2` 依赖目前从 Unity 官方 Android 支持包
+`compatibility.json.sourceArchive` 提取。该版本尚无 FusionCore.UnityDependencies 发布附件，
+因此本版本的三个依赖没有可直接下载的单文件 URL；构建前须将已校验的文件按 SHA-256
+命名放入 `artifacts/launcher-dependencies/`，缺少时构建会明确失败。当前工作机缓存
+已通过官方包的 MD5 及清单中每个依赖的大小、SHA-256 校验。`6000.3.27.zip`
+包含官方包 `Variations/il2cpp/Managed/` 下的 77 个 DLL，ZIP 根目录为 DLL 名称。
 
 需要 JDK、Android SDK、网络与 Gradle wrapper。Gradle 管理 Android 插件、NDK 和 CMake
 版本；SDK 必须接受相关许可。设置 `JAVA_HOME`、`ANDROID_HOME` 后，从仓库根运行：

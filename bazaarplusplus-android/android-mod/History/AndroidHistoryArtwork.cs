@@ -21,6 +21,7 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
     private Task<JsonElement>? _query;
     private Task? _write;
     private Il2CppSystem.Threading.Tasks.Task<UnityEngine.Object>? _asset;
+    private Il2CppSystem.Threading.Tasks.Task<Material>? _material;
     private Il2CppSystem.Threading.Tasks.Task<Texture2D>? _texture;
     private Il2CppSystem.Threading.Tasks.Task<Sprite>? _sprite;
     private AndroidHistoryFrameRender? _frame;
@@ -96,8 +97,13 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                     var cardData = asset.Result.TryCast<CardAssetDataSO>();
                     if (cardData != null)
                     {
-                        _directTexture = cardData.cardMaterial?.mainTexture;
-                        if (_directTexture == null) throw new InvalidOperationException("Card material has no main texture");
+                        var field = cardData.GetIl2CppType().GetField("cardMaterialReference",
+                            Il2CppSystem.Reflection.BindingFlags.Instance | Il2CppSystem.Reflection.BindingFlags.Public |
+                            Il2CppSystem.Reflection.BindingFlags.NonPublic);
+                        var reference = field?.GetValue(cardData)?.TryCast<UnityEngine.AddressableAssets.AssetReference>();
+                        if (reference == null) throw new InvalidOperationException("Card material reference unavailable");
+                        _material = loader.LoadAssetAsyncByReference<Material>(reference,
+                            NativeNullableValue.Box<AssetScope>(AssetScope.Global));
                     }
                     else
                     {
@@ -108,6 +114,14 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
                         { _directTexture = illustration.texture; _directRegion = illustration.textureRect; }
                         else throw new InvalidOperationException("Unsupported illustration asset: " + asset.Result.GetIl2CppType().FullName);
                     }
+                }
+                if (_material is { IsCompleted: true } materialTask)
+                {
+                    _material = null;
+                    if (materialTask.IsFaulted || materialTask.IsCanceled || materialTask.Result == null)
+                        throw new InvalidOperationException("Card material unavailable");
+                    _directTexture = materialTask.Result.mainTexture;
+                    if (_directTexture == null) throw new InvalidOperationException("Card material has no main texture");
                 }
                 Texture? texture = _directTexture; Rect? region = _directRegion;
                 if (_key.StartsWith("state-", StringComparison.Ordinal))
@@ -214,14 +228,14 @@ public sealed class AndroidHistoryArtwork(IntPtr pointer) : MonoBehaviour(pointe
             if (_directory == null) _nextFrame = Time.realtimeSinceStartup + 30;
             Retry(_key);
             _frame?.Dispose(); _frame = null;
-            _key = null; _asset = null; _texture = null; _sprite = null; _directTexture = null; _directRegion = null; _nextQuery = Time.realtimeSinceStartup + 30;
+            _key = null; _asset = null; _material = null; _texture = null; _sprite = null; _directTexture = null; _directRegion = null; _nextQuery = Time.realtimeSinceStartup + 30;
         }
     }
     private void Save(string key, byte[] bytes)
     {
         var directory = _directory!;
         _writingKey = key;
-        _key = null; _texture = null; _sprite = null; _directTexture = null; _directRegion = null;
+        _key = null; _material = null; _texture = null; _sprite = null; _directTexture = null; _directRegion = null;
         _write = Task.Run(() =>
         {
             HistoryArtworkDirectory.Write(directory, key, bytes);

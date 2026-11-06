@@ -84,10 +84,9 @@
     <string name="bpp_not_initialized">"Not initialized"</string>
     <string name="bpp_official_not_installed">"The official Bazaar game is not installed"</string>
     <string name="bpp_target_not_installed">"The selected game is no longer installed"</string>
-    <string name="bpp_compatibility_error_prefix">"Compatibility unverified: "</string>
+    <string name="bpp_environment_error_prefix">"Environment check failed: "</string>
     <string name="bpp_home_busy_title">"Preparing or game running"</string>
     <string name="bpp_home_install_title">"Install the game first"</string>
-    <string name="bpp_home_compatibility_title">"Compatibility needs confirmation"</string>
     <string name="bpp_home_access_title">"File access required"</string>
     <string name="bpp_home_retry_title">"Preparation needs a retry"</string>
     <string name="bpp_home_ready_title">"Ready to launch"</string>
@@ -95,12 +94,10 @@
     <string name="bpp_home_ready_hint">"The runtime is verified automatically at launch"</string>
     <string name="bpp_home_install_hint">"Install The Bazaar and check again, or choose another game in Settings"</string>
     <string name="bpp_home_select_hint">"Select a game again in Settings"</string>
-    <string name="bpp_home_compatibility_hint">"This version has not passed compatibility checks"</string>
     <string name="bpp_home_access_hint">"Grant access to prepare the runtime"</string>
     <string name="bpp_home_retry_hint">"Retry or repair the environment from Help"</string>
     <string name="bpp_home_busy_action">"Preparing or game still running"</string>
     <string name="bpp_home_install_action">"Installation help"</string>
-    <string name="bpp_home_compatibility_action">"Check compatibility"</string>
     <string name="bpp_home_access_action">"Grant access"</string>
     <string name="bpp_home_retry_action">"Retry preparation"</string>
     <string name="bpp_launch_game">"Launch game"</string>
@@ -148,7 +145,6 @@
     <string name="bpp_launch_interrupted">"Process exited while starting the game"</string>
     <string name="bpp_integrity_failed">"File integrity check failed. Please retry."</string>
     <string name="bpp_extraction_unreadable">"Cannot read extraction directory"</string>
-    <string name="bpp_unity_version_mismatch">"The game’s Unity version does not match the release manifest"</string>
     <string name="bpp_preparation_dependencies">"Preparing matching dependencies"</string>
     <string name="bpp_preparation_framework">"Preparing runtime framework"</string>
     <string name="bpp_framework_incomplete">"Runtime framework is incomplete"</string>
@@ -161,8 +157,6 @@
     <string name="bpp_plugin_unconfirmed">"Launched; loading is unconfirmed. Initial interop generation may take several minutes."</string>
     <string name="bpp_status_file_too_large">"Status file exceeds size limit"</string>
     <string name="bpp_manifest_unsupported">"Unsupported release manifest"</string>
-    <string name="bpp_game_version_unverified">"This game version has not been verified. Wait for a matching launcher release."</string>
-    <string name="bpp_game_abi_unsupported">"Only arm64 games with extracted native libraries are supported"</string>
     <string name="bpp_game_version_unknown">"Version unknown"</string>
     <string name="bpp_credit">"Based on the original %1$s"</string>
     <string name="bpp_custom_plugin">"Launching “%1$s” · Bundled plugin %2$s"</string>

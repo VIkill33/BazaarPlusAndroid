@@ -41,7 +41,7 @@ public final class LauncherActivity extends AppCompatActivity {
     private final ExecutorService checks = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean ART_SWEEP = new AtomicBoolean();
     private boolean visible;
-    private boolean supported;
+    private boolean releaseReady;
     private boolean installed;
     private String checkedPackage;
     private final Runnable refreshTask = new Runnable() {
@@ -207,7 +207,7 @@ public final class LauncherActivity extends AppCompatActivity {
         checks.execute(() -> {
             LauncherPreparation.noteInterruptedLoader(this);
             String message;
-            boolean found = false, compatible = false;
+            boolean found = false, readyToLaunch = false;
             String target = LauncherGames.selected(this);
             boolean official = LauncherRelease.GAME.equals(target);
             String saved = getSharedPreferences("launcher", 0).getString(LauncherGames.PREFERENCE, "");
@@ -219,9 +219,9 @@ public final class LauncherActivity extends AppCompatActivity {
             try {
                 JSONObject release = LauncherRelease.manifest(this);
                 LauncherRelease.game(this, target); found = true;
-                LauncherRelease.check(this, release, target); compatible = true;
                 message = (official ? getString(R.string.bpp_official_plugin_prefix) + release.getJSONObject("plugin").getString("version")
                         : getString(R.string.bpp_custom_plugin, label, release.getJSONObject("plugin").getString("version")));
+                readyToLaunch = true;
                 if (reverted) message += getString(R.string.bpp_target_reverted_note);
                 if (!authorized()) message += getString(R.string.bpp_file_access_note);
                 else {
@@ -237,36 +237,38 @@ public final class LauncherActivity extends AppCompatActivity {
                 if (reverted) message += getString(R.string.bpp_target_reverted_note);
             }
             catch (Exception error) {
-                message = getString(R.string.bpp_compatibility_error_prefix) + LauncherMessages.error(this, error.getMessage());
+                message = getString(R.string.bpp_environment_error_prefix) + LauncherMessages.error(this, error.getMessage());
                 LauncherLog.note(getFilesDir(), message);
             }
             final String finalMessage = message;
             final String finalTarget = target;
             final String finalLabel = label;
             final boolean finalOfficial = official;
-            final boolean finalFound = found, finalCompatible = compatible;
+            final boolean finalFound = found, finalReadyToLaunch = readyToLaunch;
             runOnUiThread(() -> {
                 refreshing = false;
                 if (isFinishing() || isDestroyed()) return;
                 refreshButton.setEnabled(true);
                 checkedPackage = finalTarget;
-                installed = finalFound; supported = finalCompatible;
+                installed = finalFound; releaseReady = finalReadyToLaunch;
                 status.setText(finalMessage);
                 boolean busy = LauncherPreparation.BUSY.get();
                 boolean access = authorized();
                 boolean failed = LauncherPreparation.failed(this);
-                boolean ready = installed && supported && access && !busy && !failed;
-                stateTitle.setText(busy ? getString(R.string.bpp_home_busy_title) : !installed ? getString(R.string.bpp_home_install_title) : !supported ? getString(R.string.bpp_home_compatibility_title) :
+                boolean ready = installed && releaseReady && access && !busy && !failed;
+                stateTitle.setText(busy ? getString(R.string.bpp_home_busy_title) : !installed ? getString(R.string.bpp_home_install_title) :
+                        !releaseReady ? getString(R.string.bpp_home_error_title) :
                         !access ? getString(R.string.bpp_home_access_title) : failed ? getString(R.string.bpp_home_retry_title) : getString(R.string.bpp_home_ready_title));
                 stateHint.setText(busy ? getString(R.string.bpp_home_busy_hint) : ready
                         ? (finalOfficial ? getString(R.string.bpp_home_ready_hint) : getString(R.string.bpp_custom_ready, finalLabel))
-                        : !installed ? (finalOfficial ? getString(R.string.bpp_home_install_hint) : getString(R.string.bpp_home_select_hint))
-                        : !supported ? getString(R.string.bpp_home_compatibility_hint) :
+                        : !installed ? (finalOfficial ? getString(R.string.bpp_home_install_hint) : getString(R.string.bpp_home_select_hint)) :
+                        !releaseReady ? getString(R.string.bpp_home_retry_hint) :
                         !access ? getString(R.string.bpp_home_access_hint) : getString(R.string.bpp_home_retry_hint));
                 stateIcon.setImageResource(ready ? R.drawable.bpp_check : R.drawable.bpp_help);
                 stateIcon.setImageTintList(ColorStateList.valueOf(getColor(ready ? R.color.bpp_success : R.color.bpp_accent)));
                 primary.setEnabled(!busy);
-                primary.setText(busy ? getString(R.string.bpp_home_busy_action) : !installed ? getString(R.string.bpp_home_install_action) : !supported ? getString(R.string.bpp_home_compatibility_action) :
+                primary.setText(busy ? getString(R.string.bpp_home_busy_action) : !installed ? getString(R.string.bpp_home_install_action) :
+                        !releaseReady ? getString(R.string.bpp_home_retry_action) :
                         !authorized() ? getString(R.string.bpp_home_access_action) : LauncherPreparation.failed(this) ? getString(R.string.bpp_home_retry_action) :
                         getString(R.string.bpp_launch_game));
             });
@@ -294,7 +296,7 @@ public final class LauncherActivity extends AppCompatActivity {
                     : getString(R.string.bpp_missing_target_instructions))
                     .setPositiveButton(getString(R.string.bpp_ok), null).show(); return;
         }
-        if (!supported) { refresh(); return; }
+        if (!releaseReady) { refresh(); return; }
         if (!authorized()) { requestAccess(); return; }
         try {
             if (new StatFs(getFilesDir().getPath()).getAvailableBytes() < 1024L * 1024 * 1024 ||

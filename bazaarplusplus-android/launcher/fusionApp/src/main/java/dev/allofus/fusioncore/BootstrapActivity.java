@@ -296,7 +296,6 @@ public class BootstrapActivity extends AppCompatActivity {
                                        ComponentName launcherComponent,
                                        String targetPackage) throws Exception {
 
-        LauncherRelease.check(appContext, LauncherRelease.manifest(appContext), targetPackage);
         String gameLibDir = gameContext.getApplicationInfo().nativeLibraryDir;
         String appLibDir = appContext.getApplicationInfo().nativeLibraryDir;
 

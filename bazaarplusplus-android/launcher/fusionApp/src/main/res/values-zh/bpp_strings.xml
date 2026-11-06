@@ -84,10 +84,9 @@
     <string name="bpp_not_initialized">"尚未初始化"</string>
     <string name="bpp_official_not_installed">"尚未安装正版大巴扎（The Bazaar）"</string>
     <string name="bpp_target_not_installed">"所选游戏已不在本机"</string>
-    <string name="bpp_compatibility_error_prefix">"兼容性待验证："</string>
+    <string name="bpp_environment_error_prefix">"环境检查失败："</string>
     <string name="bpp_home_busy_title">"准备中或游戏运行中"</string>
     <string name="bpp_home_install_title">"请先安装游戏"</string>
-    <string name="bpp_home_compatibility_title">"兼容性待确认"</string>
     <string name="bpp_home_access_title">"需要文件授权"</string>
     <string name="bpp_home_retry_title">"初始化需要重试"</string>
     <string name="bpp_home_ready_title">"可以启动"</string>
@@ -95,12 +94,10 @@
     <string name="bpp_home_ready_hint">"启动时自动校验运行环境"</string>
     <string name="bpp_home_install_hint">"安装正版大巴扎后返回检查，或在设置中选择其他游戏"</string>
     <string name="bpp_home_select_hint">"请在设置中重新选择游戏"</string>
-    <string name="bpp_home_compatibility_hint">"当前版本尚未通过兼容检查"</string>
     <string name="bpp_home_access_hint">"授权后即可准备运行环境"</string>
     <string name="bpp_home_retry_hint">"可重试，或在帮助中修复环境"</string>
     <string name="bpp_home_busy_action">"准备中或游戏仍在运行"</string>
     <string name="bpp_home_install_action">"查看安装说明"</string>
-    <string name="bpp_home_compatibility_action">"检查兼容性"</string>
     <string name="bpp_home_access_action">"前往授权"</string>
     <string name="bpp_home_retry_action">"重试初始化"</string>
     <string name="bpp_launch_game">"启动游戏"</string>
@@ -148,7 +145,6 @@
     <string name="bpp_launch_interrupted">"启动游戏时进程退出"</string>
     <string name="bpp_integrity_failed">"文件完整性校验失败，请重试"</string>
     <string name="bpp_extraction_unreadable">"解压目录不可读"</string>
-    <string name="bpp_unity_version_mismatch">"游戏 Unity 版本与发行清单不符"</string>
     <string name="bpp_preparation_dependencies">"准备匹配依赖"</string>
     <string name="bpp_preparation_framework">"准备运行框架"</string>
     <string name="bpp_framework_incomplete">"运行框架不完整"</string>
@@ -161,8 +157,6 @@
     <string name="bpp_plugin_unconfirmed">"已启动，加载状态待确认；首次代理生成可能需要数分钟"</string>
     <string name="bpp_status_file_too_large">"状态文件超出大小限制"</string>
     <string name="bpp_manifest_unsupported">"不支持的发行清单"</string>
-    <string name="bpp_game_version_unverified">"当前游戏版本尚未验证，请等待匹配的启动器版本"</string>
-    <string name="bpp_game_abi_unsupported">"仅支持已安装原生库的 arm64 游戏"</string>
     <string name="bpp_game_version_unknown">"版本未知"</string>
     <string name="bpp_credit">"本插件基于原版 %1$s 开发"</string>
     <string name="bpp_custom_plugin">"将启动「%1$s」· 内置插件 %2$s"</string>

@@ -26,7 +26,8 @@ def main():
     output = Path(__file__).resolve().parent / "artifacts/phone"
     output.mkdir(parents=True, exist_ok=True)
     adb = ["adb", "-s", args.serial]
-    log_path = "/sdcard/FusionCore/com.tempogames.thebazaar/BepInEx/LogOutput.log"
+    release = json.loads((Path(__file__).resolve().parent / "launcher/compatibility.json").read_text())
+    log_path = f"/sdcard/{release['storageRoot']}/{release['game']['package']}/BepInEx/LogOutput.log"
 
     def run(*command):
         return subprocess.check_output(adb + list(command), timeout=20)

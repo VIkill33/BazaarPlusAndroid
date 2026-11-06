@@ -28,15 +28,35 @@ internal sealed class AndroidBuildBoard
         internal int NextFitFrame;
     }
 
+    // One native size unit is a 260-wide card root under a 518.5-high frame; the
+    // small extra width leaves the hairline gap seen between cards on the game board.
+    private const float UnitAspect = .52f;
+    private const float RowPadding = 6;
+
     private readonly RectTransform _root;
-    private readonly Action<string> _onSelect;
+    private readonly RectTransform _row;
+    private readonly Action<string, string, string[]> _onSelect;
     private readonly List<Request> _requests = new();
     private AndroidBuild? _shownBuild;
+    private Vector2 _laidOutSize;
+    private int _units = 10;
 
-    internal AndroidBuildBoard(RectTransform root, Action<string> onSelect)
+    internal AndroidBuildBoard(RectTransform root, Action<string, string, string[]> onSelect)
     {
         _root = root;
         _onSelect = onSelect;
+        _row = NativeUi.Rect("BPP.BuildBoardRow", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f));
+        var backing = _row.gameObject.AddComponent<Image>();
+        backing.raycastTarget = false;
+        if (AndroidLauncherSettings.MarketPanels)
+        {
+            backing.color = new Color(.07f, .035f, .10f, .8f);
+            var outline = _row.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(.91f, .60f, .28f, .6f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = false;
+        }
+        else backing.color = new Color(.08f, .10f, .13f, .85f);
     }
 
     internal void Show(AndroidBuild? build)
@@ -45,21 +65,27 @@ internal sealed class AndroidBuildBoard
         if (ReferenceEquals(_shownBuild, build)) return;
         Hide();
         _shownBuild = build;
-        for (var slot = 0; slot < 10; slot++)
+        // Spans follow the current native template: a card recorded at another size
+        // (a since-changed card) would otherwise be squeezed into the recorded span.
+        var spans = build.Items.OrderBy(item => item.Slot).Select(item =>
         {
-            var cell = NativeUi.Rect("BPP.BuildSlot", _root,
-                new Vector2(slot / 10f, 0), new Vector2((slot + 1) / 10f, 1),
-                new Vector2(2, 3), new Vector2(-2, -3));
-            var background = cell.gameObject.AddComponent<Image>();
-            background.color = new Color(.12f, .15f, .18f, .8f);
-            background.raycastTarget = false;
-        }
-        foreach (var item in build.Items)
+            var template = Data.GetStatic()?.GetCardById(
+                Il2CppSystem.Guid.Parse(item.TemplateId.ToString()))?.TryCast<TCardBase>();
+            return (Item: item, Span: template == null ? item.Size : AndroidMonsterCardGallery.SizeInSlots(template.Size));
+        }).ToArray();
+        _units = Math.Max(10, spans.Sum(entry => entry.Span));
+        _laidOutSize = Vector2.zero;
+        Layout();
+        var start = 0;
+        foreach (var (item, span) in spans)
         {
-            var host = NativeUi.Rect("BPP.BuildCard", _root,
-                new Vector2(item.Slot / 10f, 0),
-                new Vector2((item.Slot + item.Size) / 10f, 1),
-                new Vector2(3, 4), new Vector2(-3, -4));
+            var host = NativeUi.Rect("BPP.BuildCard", _row,
+                new Vector2((float)start / _units, 0),
+                new Vector2((float)(start + span) / _units, 1),
+                new Vector2(1, RowPadding), new Vector2(-1, -RowPadding));
+            if (span != item.Size)
+                Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.native_span template_id={item.TemplateId} recorded={item.Size} native={span}");
+            start += span;
             var request = new Request { Host = host, Item = item };
             var hitArea = host.gameObject.AddComponent<Image>();
             hitArea.color = new Color(0, 0, 0, .01f);
@@ -72,8 +98,21 @@ internal sealed class AndroidBuildBoard
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.started build={build.Id} items={build.Items.Count}");
     }
 
+    // Size the row to the space it is given: width-bound on 16:9, height-bound on wide phones.
+    private void Layout()
+    {
+        var size = _root.rect.size;
+        if (size == _laidOutSize || size.x <= 1 || size.y <= 1) return;
+        _laidOutSize = size;
+        var unit = Mathf.Min(size.x / _units, (size.y - 2 * RowPadding) * UnitAspect);
+        _row.sizeDelta = new Vector2(unit * _units, unit / UnitAspect + 2 * RowPadding);
+        foreach (var request in _requests)
+            if (request.Ready && request.Card != null) { request.FitAttempts = 3; request.NextFitFrame = Time.frameCount + 1; }
+    }
+
     internal void Tick()
     {
+        if (_shownBuild != null) Layout();
         if (_requests.Count == 0 || !Services.TryGet<AssetLoader>(out var loader) || loader == null) return;
         foreach (var request in _requests)
         {
@@ -116,6 +155,9 @@ internal sealed class AndroidBuildBoard
                     }
                     request.Card = request.Creation.Result;
                     if (request.Card == null) { Fail(request, "create_null", null); continue; }
+                    // The panel owns item details; a native tooltip would also feed the
+                    // enchant/upgrade preview observer as if this were a real item.
+                    NativePreviewTooltips.Suppress(request.Card);
                     var rect = request.Card.GetComponent<RectTransform>();
                     rect.SetParent(request.Host, false);
                     rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
@@ -141,6 +183,7 @@ internal sealed class AndroidBuildBoard
                         Fail(request, "setup", request.Setup.Exception);
                         continue;
                     }
+                    NativePreviewTooltips.Suppress(request.Card!);
                     request.Card!.Resize();
                     request.Card.Show(true);
                     Fit(request);
@@ -167,10 +210,18 @@ internal sealed class AndroidBuildBoard
     {
         if (!request.Ready || request.Card?._tooltipData == null) return;
         var tooltip = request.Card._tooltipData;
+        var template = Data.GetStatic()?.GetCardById(
+            Il2CppSystem.Guid.Parse(request.Item.TemplateId.ToString()))?.TryCast<TCardBase>();
+        var tags = new List<ECardTag>();
+        if (template?.Tags != null) foreach (var tag in template.Tags) tags.Add(tag);
         var detail = AndroidItemDescription.Build(tooltip);
         if (string.IsNullOrWhiteSpace(detail))
             detail = NativeUi.Text("No item description available.", "暂无物品描述。");
-        _onSelect($"<b>{NativeUi.TitleText(tooltip.GetTitle())}</b>\n{detail}");
+        // Enchanted native titles put the enchantment on its own line.
+        var title = string.Join(" ", NativeUi.TitleText(tooltip.GetTitle())
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        _onSelect(title, detail,
+            AndroidCardTagText.Labels(template?.Size, tags));
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.card_selected template_id={request.Item.TemplateId}");
     }
 
@@ -183,7 +234,8 @@ internal sealed class AndroidBuildBoard
         Canvas.ForceUpdateCanvases();
         var frame = card._currentFrame?.GetComponent<RectTransform>()
             ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
-        var width = frame.rect.width;
+        // Large frames carry wide empty margins; the root's width is the true size span.
+        var width = rect.rect.width;
         var height = frame.rect.height;
         if (width <= 1 || height <= 1) return;
         var bounds = request.Host.rect;
@@ -208,11 +260,12 @@ internal sealed class AndroidBuildBoard
         _shownBuild = null;
         foreach (var request in _requests)
         {
+            NativePreviewTooltips.Release(request.Card);
             NativePreviewCleanup.Retire(request.Creation, request.Setup, request.Card, request.Cancellation);
             UnityEngine.Object.Destroy(request.Host.gameObject);
         }
         _requests.Clear();
-        for (var index = _root.childCount - 1; index >= 0; index--)
-            UnityEngine.Object.Destroy(_root.GetChild(index).gameObject);
+        for (var index = _row.childCount - 1; index >= 0; index--)
+            UnityEngine.Object.Destroy(_row.GetChild(index).gameObject);
     }
 }

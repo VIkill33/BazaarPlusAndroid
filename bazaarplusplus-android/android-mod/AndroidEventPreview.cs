@@ -10,7 +10,10 @@ using BazaarGameShared.Domain.Spawning.SpawnBehaviors;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarGameShared.Domain.Spawning;
 using BazaarGameShared.Domain.Spawning.SpawnFilters;
+using BazaarGameShared.Domain.Spawning.SpawnFilters.Constraints;
 using BazaarGameShared.Domain.Spawning.SpawningContexts;
+using BazaarGameShared.Domain.Prerequisites;
+using BazaarGameShared.Domain.Prerequisites.Conditionals;
 using Il2CppInterop.Runtime;
 using TheBazaar;
 using TheBazaar.Tooltips;
@@ -49,6 +52,7 @@ internal static class AndroidEventPreview
             for (var index = 0; index < transitions.Count; index++)
             {
                 var transition = transitions[index];
+                if (!CanEncounter(transition.Id, CurrentHero())) continue;
                 var detail = DescribeCard(transition.Id, context, new HashSet<string>(), 0);
                 var condition = AndroidEncounterConditions.Prerequisites(transition.Prerequisites, context);
                 if (!string.IsNullOrWhiteSpace(detail)) next.Add(detail + (string.IsNullOrEmpty(condition) ? string.Empty : "\n" + condition));
@@ -58,7 +62,7 @@ internal static class AndroidEventPreview
             sections.Add($"<b>{NativeUi.Text("Following encounters", "后续遭遇")}</b>\n" +
                 string.Join("\n", next.Distinct()));
         var result = string.Join("\n\n", sections);
-        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.event_preview.rendered template_id={source.TemplateId} merchant={merchant} characters={result.Length}");
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.event_preview.rendered template_id={source.TemplateId} merchant={merchant} hero={CurrentHero()?.ToString() ?? "unknown"} characters={result.Length}");
         return result;
     }
 
@@ -87,12 +91,14 @@ internal static class AndroidEventPreview
         if (query?.Groups == null || gameData == null) return string.Empty;
         context ??= new ValueContext(Data.Run?.Cast<IRun>(), null, null);
         path ??= new HashSet<string>();
+        var currentHero = CurrentHero();
 
         var groups = new List<(string Text, uint Weight, bool Conditional)>();
         for (var groupIndex = 0; groupIndex < query.Groups.Count; groupIndex++)
         {
             var group = query.Groups[groupIndex];
             if (group == null) continue;
+            if (!CanMeetHeroPrerequisites(group.Prerequisites, currentHero)) continue;
             if (group.Filters == null)
             {
                 groups.Add((NativeUi.Text("other outcome", "其他结果"), group.RandomWeight, true));
@@ -100,6 +106,7 @@ internal static class AndroidEventPreview
             }
             var cards = new List<string>();
             var hasUnsupportedFilter = false;
+            var heroFiltered = false;
             for (var filterIndex = 0; filterIndex < group.Filters.Count; filterIndex++)
             {
                 var filter = group.Filters[filterIndex];
@@ -117,6 +124,11 @@ internal static class AndroidEventPreview
                 }
                 for (var cardIndex = 0; cardIndex < ids.Count; cardIndex++)
                 {
+                    if (!CanEncounter(ids[cardIndex], currentHero))
+                    {
+                        heroFiltered = true;
+                        continue;
+                    }
                     var name = DescribeCard(ids[cardIndex], context, path, depth);
                     if (!string.IsNullOrWhiteSpace(name)) cards.Add(name);
                 }
@@ -125,6 +137,7 @@ internal static class AndroidEventPreview
                 cards.Add(NativeUi.Text("other conditional outcomes", "其他条件结果"));
             if (cards.Count == 0)
             {
+                if (heroFiltered && !hasUnsupportedFilter) continue;
                 groups.Add((NativeUi.Text("other outcome", "其他结果"), group.RandomWeight, true));
                 continue;
             }
@@ -169,25 +182,113 @@ internal static class AndroidEventPreview
         return title == null ? reward.InternalName : TooltipExtensions.GetLocalizedText(title);
     }
 
+    private static EHero? CurrentHero()
+    {
+        var hero = Data.Run?.Player?.Hero;
+        if (hero.HasValue && hero.Value != EHero.Common) return hero;
+        hero = Data.SelectedHero;
+        return hero.HasValue && hero.Value != EHero.Common ? hero : null;
+    }
+
+    private static bool CanEncounter(Il2CppSystem.Guid id, EHero? currentHero)
+    {
+        var template = Data.GetStatic()?.GetCardById(id)?.TryCast<TCardBase>();
+        if (template == null || template.TryCast<TCardEncounter>() == null ||
+            currentHero == null || template.Heroes == null || template.Heroes.Count == 0)
+            return true;
+        return template.Heroes.Contains(EHero.Common) || template.Heroes.Contains(currentHero.Value);
+    }
+
+    private static bool CanMeetHeroPrerequisites(
+        Il2CppSystem.Collections.Generic.List<ITPrerequisite>? prerequisites, EHero? currentHero)
+    {
+        if (prerequisites == null || currentHero == null) return true;
+        foreach (var prerequisite in prerequisites)
+        {
+            if (prerequisite.TryCast<TPrerequisiteRun>()?.Conditions?.TryCast<TRunConditionalPlayerHero>() is { } hero)
+            {
+                var matches = hero.Heroes?.Contains(currentHero.Value) == true;
+                if (hero.Operator.ToString() == "None" ? matches : !matches) return false;
+            }
+            if (prerequisite.TryCast<TPrerequisiteCardCount>() is { } count
+                && RequiresCardPresence(count.Comparison.ToString(), count.Amount)
+                && !CanMatchCardHero(count.Subject?.Conditions, currentHero.Value))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool RequiresCardPresence(string comparison, int amount) => comparison switch
+    {
+        "GreaterThan" => amount >= 0,
+        "GreaterThanOrEqual" or "Equal" => amount > 0,
+        "NotEqual" => amount == 0,
+        _ => false,
+    };
+
+    private static bool CanMatchCardHero(ITCardConditional? condition, EHero currentHero)
+    {
+        if (condition == null) return true;
+        if (condition.TryCast<TCardConditionalAnd>() is { } and)
+            return and.Conditions == null || AndroidEncounterConditions.Read(and.Conditions)
+                .All(child => CanMatchCardHero(child, currentHero));
+        if (condition.TryCast<TCardConditionalOr>() is { } or)
+            return or.Conditions == null || AndroidEncounterConditions.Read(or.Conditions)
+                .Any(child => CanMatchCardHero(child, currentHero));
+        if (condition.TryCast<TCardConditionalId>() is { IsNot: false } id)
+        {
+            var card = Data.GetStatic()?.GetCardById(id.Id)?.TryCast<TCardBase>();
+            return card == null || card.Heroes == null || card.Heroes.Count == 0
+                || card.Heroes.Contains(EHero.Common) || card.Heroes.Contains(currentHero);
+        }
+        return true;
+    }
+
+    private static bool CanMatchPoolHero(IConstraint? constraint, EHero? currentHero)
+    {
+        if (constraint == null || currentHero == null) return true;
+        if (constraint.TryCast<ConstraintAnd>() is { } and)
+            return and.Constraints == null || AndroidEncounterConditions.Read(and.Constraints)
+                .All(child => CanMatchPoolHero(child, currentHero));
+        if (constraint.TryCast<ConstraintOr>() is { } or)
+            return or.Constraints == null || AndroidEncounterConditions.Read(or.Constraints)
+                .Any(child => CanMatchPoolHero(child, currentHero));
+        if (constraint.TryCast<ConstraintHero>() is { IsNot: false } hero)
+            return hero.Heroes == null || hero.Heroes.Count == 0
+                || hero.Heroes.Contains(EHero.Common) || hero.Heroes.Contains(currentHero.Value);
+        return true;
+    }
+
     private static string BuildMerchant(TSpawnContextQuery? query, ValueContext context)
     {
         if (query?.Groups == null) return string.Empty;
         var lines = new List<string>();
+        var currentHero = CurrentHero();
+        var filteredGroups = 0;
         foreach (var group in query.Groups)
         {
+            if (!CanMeetHeroPrerequisites(group.Prerequisites, currentHero)) { filteredGroups++; continue; }
             var quality = Quality(query.Behaviors, group.Behaviors);
             var condition = AndroidEncounterConditions.Prerequisites(group.Prerequisites, context);
             var pools = new List<string>();
+            var excludedPools = 0;
             if (group.Filters != null)
                 foreach (var filter in group.Filters)
                     if (filter.TryCast<TSpawnFilterQuery>() is { } pool)
-                        pools.Add(AndroidEncounterConditions.Pool(pool.Constraints));
+                    {
+                        if (CanMatchPoolHero(pool.Constraints, currentHero))
+                            pools.Add(AndroidEncounterConditions.Pool(pool.Constraints));
+                        else excludedPools++;
+                    }
+            if (excludedPools > 0 && pools.Count == 0) { filteredGroups++; continue; }
             var quantity = group.Limit == null ? string.Empty :
                 NativeUi.Text("Offers: ", "供货数量：") + AndroidEncounterConditions.Number(group.Limit, context);
             lines.Add(string.Join("\n", new[] { quality, quantity, string.Join("\n", pools),
                 string.IsNullOrEmpty(condition) ? string.Empty : NativeUi.Text("Requires: ", "条件：") + condition }
                 .Where(value => !string.IsNullOrWhiteSpace(value))));
         }
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.event_preview.merchant_groups hero={currentHero?.ToString() ?? "unknown"} shown={lines.Count} filtered={filteredGroups}");
+        if (lines.Count == 0) return string.Empty;
         return "<b>" + NativeUi.Text("Shop quality probabilities", "商店品质概率") + "</b>\n" +
             string.Join("\n\n", lines.Distinct());
     }
@@ -269,6 +370,7 @@ internal static class AndroidEventPreview
             if (transitions != null)
                 foreach (var next in transitions)
                 {
+                    if (!CanEncounter(next.Id, CurrentHero())) continue;
                     var result = DescribeCard(next.Id, context, path, depth + 1);
                     var condition = AndroidEncounterConditions.Prerequisites(next.Prerequisites, context);
                     text += "\n→ " + result + (string.IsNullOrEmpty(condition) ? string.Empty : "\n" + condition);

@@ -30,8 +30,14 @@ def bundle_dependencies(manifest, assets, cache):
     for dependency in manifest["dependencies"]:
         cached = cache / dependency["sha256"]
         if not valid_dependency(cached, dependency):
+            urls = [*([dependency["url"]] if dependency.get("url") else []),
+                    *dependency.get("fallbackUrls", [])]
+            if not urls:
+                raise ValueError(
+                    f"Missing verified local dependency {dependency['name']} ({dependency['sha256']}); "
+                    f"provide it in {cache} using the official Unity source archive")
             last_error = None
-            for url in [dependency["url"], *dependency.get("fallbackUrls", [])]:
+            for url in urls:
                 temp = cached.with_suffix(".part")
                 try:
                     if not url.startswith("https://"):
