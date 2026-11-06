@@ -23,7 +23,7 @@ internal static class AndroidPanelButtonSkin
 
     internal static void Register(Button? button, bool selected = false)
     {
-        if (button == null || button.targetGraphic is not Image) return;
+        if (button == null || Backing(button) == null) return;
         var binding = Bindings.FirstOrDefault(item => item.Button == button);
         if (binding == null) Bindings.Add(binding = new Binding(button, selected));
         binding.Selected = selected;
@@ -53,9 +53,13 @@ internal static class AndroidPanelButtonSkin
         }
     }
 
+    // A C# type test only matches while the pooled Image wrapper is still alive;
+    // after it is collected, targetGraphic comes back as a bare Graphic proxy.
+    private static Image? Backing(Button button) => button.targetGraphic?.TryCast<Image>();
+
     private static void Apply(Binding binding)
     {
-        if (binding.Button == null || binding.Button.targetGraphic is not Image image) return;
+        if (binding.Button == null || Backing(binding.Button) is not { } image) return;
         var tint = binding.Button.interactable ? Color.white : Disabled;
         var painted = false;
         var backing = binding.Selected ? AndroidNativeButtonArt.Blue : AndroidNativeButtonArt.Brown;
