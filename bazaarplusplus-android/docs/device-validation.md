@@ -1,5 +1,26 @@
 # Android 真机验证
 
+## 野怪预览物品卡按原生比例缩放（2026-11-07，高级模式用户自测通过）
+
+原 `AndroidMonsterCardGallery.Fit` 按原生画框 `_currentFrame` 的宽高缩放；画框空白边距随体型
+不同（大型最宽，`artifacts/native-card-ratios/validated.json` 中卡图占根宽约 0.90／0.94／0.97），
+导致中、大型物品比小型更矮。构筑阵容此前已改为按根节点宽度（每格 260）缩放。本次将该规则、
+`UnitAspect`、`SizeInSlots` 与卡牌挂载抽到公共适配 `NativeCardFit`，`AndroidBuildBoard` 与
+`AndroidMonsterCardGallery` 共用：野怪物品格高改为格宽除以 `NativeCardFit.UnitAspect`，物品用
+`NativeCardFit.FitItem`，技能仍用按画框适配的 `NativeCardFit.FitFrame`。
+
+插件 Release 编译 0 警告、0 错误，25 项 Python 离线测试与 `BuildCorpus.Tests` 通过。
+用户实测的是合并包：除本修复外还含另一分支未合入的战斗计时器改动，在临时工作树构建；
+APK SHA-256 为 `5179c51f69722f9a7b9c69c57d72745ef9bf4553ed792fd51b90b1631001b7f4`，
+内置插件 SHA-256 为 `76569e1c706ea060e481a1f4fea930233229d7ffb62cb4cec9cecf60b3a3ae26`。
+本分支单独构建的插件摘要与此不同，未单独上机。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C／Android 14，2460×1080 横屏，440dpi），游戏 13084，
+高级输入模式。用户反馈「全部验证通过」：小／中／大型混排野怪物品等高，技能卡保持正方形，
+构筑推荐阵容卡显示不变，切换野怪与关闭浮层无残留卡图。代理未操作设备、未采集截图或日志，
+结果以用户自测为准。标准输入模式（由游戏原生显示野怪阵容）、多行物品、无物品／无技能野怪、
+其他屏幕比例与设备仍待验证。
+
 ## 构筑页左右分栏与紧凑阵容（2026-11-07，双输入模式真机通过）
 
 `AndroidBuildPanelController.BuildUi` 将候选、阵容切换与推荐阵容放在左栏，

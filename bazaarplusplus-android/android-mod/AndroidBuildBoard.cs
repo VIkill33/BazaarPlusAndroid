@@ -28,9 +28,7 @@ internal sealed class AndroidBuildBoard
         internal int NextFitFrame;
     }
 
-    // One native size unit is a 260-wide card root under a 518.5-high frame; the
-    // small extra width leaves the hairline gap seen between cards on the game board.
-    private const float UnitAspect = .52f;
+    private const float UnitAspect = NativeCardFit.UnitAspect;
     private const float RowPadding = 6;
 
     private readonly RectTransform _root;
@@ -71,7 +69,7 @@ internal sealed class AndroidBuildBoard
         {
             var template = Data.GetStatic()?.GetCardById(
                 Il2CppSystem.Guid.Parse(item.TemplateId.ToString()))?.TryCast<TCardBase>();
-            return (Item: item, Span: template == null ? item.Size : AndroidMonsterCardGallery.SizeInSlots(template.Size));
+            return (Item: item, Span: template == null ? item.Size : NativeCardFit.SizeInSlots(template.Size));
         }).ToArray();
         _units = Math.Max(10, spans.Sum(entry => entry.Span));
         _laidOutSize = Vector2.zero;
@@ -120,7 +118,7 @@ internal sealed class AndroidBuildBoard
             {
                 if (request.FitAttempts > 0 && Time.frameCount >= request.NextFitFrame)
                 {
-                    Fit(request);
+                    NativeCardFit.FitItem(request.Card!, request.Host);
                     request.NextFitFrame = Time.frameCount + 2;
                     request.FitAttempts--;
                     if (request.FitAttempts == 0)
@@ -158,16 +156,7 @@ internal sealed class AndroidBuildBoard
                     // The panel owns item details; a native tooltip would also feed the
                     // enchant/upgrade preview observer as if this were a real item.
                     NativePreviewTooltips.Suppress(request.Card);
-                    var rect = request.Card.GetComponent<RectTransform>();
-                    rect.SetParent(request.Host, false);
-                    rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
-                    rect.pivot = new Vector2(.5f, .5f);
-                    rect.anchoredPosition = Vector2.zero;
-                    rect.localScale = Vector3.one;
-                    rect.localRotation = Quaternion.identity;
-                    request.Card.gameObject.SetActive(true);
-                    PrepareLayoutSize(request.Card);
-                    request.Card.Resize();
+                    NativeCardFit.Attach(request.Card, request.Host);
                     var enchantment = Enum.TryParse<EEnchantmentType>(request.Item.Enchantment, true, out var parsed)
                         ? parsed : (EEnchantmentType?)null;
                     // The analyzer stores tiers as 1..5; native ETier uses 0..4.
@@ -186,7 +175,7 @@ internal sealed class AndroidBuildBoard
                     NativePreviewTooltips.Suppress(request.Card!);
                     request.Card!.Resize();
                     request.Card.Show(true);
-                    Fit(request);
+                    NativeCardFit.FitItem(request.Card, request.Host);
                     request.FitAttempts = 3;
                     request.NextFitFrame = Time.frameCount + 2;
                     Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.card_ready template_id={request.Item.TemplateId} tier={request.Instance?.Tier}");
@@ -223,36 +212,6 @@ internal sealed class AndroidBuildBoard
         _onSelect(title, detail,
             AndroidCardTagText.Labels(template?.Size, tags));
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.card_selected template_id={request.Item.TemplateId}");
-    }
-
-    private static void Fit(Request request)
-    {
-        var card = request.Card!;
-        var rect = card.GetComponent<RectTransform>();
-        PrepareLayoutSize(card);
-        card.Resize();
-        Canvas.ForceUpdateCanvases();
-        var frame = card._currentFrame?.GetComponent<RectTransform>()
-            ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
-        // Large frames carry wide empty margins; the root's width is the true size span.
-        var width = rect.rect.width;
-        var height = frame.rect.height;
-        if (width <= 1 || height <= 1) return;
-        var bounds = request.Host.rect;
-        var scale = Mathf.Min(bounds.width / width, bounds.height / height);
-        rect.localScale = new Vector3(scale, scale, scale);
-        var center = request.Host.InverseTransformPoint(frame.TransformPoint(frame.rect.center));
-        rect.anchoredPosition -= new Vector2(center.x, center.y);
-    }
-
-    private static void PrepareLayoutSize(CardPreviewBase card)
-    {
-        var rect = card.GetComponent<RectTransform>();
-        if (rect.rect.width > 1 && rect.rect.height > 1) return;
-        var fitter = card.GetComponent<AspectRatioFitter>();
-        var ratio = fitter != null && fitter.aspectRatio > .01f ? fitter.aspectRatio : .8f;
-        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500);
-        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 500 * ratio);
     }
 
     internal void Hide()
