@@ -2,6 +2,7 @@ using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards.Encounter.Event;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Localization;
 using Il2CppInterop.Runtime;
 using TheBazaar;
 using TheBazaar.Tooltips;
@@ -67,6 +68,15 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private PreviewMode _mode;
     private static bool _reportedFailure;
     private bool _historySuppressed;
+    // Post-combat recap cards show combat impact instead of the enchant/upgrade preview.
+    private const float ImpactHeaderHeight = 64;
+    private string? _impactCard;
+    private bool _impactReceived;
+    private int _lastImpactState;
+    private GameObject? _impactHeader;
+    private Button? _causedButton;
+    private Button? _receivedButton;
+    private RectTransform? _viewport;
 
     private enum PreviewMode { Enchant, Upgrade }
 
@@ -109,6 +119,10 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 || SceneManager.GetActiveScene().handle != _monsterScene))
                 Hide();
             var visible = false;
+            var recap = Singleton<BoardManager>.Instance?.IsRecapViewOpen == true;
+            // The recap tooltip stays open under our panels, and the left-edge
+            // overlay sorts above them.
+            var recapCovered = recap && (CollectionController.AnyOpen || AndroidBuildPanelController.AnyOpen);
             foreach (var controller in Resources.FindObjectsOfTypeAll<CardTooltipController>())
             {
                 if (controller == null || !controller.isActiveAndEnabled) continue;
@@ -117,18 +131,22 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 var levelData = controller.CurrentTooltipData?.TryCast<HeroLevelTooltipData>();
                 var card = data?.CardInstance;
                 var item = card?.TryCast<ItemCard>();
-                var eventCard = item == null ? card?.TryCast<EventEncounterCard>() : null;
-                var monsterCard = item == null && eventCard == null && advancedInput
+                var skill = recap && item == null ? card?.TryCast<SkillCard>() : null;
+                var eventCard = item == null && skill == null ? card?.TryCast<EventEncounterCard>() : null;
+                var monsterCard = item == null && skill == null && eventCard == null && advancedInput
                     ? card?.TryCast<CombatEncounterCard>() : null;
-                if (item == null && eventCard == null && monsterCard == null && levelData == null) continue;
+                if (item == null && skill == null && eventCard == null && monsterCard == null && levelData == null) continue;
+                if (recapCovered && (item != null || skill != null)) continue;
                 if (_monsterPinned && monsterCard == null) continue;
+                var impactCard = recap && (item != null || skill != null) ? card!.InstanceId.Value : null;
                 var id = controller.GetInstanceID();
                 var locked = controller.IsLocked;
                 // Advanced mobile input can keep the live tooltip unlocked while
                 // the card is inspected; standard mode uses the locked long press.
-                if (levelData == null && !locked && !AndroidHoldPreview.Active && !advancedInput) continue;
+                // A recap tap opens the tooltip unlocked in both modes.
+                if (levelData == null && impactCard == null && !locked && !AndroidHoldPreview.Active && !advancedInput) continue;
                 var longPressMode = AndroidLongPressPreviewSettings.Mode;
-                if (item != null && longPressMode == AndroidLongPressPreviewMode.None)
+                if (item != null && impactCard == null && longPressMode == AndroidLongPressPreviewMode.None)
                 {
                     Hide();
                     continue;
@@ -138,18 +156,27 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 if (monsterCard != null && pointer == _dismissedMonster) continue;
                 if (item != null && pointer == _dismissedGalleryItem) continue;
                 var currentLevel = levelData?.GetCurrentAndNextLevel().Item1 ?? -1;
-                var itemState = item == null ? 0 : HashCode.Combine(item.Tier,
+                var itemState = item == null || impactCard != null ? 0 : HashCode.Combine(item.Tier,
                     NativeNullableValue.Read<EEnchantmentType>(item, "get_Enchantment"),
                     AndroidEnchantPreview.AttributeDigest(item));
+                var impactState = impactCard == null ? 0 : HashCode.Combine(impactCard,
+                    AndroidCombatImpactCapture.Generation, AndroidCombatImpactCapture.Projecting, _impactReceived);
                 if (_lastController == id && _lastCard == pointer && _lastLocked == locked
                     && _lastLevel == currentLevel && _lastItemState == itemState
-                    && _lastLongPressMode == longPressMode) continue;
+                    && _lastLongPressMode == longPressMode && _lastImpactState == impactState) continue;
                 Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.tooltip.observed controller={id} locked={locked} card={card?.TemplateId} level={currentLevel}");
                 if (_panel == null) BuildUi(controller);
                 if (_panel == null) continue;
                 if (_lastCard != pointer || _lastLongPressMode != longPressMode)
                     _mode = item != null && longPressMode == AndroidLongPressPreviewMode.Upgrade && item.CanCardUpgrade()
                         ? PreviewMode.Upgrade : PreviewMode.Enchant;
+                if (impactCard != _impactCard)
+                {
+                    _impactCard = impactCard;
+                    _impactReceived = false;
+                    impactState = impactCard == null ? 0 : HashCode.Combine(impactCard,
+                        AndroidCombatImpactCapture.Generation, AndroidCombatImpactCapture.Projecting, false);
+                }
                 _currentItem = item;
                 _currentEvent = eventCard;
                 _currentMonster = monsterCard;
@@ -163,6 +190,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 _lastLevel = currentLevel;
                 _lastItemState = itemState;
                 _lastLongPressMode = longPressMode;
+                _lastImpactState = impactState;
                 break;
             }
             if (!visible)
@@ -183,16 +211,19 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
 
     private bool Render()
     {
-        if ((_currentItem == null && _currentEvent == null && _currentMonster == null && _currentLevelData == null)
+        var impact = _impactCard != null;
+        if ((_currentItem == null && _currentEvent == null && _currentMonster == null && _currentLevelData == null && !impact)
             || _currentController == null || _text == null
             || _content == null || _scroll == null || _panel == null) return false;
-        var preview = _currentLevelData != null
+        var preview = impact ? ImpactText(_impactCard!)
+            : _currentLevelData != null
             ? AndroidEventPreview.BuildLevelRewards(_currentLevelData.GetCurrentAndNextLevel().Item1)
             : _currentMonster != null ? AndroidMonsterPreview.Build(_currentMonster, _currentCardData!)
             : _currentEvent != null ? AndroidEventPreview.Build(_currentEvent)
             : _mode == PreviewMode.Upgrade ? AndroidUpgradePreview.Build(_currentItem!)
             : AndroidEnchantPreview.Build(_currentItem!);
-        if (_currentItem != null && AndroidQuestRewardPreview.HasRewards(_currentItem))
+        ShowImpactHeader(impact);
+        if (!impact && _currentItem != null && AndroidQuestRewardPreview.HasRewards(_currentItem))
         {
             var rewards = AndroidQuestRewardPreview.Build(_currentItem);
             if (!string.IsNullOrWhiteSpace(rewards))
@@ -207,7 +238,7 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
                 preview = NativeUi.Text("No enchantment preview for this item.", "此物品暂无附魔预览。");
             else return false;
         }
-        var leftEdge = _currentItem != null && AndroidLauncherSettings.LeftEdge;
+        var leftEdge = (_currentItem != null || impact) && AndroidLauncherSettings.LeftEdge;
         var nativeCanvas = _currentController.GetComponentInParent<Canvas>();
         var overlayCanvas = _canvasRoot?.GetComponent<Canvas>();
         if (nativeCanvas != null && overlayCanvas != null)
@@ -249,8 +280,9 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             NativeUi.RichDescription(_text, preview);
             var height = _text.GetPreferredValues(preview, TextWidth, 0).y + 32;
             _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            var header = impact ? ImpactHeaderHeight : 0;
             _panel.offsetMin = new Vector2(_panel.offsetMin.x,
-                Mathf.Max(45, 1000 - height - (ViewportMin.y - ViewportMax.y)));
+                Mathf.Max(45, 1000 - height - header - (ViewportMin.y - ViewportMax.y)));
             _scroll.verticalNormalizedPosition = 1;
         }
         _panel.gameObject.SetActive(true);
@@ -300,6 +332,8 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             var viewport = _scroll.GetComponent<RectTransform>();
             viewport.offsetMin = ViewportMin;
             viewport.offsetMax = ViewportMax;
+            _viewport = viewport;
+            BuildImpactHeader(font);
             _text.fontSize = 24;
             _text.enableAutoSizing = false;
             _text.color = ParseColor(AndroidPreviewText.BodyColor);
@@ -326,8 +360,62 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _monsterGallery = null;
             _monsterBackdrop = null;
             _monsterClose = null;
+            _impactHeader = null;
+            _causedButton = _receivedButton = null;
+            _viewport = null;
             throw;
         }
+    }
+
+    private void BuildImpactHeader(TMP_FontAsset font)
+    {
+        var header = NativeUi.Rect("BPP.ImpactHeader", _panel!, new Vector2(0, 1), Vector2.one,
+            new Vector2(10, -ImpactHeaderHeight), new Vector2(-14, -8));
+        _causedButton = NativeUi.Button(header, font, () => NativeUi.Text("Caused", "造成"),
+            Vector2.zero, new Vector2(.5f, 1), () => SetImpactPerspective(false), Vector2.zero, new Vector2(-4, 0));
+        _receivedButton = NativeUi.Button(header, font, () => NativeUi.Text("Received", "承受"),
+            new Vector2(.5f, 0), Vector2.one, () => SetImpactPerspective(true), new Vector2(4, 0), Vector2.zero);
+        foreach (var button in new[] { _causedButton, _receivedButton })
+        {
+            var label = button.GetComponentInChildren<TextMeshProUGUI>();
+            label.fontSize = 24;
+            label.enableAutoSizing = false;
+            AndroidPanelButtonSkin.Register(button, button == _causedButton);
+        }
+        _impactHeader = header.gameObject;
+        _impactHeader.SetActive(false);
+    }
+
+    private void ShowImpactHeader(bool impact)
+    {
+        if (_impactHeader == null || _viewport == null) return;
+        _impactHeader.SetActive(impact);
+        _viewport.offsetMax = impact ? new Vector2(ViewportMax.x, ViewportMax.y - ImpactHeaderHeight + 4) : ViewportMax;
+        if (!impact) return;
+        AndroidPanelButtonSkin.SetSelected(_causedButton, !_impactReceived);
+        AndroidPanelButtonSkin.SetSelected(_receivedButton, _impactReceived);
+    }
+
+    private void SetImpactPerspective(bool received)
+    {
+        if (_impactCard == null || _impactReceived == received) return;
+        _impactReceived = received;
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.combat_impact.perspective card={_impactCard} received={received}");
+        if (!Render()) Hide();
+        _lastImpactState = HashCode.Combine(_impactCard, AndroidCombatImpactCapture.Generation,
+            AndroidCombatImpactCapture.Projecting, _impactReceived);
+    }
+
+    private string ImpactText(string card)
+    {
+        var chinese = LanguageCodeMatcher.IsChinese(L.CurrentLanguageCode);
+        var report = AndroidCombatImpactCapture.Report;
+        var body = AndroidCombatImpactCapture.Projecting
+            ? AndroidPreviewText.Muted(NativeUi.Text("Analyzing this combat…", "正在分析本场战斗…"))
+            : report.Contains(card) ? AndroidCombatImpactText.Build(report, card, _impactReceived, chinese)
+            : AndroidPreviewText.Muted(NativeUi.Text("No analysis for this combat.", "本场战斗暂无分析数据。"));
+        Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.combat_impact.rendered card={card} received={_impactReceived} projecting={AndroidCombatImpactCapture.Projecting} known={report.Contains(card)} caused={report.Caused(card).Count} incoming={report.Received(card).Count}");
+        return AndroidPreviewText.Lines(AndroidPreviewText.Heading(NativeUi.Text("Combat impact", "战斗影响")), body);
     }
 
     // The thumb and hint only report position; dragging stays with the ScrollRect
@@ -412,6 +500,10 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         _currentLevelData = null;
         _currentController = null;
         _mode = PreviewMode.Enchant;
+        _impactCard = null;
+        _impactReceived = false;
+        _lastImpactState = 0;
+        ShowImpactHeader(false);
     }
 
     private void DismissMonster()

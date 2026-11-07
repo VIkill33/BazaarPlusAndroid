@@ -2625,3 +2625,42 @@ Python unittest 25 项、`BuildCorpus.Tests` 通过；`build_probe.py --mod` 零
 代理未启动游戏或操作设备，无代理截图。用户自测确认：单排布局、按钮易点中、倍速三档切换即时生效且游戏加速保留、
 暂停／继续与结束后自动解除并置灰、从按钮起拖不误触、四边吸附及重启后倍速与位置保留均通过。未单独报告标准／高级输入模式、
 原生回放中的倍速与暂停、多指同时操作、分辨率或安全区域变化、隐藏计时器时的倍速，以及钩子安装失败路径，不扩大为全部边界已验收。
+
+## 战后影响分析（2026-11-07，代理真机通过，技能路径待验证）
+
+参考桌面 `PostCombatImpactModule`、`PostCombatImpactRecapPatch`、`CombatImpactProjector`（`CardStats` 映射、
+`ProjectExecutions`、`HasCriticalHealthAdjustment`）、`CombatImpactMetricFormatter` 与 ADR-0008（原生总计优先、观测值不与
+原生值相加、承受视角不列英雄、暴击需证据）。按用户选定的中等范围实现：
+
+- 采集：`AndroidHistoryNativeCapture` 在 `Simulate` 开场调用 `AndroidCombatImpactCapture.Begin` 登记本场 `CombatSim`
+  与实体快照，按代次拒绝过期结果；`Tick` 每帧最多 2 ms 投影 `CombatSimEventEffectExecuted` 及
+  `HealthAdjustments.IsCrit`，播放结束读取 `CardStats` 生成纯规则 `CombatImpactReport`。
+- 界面：`AndroidTooltipObserver` 在 `BoardManager.IsRecapViewOpen` 时为物品显示「战斗影响」，表头两枚原生按钮切换
+  造成／承受；图鉴或构筑面板打开时跳过回顾卡牌。
+- 共享修复：`AndroidPanelButtonSkin` 原以 C# 类型判断 `targetGraphic is Image`，池化的 `Image` 包装被回收后
+  `targetGraphic` 返回裸 `Graphic` 代理，选中态不再重绘（首测时「承受」内容已切换但高亮仍停在「造成」）；
+  改为 `TryCast<Image>()`。
+
+离线：`CombatImpact.Tests` 31 项、Python unittest 25 项、`BuildCorpus.Tests` 通过；`build_probe.py --mod` 零警告／零错误。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14，2460×1080 横屏），游戏 `1.0.13084-production-android-4670b82d`，中文。
+签名包 0.3.0（versionCode 16）`apksigner` 报告 `Verifies`、v2 true，APK SHA-256
+`471812ee7d69e97b713097743210107b2a7af036e23e0dba472b04cc5f671c34`，`adb install -r` 成功；游戏插件目录 DLL 与本次构建
+一致（`bfa5e00ca3858de6bd22d8697a0ffb3239228ec75874ba272712f5be8dc9a433`）。测试前已在进行中的休闲对局（第 2 天），
+用户授权推进对局与战斗；未购买、未刷新商店。
+
+步骤与结果（截图人工复核，证据在 `artifacts/post-combat-impact/`）：
+
+1. 修复前构建，PvP 战败后回顾：己方「燃烧响炮」显示「使用 4 次 · 灼烧 ×4 · 总计 24」，与原生 24×4 一致；点「承受」
+   内容切换、原生提示保持，但高亮未切换，打开图鉴时面板盖在图鉴上方。据此做上述两项修复并重新打包。
+2. 最终构建，离开两个商店后选择怪物战斗：日志 `android.combat_impact.registered generation=1 frames=366 entities=13
+   elapsedMs=19.4`，战斗播放中即 `ready executions=29 sources=5`。
+3. 高级模式回顾：己方灼烧 24×4；对手「猿牙头盔」伤害 ×6 总计 135、护盾 ×6 总计 90，另三件 60×3、93×4、165×6，
+   均与原生回顾数字一致；×0 物品显示「本场未造成可统计的效果。」；「承受」高亮随选择切换，显示「本场未受到其他卡牌的效果。」；
+   切换卡牌回到「造成」；打开图鉴时面板隐藏，关闭后恢复；点「返回」退出回顾后同一提示回到普通附魔预览。
+4. 切到标准模式重复：灼烧 24×4、切换「承受」、对手 165×6 正常，再次点同一卡牌关闭原生提示后面板随之隐藏；随后恢复高级模式。
+5. 插件日志无 BazaarPlusAndroid 异常（仅框架启动既有 Il2CppInterop 报错与既有警告），`logcat -b crash` 为空。
+
+局限：两种模式下点击回顾界面的技能栏均不打开原生提示，技能（`SkillCard`）路径未在真机触发；本两场未出现暴击，也没有
+卡牌承受其他卡牌效果的非空「承受」列表，这两类显示只有离线测试覆盖；充能／加速／减速／冻结时长未在真机出现。
+登记开销本场 19.4 ms，首测 PvP 约 49 ms，均在开场一帧内完成。

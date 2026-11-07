@@ -16,7 +16,7 @@ internal static class AndroidHistoryNativeCapture
     private delegate IntPtr Hook(IntPtr target, IntPtr replacement, [MarshalAs(UnmanagedType.I1)] bool specialReturn);
     private static Simulate? _original;
     private static readonly Simulate Replacement = Observe;
-    private sealed record Pending(Il2CppSystem.Threading.Tasks.Task Task, AndroidRunObserver.Ticket? Ticket, string Winner, string Loser, long TimerGeneration);
+    private sealed record Pending(Il2CppSystem.Threading.Tasks.Task Task, AndroidRunObserver.Ticket? Ticket, string Winner, string Loser, long TimerGeneration, long ImpactGeneration);
     private static readonly List<Pending> Tasks = new();
 
     internal static unsafe void Install()
@@ -56,6 +56,9 @@ internal static class AndroidHistoryNativeCapture
             }
         }
         catch (Exception error) { observer?.Failure(error); }
+        var impact = 0L;
+        try { impact = AndroidCombatImpactCapture.Begin(new NetMessageCombatSim(message)); }
+        catch (Exception error) { Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.combat_impact.register_failed exception={error}"); }
         var generation = AndroidCombatTimer.Clock.Begin();
         AndroidCombatSpeedHook.Bind(self, generation);
         // History failure must never skip the game's original simulation.
@@ -63,10 +66,15 @@ internal static class AndroidHistoryNativeCapture
         try
         {
             if (result != IntPtr.Zero)
-                Tasks.Add(new(new Il2CppSystem.Threading.Tasks.Task(result), ticket, winner, loser, generation));
-            else AndroidCombatTimer.Clock.Complete(generation, false);
+                Tasks.Add(new(new Il2CppSystem.Threading.Tasks.Task(result), ticket, winner, loser, generation, impact));
+            else { AndroidCombatTimer.Clock.Complete(generation, false); AndroidCombatImpactCapture.Complete(impact, false); }
         }
-        catch (Exception error) { AndroidCombatTimer.Clock.Complete(generation, false); observer?.Failure(error); }
+        catch (Exception error)
+        {
+            AndroidCombatTimer.Clock.Complete(generation, false);
+            AndroidCombatImpactCapture.Complete(impact, false);
+            observer?.Failure(error);
+        }
         return result;
     }
 
@@ -78,10 +86,12 @@ internal static class AndroidHistoryNativeCapture
             if (!item.Task.IsCompleted) continue;
             Tasks.RemoveAt(index);
             var successful = item.Task.Status.ToString() == "RanToCompletion";
+            AndroidCombatImpactCapture.Complete(item.ImpactGeneration, successful);
             if (AndroidCombatTimer.Clock.Complete(item.TimerGeneration, successful))
                 Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.combat_timer.completed elapsed={AndroidCombatTimer.Clock.Text} frames={AndroidCombatTimer.Clock.Frames} successful={successful}");
             if (item.Ticket != null)
                 AndroidRunObserver.Instance?.Complete(item.Ticket, item.Winner, item.Loser, successful);
         }
+        AndroidCombatImpactCapture.Tick();
     }
 }
