@@ -36,8 +36,8 @@ android {
         minSdk = 26
         targetSdk = 36
         applicationId = "com.bazaarplusplus.android.launcher"
-        versionCode = 16
-        versionName = "0.3.0"
+        versionCode = 17
+        versionName = "0.4.0"
         buildConfigField("String", "LAUNCHER_STORAGE_ROOT", "\"$launcherStorageRoot\"")
         buildConfigField("String", "TARGET_GAME", "\"${launcherGame["package"]}\"")
         ndk {
