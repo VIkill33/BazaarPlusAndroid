@@ -2756,3 +2756,37 @@ Python unittest 25 项、`BuildCorpus.Tests` 通过；`build_probe.py --mod` 零
 局限：两种模式下点击回顾界面的技能栏均不打开原生提示，技能（`SkillCard`）路径未在真机触发；本两场未出现暴击，也没有
 卡牌承受其他卡牌效果的非空「承受」列表，这两类显示只有离线测试覆盖；充能／加速／减速／冻结时长未在真机出现。
 登记开销本场 19.4 ms，首测 PvP 约 49 ms，均在开场一帧内完成。
+
+## 战后影响分析账本与面板高度（2026-11-07，标准模式真机通过，长触发列表待复现）
+
+参考桌面 `PeriodicEffectAttribution`、`CombatImpactAbilityAttributeModifierReader`、`CombatImpactMetricFormatter`
+与 ADR-0008。按用户选定范围补齐周期实际结算、属性变化、触发来源，并让面板按正文增高：
+
+- 采集：`AndroidCombatImpactCapture` 仍在主线程按 2 ms 预算走帧；模板属性修改表改为首次用到时读取。
+  播放结束后 `CardStats` 与纯托管周期账本在 worker 上汇总，主线程 `Publish`。
+- 周期：`CombatImpactPeriodicLedger` 按来源持有层数分摊灼烧／剧毒生命伤害与灼烧护盾、再生治疗；死亡帧截断过量生命伤害。
+- 文案：目标卡不再「另 N 张」；多项触发来源各占一行。`AndroidTooltipObserver` 用 `ForceMeshUpdate` 与
+  无界 `GetPreferredValues` 测高，战斗影响面板最高到安全区域。
+- 离线：`CombatImpact.Tests` 52 项（含五行触发来源分行、周期分摊／过量截断）、Python unittest 25 项；
+  `build_probe.py --mod` 零警告／零错误。
+
+设备 `OBJVWSPNSCFQU48L`（22041216C，Android 14，2460×1080 横屏），游戏 `1.0.13113-production-android-c0ecfd53`，
+中文，标准输入模式。签名包 0.3.0（versionCode 16）`apksigner` 报告 `Verifies`、v2 true，APK SHA-256
+`18dee3da709cc4c024a7b060b4caa23869f0d5c4cd0cf1187daa36dfeb05326e`，`adb install -r` 成功；新会话
+`verify_launcher.py --expect-loaded` 12 项通过，插件目录 DLL 与本次构建一致
+（`591e93c29fe5ddc0af2b1319f7923c3f28ec225974b363d24a2bda19fcea4fe9`）。测试前已在进行中的休闲对局（第 5 天），
+用户授权推进对局与战斗；跳过商店与战利品，未购买。
+
+步骤与结果（截图人工复核，证据在 `artifacts/combat-impact-ledger/`）：
+
+1. 修复前构建的 PvP 回顾（`36-pvp-520.png`）：树精「治疗 ×13 · 总计 520」与五条触发来源挤在短面板里，末行
+   「树精 ×2 · +2s」被裁切，且无「上滑查看更多」。据此改为无界测高、触发来源分行，并重新打包。
+2. 覆盖安装后新会话，标准模式选择左路怪物：日志 `registered generation=1 frames=653 entities=15 elapsedMs=115.0`，
+   播放结束 `projected executions=100 sources=4`（16.6 ms）后 `ready periodic=2 workerMs=137.7`。
+3. 回顾「袖珍飞刀」：使用 8 次，伤害 ×8（暴击 2）总计 50、减速 ×8 总计 16s（两把弯刀各 ×4）、暴击率增加 ×8 总计 +80%，
+   末行完整入屏（`54-item1.png`）。「猎鹰」伤害 ×10（暴击 1）总计 220 与原生 220 一致；「炽焰弯刀」灼烧 ×14 总计 15
+   与原生 15×14 一致，并显示「实际伤害 32」（`55-scythe.png`）。树精本场 ×0，显示空造成文案。
+4. 插件日志无 `combat_impact.failed`；`logcat -b crash` 无游戏进程崩溃记录。
+
+局限：技能栏仍不打开原生提示；本场树精未触发，五行触发来源的增高未在新包上复现，只对照修复前截图与离线分行用例。
+登记 115 ms 高于此前 12–50 ms（653 帧），完成投影已在 worker。未覆盖高级输入模式与本包的 PvP 长列表。

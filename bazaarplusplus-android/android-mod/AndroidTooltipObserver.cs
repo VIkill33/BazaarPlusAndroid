@@ -70,6 +70,10 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
     private bool _historySuppressed;
     // Post-combat recap cards show combat impact instead of the enchant/upgrade preview.
     private const float ImpactHeaderHeight = 64;
+    private const float ImpactMargin = 16;
+    // Vertical bounds (reference units from the bottom) for every other preview.
+    private const float PreviewTop = 1000;
+    private const float PreviewBottom = 45;
     private string? _impactCard;
     private bool _impactReceived;
     private int _lastImpactState;
@@ -259,14 +263,23 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
             _monsterPinned = true;
             _monsterScene = SceneManager.GetActiveScene().handle;
         }
-        else
+        var top = PreviewTop;
+        var bottom = PreviewBottom;
+        if (impact)
+        {
+            // Combat impact lists every target, so it may use the full safe-area height.
+            var unitsPerPixel = 1080f / Screen.height;
+            top = Mathf.Min(1080 - ImpactMargin, Screen.safeArea.yMax * unitsPerPixel - ImpactMargin);
+            bottom = Mathf.Max(ImpactMargin, Screen.safeArea.yMin * unitsPerPixel + ImpactMargin);
+        }
+        if (!monsterPreview)
         {
             if (leftEdge) _panel.anchorMin = _panel.anchorMax = Vector2.zero;
             // Keep a small touch margin inside the device safe area (notch/navigation).
             var left = leftEdge ? 16 + Screen.safeArea.xMin * 1080f / Screen.height
                 : -PreviewRightInset - PreviewWidth;
-            _panel.offsetMin = new Vector2(left, 45);
-            _panel.offsetMax = new Vector2(left + PreviewWidth, 1000);
+            _panel.offsetMin = new Vector2(left, bottom);
+            _panel.offsetMax = new Vector2(left + PreviewWidth, top);
             if (_currentItem != null)
                 Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.preview.placement position={(leftEdge ? "left" : "default")} x={left}");
             _scroll.gameObject.SetActive(true);
@@ -278,11 +291,15 @@ public sealed class AndroidTooltipObserver(IntPtr pointer) : MonoBehaviour(point
         if (!monsterPreview)
         {
             NativeUi.RichDescription(_text, preview);
-            var height = _text.GetPreferredValues(preview, TextWidth, 0).y + 32;
+            // height=0 under-counts wrapped lines (long trigger lists), so the panel
+            // stays short, RectMask2D clips the overflow, and the scroll cue never appears.
+            _text.ForceMeshUpdate();
+            var height = Mathf.Max(_text.preferredHeight,
+                _text.GetPreferredValues(preview, TextWidth, float.PositiveInfinity).y) + (impact ? 48 : 32);
             _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
             var header = impact ? ImpactHeaderHeight : 0;
             _panel.offsetMin = new Vector2(_panel.offsetMin.x,
-                Mathf.Max(45, 1000 - height - header - (ViewportMin.y - ViewportMax.y)));
+                Mathf.Max(bottom, top - height - header - (ViewportMin.y - ViewportMax.y)));
             _scroll.verticalNormalizedPosition = 1;
         }
         _panel.gameObject.SetActive(true);

@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../android-mod/AndroidCombatImpactReport.cs" Link="AndroidCombatImpactReport.cs" />
+    <Compile Include="../../android-mod/AndroidCombatImpactPeriodic.cs" Link="AndroidCombatImpactPeriodic.cs" />
     <Compile Include="../../android-mod/AndroidCombatImpactText.cs" Link="AndroidCombatImpactText.cs" />
     <Compile Include="../../android-mod/AndroidPreviewText.cs" Link="AndroidPreviewText.cs" />
   </ItemGroup>
