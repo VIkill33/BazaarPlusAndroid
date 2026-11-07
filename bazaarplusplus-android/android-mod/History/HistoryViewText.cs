@@ -60,9 +60,11 @@ internal static class HistoryViewText
     {
         "未达奖杯" => "state:broken", "已投降" => "state:flag", "已中断" => "state:pending", _ => "state:pending",
     });
-    internal static string RunMeta(JsonElement row) => $"{Date(row, "startedAt")} · {Mode(Value(row, "playMode"))}"
-        + $"\n第 {Number(row, "day")} 天 · {Number(row, "battleCount")} 场 PvP"
+    internal static string RunWhen(JsonElement row) => $"{Date(row, "startedAt")} · {Mode(Value(row, "playMode"))}";
+    internal static string RunProgress(JsonElement row) => $"第 {Number(row, "day")} 天 · {Number(row, "battleCount")} 场 PvP"
         + (Number(row, "startDay") > 1 ? " · 中途开始记录" : "");
+    internal static string BattleWhen(JsonElement row) => $"第 {Number(row, "day")} 天 {Number(row, "hour")} 时 · #{Number(row, "sequence")} · PvP"
+        + (Number(row, "partialOpening") != 0 ? " · 开局信息不完整" : "");
     internal static JsonElement Opponent(JsonElement row) => row.TryGetProperty("opening", out var opening)
         && opening.ValueKind == JsonValueKind.Object ? opening : row;
     internal static string OpponentName(JsonElement row)

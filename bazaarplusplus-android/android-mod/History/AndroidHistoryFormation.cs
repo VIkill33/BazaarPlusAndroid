@@ -58,10 +58,11 @@ internal sealed class AndroidHistoryFormation
         var background = NativeUi.Button(_detail, font, "", Vector2.zero, Vector2.one, () => CloseDetail());
         background.GetComponent<Image>().color = new Color(0,0,0,.85f);
         var sheet = NativeUi.Rect("DetailSheet", _detail, new(.18f,.12f), new(.82f,.88f));
-        sheet.gameObject.AddComponent<Image>().color = new Color(.09f,.12f,.15f,1);
-        (_detailText, _detailContent, _detailScroll) = NativeUi.ScrollText(sheet, font, new(.02f,.10f), new(.98f,.98f));
-        _detailText.richText = false; _detailText.fontSize = 25;
-        NativeUi.Button(sheet, font, "关闭", new(.76f,.01f), new(.98f,.09f), () => CloseDetail());
+        var sheetImage = sheet.gameObject.AddComponent<Image>(); sheetImage.color = AndroidMarketPanelTheme.Surface;
+        AndroidHistoryPanel.AddFrame(sheetImage, AndroidHistoryPanel.Frame);
+        (_detailText, _detailContent, _detailScroll) = NativeUi.ScrollText(sheet, font, new(.03f,.11f), new(.97f,.97f));
+        _detailText.richText = false; _detailText.fontSize = 26; _detailText.color = AndroidHistoryPanel.Body;
+        AndroidPanelButtonSkin.Register(NativeUi.Button(sheet, font, "关闭", new(.76f,.015f), new(.97f,.095f), () => CloseDetail()));
         _detail.gameObject.SetActive(false); _root.gameObject.SetActive(false);
     }
     private RectTransform Area(string name, float left, float right, float top, float height, float inset = 4)
@@ -69,30 +70,40 @@ internal sealed class AndroidHistoryFormation
         var rect = NativeUi.Rect(name, _content, new(left,1), new(right,1), new(inset,-top-height), new(-inset,-top));
         _owned.Add(rect.gameObject); return rect;
     }
-    private void Text(string value, float left, float right, float top, float height, float size = 23)
+    private TextMeshProUGUI Text(string value, float left, float right, float top, float height, float size = 23, Color? color = null)
     {
         var label = NativeUi.Label(Area("Label",left,right,top,height),_font,value,size);
         label.alignment = TextAlignmentOptions.MidlineLeft; label.richText = false;
+        label.color = color ?? AndroidHistoryPanel.Body;
+        return label;
+    }
+    private void Heading(string value, float left, float right, float top)
+    {
+        var label = Text(value,left,right,top,46,30,AndroidHistoryPanel.Heading);
+        label.fontStyle = FontStyles.Bold; label.textWrappingMode = TextWrappingModes.NoWrap; label.overflowMode = TextOverflowModes.Ellipsis;
+        // Ellipsis also drops a line that is taller than its rect.
+        label.rectTransform.offsetMin = new Vector2(12, 0); label.rectTransform.offsetMax = new Vector2(-12, 0);
     }
     internal void Show(JsonElement battle)
     {
         Hide(); _active = true; _root.gameObject.SetActive(true);
         var opening = battle.GetProperty("opening");
         var version = HistoryViewText.Value(opening,"gameVersion");
-        Text(HistoryViewText.Battle(battle) + $"\n保存版本：{version}" + (version != Application.version ? " · 与当前版本不同，卡面仅供参考" : " · 原生卡面仅供参考"),0,1,0,110);
-        Text("我方：" + HistoryViewText.Value(opening,"playerHero"),0,.5f,110,42,27);
-        Text("对方：" + HistoryViewText.Value(opening,"opponentHero"),.5f,1,110,42,27);
+        Text(HistoryViewText.Battle(battle) + $"\n保存版本：{version}" + (version != Application.version ? " · 与当前版本不同，卡面仅供参考" : " · 原生卡面仅供参考"),
+            0,1,0,110,23,AndroidHistoryPanel.Muted);
+        Heading("我方：" + HistoryViewText.Value(opening,"playerHero"),0,.5f,112);
+        Heading("对方：" + HistoryViewText.Value(opening,"opponentHero"),.5f,1,112);
         var snapshots = battle.GetProperty("snapshots");
         Canvas.ForceUpdateCanvases();
-        var left = Group(snapshots.GetProperty("playerHand"),"物品",0,.5f,152,false);
+        var left = Group(snapshots.GetProperty("playerHand"),"物品",0,.5f,160,false);
         left = Group(snapshots.GetProperty("playerSkills"),"技能",0,.5f,left,true);
-        var right = Group(snapshots.GetProperty("opponentHand"),"物品",.5f,1,152,false);
+        var right = Group(snapshots.GetProperty("opponentHand"),"物品",.5f,1,160,false);
         right = Group(snapshots.GetProperty("opponentSkills"),"技能",.5f,1,right,true);
         _height = Math.Max(left,right) + 12; _content.sizeDelta = new(0,_height); _scroll.verticalNormalizedPosition = 1;
     }
     private float Group(JsonElement group, string name, float left, float right, float top, bool skills)
     {
-        Text(name + " · " + HistoryViewText.Group(group),left,right,top,44); top += 44;
+        Text(name + " · " + HistoryViewText.Group(group),left,right,top,40,24,AndroidHistoryPanel.Muted); top += 40;
         var cards = group.GetProperty("cards");
         if (cards.GetArrayLength() == 0) return top + 16;
         // The native board has ten small-card sockets; a small item frame is about 0.52 wide per height.
@@ -111,10 +122,12 @@ internal sealed class AndroidHistoryFormation
             var box = Area("SavedCard",x,end,top + row * height,height - 2,1);
             var button = NativeUi.Button(box,_font,"",Vector2.zero,Vector2.one,() => { if (PlayerPreferences.Data?.AlternativeInput != true) ShowDetail(card); });
             button.GetComponent<Image>().color = new Color(0,0,0,.01f);
-            var placeholder = NativeUi.Label(box,_font,HistoryViewText.Value(card,"name") + "\n" + HistoryViewText.Value(card,"tier"),17);
-            placeholder.richText = false; placeholder.overflowMode = TextOverflowModes.Ellipsis;
-            var caption = NativeUi.Label(NativeUi.Rect("SavedName",box,Vector2.zero,new(1,.15f)),_font,HistoryViewText.Value(card,"name"),16);
-            caption.richText = false; caption.overflowMode = TextOverflowModes.Ellipsis;
+            var placeholder = NativeUi.Label(box,_font,HistoryViewText.Value(card,"name") + "\n" + HistoryViewText.Value(card,"tier"),19);
+            placeholder.richText = false; placeholder.overflowMode = TextOverflowModes.Ellipsis; placeholder.color = AndroidHistoryPanel.Muted;
+            var caption = NativeUi.Label(NativeUi.Rect("SavedName",box,Vector2.zero,new(1,.15f)),_font,HistoryViewText.Value(card,"name"),19);
+            caption.richText = false; caption.textWrappingMode = TextWrappingModes.NoWrap; caption.overflowMode = TextOverflowModes.Ellipsis;
+            caption.enableAutoSizing = true; caption.fontSizeMin = 14; caption.fontSizeMax = 19;
+            caption.rectTransform.offsetMin = new(4,1); caption.rectTransform.offsetMax = new(-4,-1);
             var preview = new Preview { Saved=card,Box=box,Placeholder=placeholder,Top=top+row*height,Height=height };
             var trigger = button.gameObject.AddComponent<EventTrigger>();
             Event(trigger,EventTriggerType.PointerDown,data => { if (_pressed == null) { _pressed=preview; _pointer=data.pointerId; _pressedAt=Time.realtimeSinceStartup; } });

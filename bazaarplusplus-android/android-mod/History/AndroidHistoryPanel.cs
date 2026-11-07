@@ -28,14 +28,18 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     private Button? _heroButton;
     private readonly List<Query> _queries = new();
     private sealed record Row(Button Button, Image Portrait, TextMeshProUGUI HeroFallback,
-        TextMeshProUGUI Meta, Image Trophy, TextMeshProUGUI Score, TextMeshProUGUI Detail);
+        TextMeshProUGUI Primary, TextMeshProUGUI Secondary, Image Trophy, TextMeshProUGUI Score, TextMeshProUGUI Detail);
     private readonly List<Row> _rows = new();
     private readonly AndroidUiArt _art = new();
     private Row? _runHeader;
-    private static readonly Color Muted = new(.77f,.71f,.67f);
+    internal static readonly Color Body = new(.953f,.906f,.80f);
+    internal static readonly Color Heading = new(.949f,.769f,.42f);
+    internal static readonly Color Muted = new(.722f,.675f,.58f);
+    internal static readonly Color Frame = new(.91f,.60f,.28f,.45f);
     private static readonly Color Amber = new(1f,.74f,.40f);
     private static readonly Color Success = new(.44f,.84f,.67f);
     private static readonly Color Loss = new(.95f,.40f,.36f);
+    private static readonly Color RowSurface = new(.157f,.110f,.141f,.96f);
     private const float RowHeight = 124;
     private readonly List<JsonElement> _items = new();
     private GameObject? _canvas;
@@ -77,6 +81,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
                 && AndroidLauncherSettings.Shown(AndroidDockButton.History));
             if (_entry != null) _entry.interactable = Scope != null;
             if (!_open) return;
+            AndroidPanelButtonSkin.Tick();
             if (Keyboard.current?.escapeKey.wasPressedThisFrame == true) Back();
             _formation?.Tick();
             _art.Tick();
@@ -92,6 +97,21 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     private TextMeshProUGUI Label(Transform parent, string value, float size = 26)
     {
         var label = NativeUi.Label(parent, _font!, value, size); label.richText = false; return label;
+    }
+    private TextMeshProUGUI Line(Transform parent, Vector2 min, Vector2 max, float size, Color color, Vector2 offsetMin = default)
+    {
+        var label = Label(NativeUi.Rect("Line", parent, min, max, offsetMin), "", size);
+        label.alignment = TextAlignmentOptions.MidlineLeft; label.color = color;
+        label.textWrappingMode = TextWrappingModes.NoWrap; label.overflowMode = TextOverflowModes.Ellipsis;
+        // Ellipsis also drops a line that is taller than its rect, so keep the full row half for the text.
+        label.rectTransform.offsetMin = new Vector2(8, 0); label.rectTransform.offsetMax = new Vector2(-8, 0);
+        return label;
+    }
+    internal static void AddFrame(Component target, Color color)
+    {
+        var outline = target.gameObject.GetComponent<Outline>();
+        if (outline == null) outline = target.gameObject.AddComponent<Outline>();
+        outline.effectColor = color; outline.effectDistance = new Vector2(1.5f, -1.5f); outline.useGraphicAlpha = false;
     }
     private Button Button(Transform parent, string value, Vector2 min, Vector2 max, Action action)
     {
@@ -112,15 +132,17 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
             () => NativeUi.Text("History", "对局历史"));
         _panel = NativeUi.Rect("BPP.History", _canvas.transform, Vector2.zero, Vector2.one);
         _panel.gameObject.AddComponent<Image>().color = new Color(.106f, .071f, .078f, 1);
-        Button(_panel, "返回", new(.02f,.91f), new(.12f,.98f), Back);
-        Button(_panel, "刷新", new(.74f,.91f), new(.86f,.98f), Refresh);
-        Button(_panel, "关闭", new(.88f,.91f), new(.98f,.98f), () => SetOpen(false));
-        _title = Label(NativeUi.Rect("Title", _panel, new(.14f,.91f), new(.72f,.98f)), "对局历史", 34);
+        var back = Button(_panel, "返回", new(.02f,.91f), new(.12f,.98f), Back);
+        var refresh = Button(_panel, "刷新", new(.74f,.91f), new(.86f,.98f), Refresh);
+        var close = Button(_panel, "关闭", new(.88f,.91f), new(.98f,.98f), () => SetOpen(false));
+        _title = Label(NativeUi.Rect("Title", _panel, new(.14f,.91f), new(.72f,.98f)), "对局历史", 42);
+        _title.fontStyle = FontStyles.Bold; _title.color = Heading;
         _choices = new AndroidChoicePopup(_panel, font);
         _heroButton = Button(_panel, "英雄：全部", new(.73f,.815f), new(.97f,.895f), ChooseHero);
-        _summary = Label(NativeUi.Rect("Summary", _panel, new(.03f,.81f), new(.70f,.90f)), "", 24);
-        _summary.alignment = TextAlignmentOptions.MidlineLeft;
-        _status = Label(NativeUi.Rect("Status", _panel, new(.03f,.005f), new(.97f,.055f)), "", 22);
+        _summary = Label(NativeUi.Rect("Summary", _panel, new(.03f,.81f), new(.70f,.90f)), "", 26);
+        _summary.alignment = TextAlignmentOptions.MidlineLeft; _summary.color = Muted;
+        _status = Label(NativeUi.Rect("Status", _panel, new(.03f,.005f), new(.85f,.058f)), "", 24);
+        _status.color = Muted;
         _runHeader = CreateRow(_panel, () => { });
         var headerRect = _runHeader.Button.GetComponent<RectTransform>();
         headerRect.anchorMin = new(.03f,.755f); headerRect.anchorMax = new(.97f,.90f);
@@ -142,8 +164,18 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         }
         _previous = Button(_panel, "上一页", new(.03f,.065f), new(.20f,.14f), () => Move(false));
         _next = Button(_panel, "下一页", new(.80f,.065f), new(.97f,.14f), () => Move(true));
-        _pageLabel = Label(NativeUi.Rect("Page", _panel, new(.22f,.065f), new(.78f,.14f)), "", 24);
-        _retryButton = Button(_panel, "重试", new(.87f,.01f), new(.97f,.052f), () => _retry?.Invoke());
+        _pageLabel = Label(NativeUi.Rect("Page", _panel, new(.22f,.065f), new(.78f,.14f)), "", 26);
+        _pageLabel.color = Muted;
+        _retryButton = Button(_panel, "重试", new(.87f,.008f), new(.97f,.056f), () => _retry?.Invoke());
+        // Dividers must clear the run header below the title bar and the status line below paging.
+        if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, _title, .903f, .06f);
+        foreach (var button in new[] { back, refresh, close, _heroButton, _previous, _next, _retryButton })
+            AndroidPanelButtonSkin.Register(button);
+        foreach (var row in _rows.Append(_runHeader!))
+        {
+            row.Button.GetComponent<Image>().color = AndroidLauncherSettings.MarketPanels ? AndroidMarketPanelTheme.Surface : RowSurface;
+            AddFrame(row.Button, Frame);
+        }
         _formation = new AndroidHistoryFormation(_panel, font);
         SetOpen(false);
         Plugin.PluginLog?.LogInfo("[BPP][Android] event=history.panel.ready");
@@ -157,16 +189,15 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
         var portraitRect = NativeUi.Rect("Hero", button.transform, new(0,.5f), new(0,.5f), new(16,-46), new(108,46));
         var portrait = portraitRect.gameObject.AddComponent<Image>(); portrait.preserveAspect = true; portrait.raycastTarget = false;
-        var fallback = Label(portraitRect, "英雄未记录", 20); fallback.enableWordWrapping = true;
-        var meta = Label(NativeUi.Rect("Metadata", button.transform, new(.065f,.08f), new(.57f,.92f), new(18,0)), "", 25);
-        meta.alignment = TextAlignmentOptions.MidlineLeft; meta.color = Muted;
+        var fallback = Label(portraitRect, "英雄未记录", 20); fallback.enableWordWrapping = true; fallback.color = Muted;
+        var primary = Line(button.transform, new(.065f,.50f), new(.57f,.94f), 29, Body, new(18,0));
+        var secondary = Line(button.transform, new(.065f,.06f), new(.57f,.50f), 24, Muted, new(18,0));
         var trophy = NativeUi.Rect("Trophy", button.transform, new(.61f,.5f), new(.61f,.5f), new(-40,-40), new(40,40))
             .gameObject.AddComponent<Image>(); trophy.preserveAspect = true; trophy.raycastTarget = false;
-        var score = Label(NativeUi.Rect("Score", button.transform, new(.65f,.39f), new(.94f,.99f)), "", 46);
-        score.alignment = TextAlignmentOptions.MidlineLeft;
-        var detail = Label(NativeUi.Rect("Outcome", button.transform, new(.65f,.02f), new(.94f,.43f)), "", 24);
-        detail.alignment = TextAlignmentOptions.MidlineLeft; detail.color = Muted;
-        return new(button, portrait, fallback, meta, trophy, score, detail);
+        var score = Line(button.transform, new(.65f,.42f), new(.96f,.99f), 40, Amber);
+        score.fontStyle = FontStyles.Bold;
+        var detail = Line(button.transform, new(.65f,.04f), new(.96f,.44f), 24, Muted);
+        return new(button, portrait, fallback, primary, secondary, trophy, score, detail);
     }
     private void FillRun(Row row, JsonElement run)
     {
@@ -174,7 +205,8 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         row.HeroFallback.text = hero == "未记录" ? "英雄未记录" : hero;
         _art.Bind(row.Portrait, AndroidUiArt.Hero(hero), row.HeroFallback);
         _art.Bind(row.Trophy, HistoryViewText.Badge(run));
-        row.Meta.text = HistoryViewText.RunMeta(run);
+        row.Primary.text = HistoryViewText.RunWhen(run);
+        row.Secondary.text = HistoryViewText.RunProgress(run);
         row.Score.text = HistoryViewText.Score(run); row.Score.color = Amber;
         var losses = HistoryViewText.HasProgress(run) ? $"{HistoryViewText.Number(run,"losses")} 负 · " : "";
         row.Detail.text = losses + HistoryViewText.Tier(run);
@@ -185,12 +217,11 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         row.HeroFallback.text = hero == "未记录" ? "英雄未记录" : hero;
         _art.Bind(row.Portrait, AndroidUiArt.Hero(hero), row.HeroFallback);
         _art.Bind(row.Trophy, null);
-        row.Meta.text = HistoryViewText.OpponentName(battle)
-            + $"\n第 {HistoryViewText.Number(battle,"day")} 天 {HistoryViewText.Number(battle,"hour")} 时 · #{HistoryViewText.Number(battle,"sequence")} · PvP"
-            + (HistoryViewText.Number(battle,"partialOpening") != 0 ? " · 开局信息不完整" : "");
+        row.Primary.text = HistoryViewText.OpponentName(battle);
+        row.Secondary.text = HistoryViewText.BattleWhen(battle);
         row.Score.text = HistoryViewText.Result(battle);
         row.Score.color = HistoryViewText.Value(battle,"outcome") switch { "win" => Success, "loss" => Loss, _ => Muted };
-        row.Detail.text = "查看阵容";
+        row.Detail.text = "查看阵容 ›";
     }
 
     private void ChooseHero()
@@ -227,7 +258,8 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     }
     private void Remember()
     {
-        if (_kind != PageKind.Formation && _scroll != null) CurrentPage.Scroll = _scroll.verticalNormalizedPosition;
+        // An empty page has no meaningful offset; saving it would reopen loaded rows at the bottom.
+        if (_kind != PageKind.Formation && _scroll != null && _items.Count > 0) CurrentPage.Scroll = _scroll.verticalNormalizedPosition;
     }
     private void Back()
     {
@@ -341,14 +373,15 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         {
             _heroButton.gameObject.SetActive(_kind == PageKind.Runs);
             _heroButton.GetComponentInChildren<TextMeshProUGUI>().text = NativeUi.Text("Hero: ", "英雄：")
-                + (_hero.HasValue ? AndroidChoicePopup.HeroName(_hero.Value) : NativeUi.Text("All", "全部")) + " ▾";
+                + (_hero.HasValue ? AndroidChoicePopup.HeroName(_hero.Value) : NativeUi.Text("All", "全部")) + " v";
+            AndroidPanelButtonSkin.SetSelected(_heroButton, _hero.HasValue);
         }
         var showHeader = _kind == PageKind.Battles && _run.HasValue;
         _runHeader?.Button.gameObject.SetActive(showHeader);
         if (showHeader)
         {
             FillRun(_runHeader!, _run!.Value);
-            _runHeader!.Meta.text += "\n结束：" + HistoryViewText.Date(_run.Value,"endedAt");
+            _runHeader!.Secondary.text += " · 结束 " + HistoryViewText.Date(_run.Value,"endedAt");
         }
         if (_summary != null)
         {

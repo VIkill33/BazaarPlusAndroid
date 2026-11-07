@@ -1,5 +1,40 @@
 # Android 真机验证
 
+## 游戏内历史页 UI 与字体优化、单场列表倒序（2026-11-07，高级模式真机通过）
+
+参考 `docs/design.md`（游戏内面板跟随原生 UI）、桌面 `HistoryPanelView` 的原生按钮与省略号单行文本、
+`artifacts/history-m1/pvp-last-*.png` 旧截图，以及已改版的 `CollectionController`、`AndroidBuildPanelController`。
+`AndroidHistoryPanel` 的顶部、分页、重试与英雄筛选按钮注册 `AndroidPanelButtonSkin`（英雄已选时蓝色选中底）；
+启动器「使用新样式」开启时调用 `AndroidMarketPanelTheme.Apply`，分隔线避开整局摘要行与底部状态。
+列表行由单个多行标签拆为主／次两行（`HistoryViewText.RunWhen`、`RunProgress`、`BattleWhen`），单行省略；
+阵容页 `AndroidHistoryFormation` 双方标题改为金色粗体，卡名单行自适应，卡牌详情改为暮紫底暖金边框。
+查询、分页、筛选、长按与点击逻辑未改。
+
+按用户要求，`HistoryReader.battles` 改为按天、时、序号倒序（最新交手在顶部，第 1 天在列表尾部），
+翻页游标比较同步反向；游戏内「整局详情」与启动器「单场对局」共用该查询。
+
+首轮真机截图发现：行内单行文字保留了默认上下 6 像素内边距，TMP 省略模式把高度不足的整行丢弃，
+日期、对手名、胜场与阵容页双方标题不显示，结果只剩「2…」；英雄按钮的「▾」字形缺失显示为方框。
+已去掉单行文字的上下内边距、胜场改为 40 号、箭头改用与图鉴相同的「v」。另发现既有问题：
+`Refresh` 在新页尚无数据时调用 `Remember`，把空页滚动值存下，数据到达后列表停在底部；
+现仅在已有行时记录滚动位置，进入整局详情后从第 12 天顶部开始。
+
+离线：插件 Release 编译 0 警告、0 错误；25 项 Python 回归与 `HistoryBrowse.Tests` 26 项断言通过；
+`verify_history_store.py --reader` 在本机隔离库 118 项通过（含倒序翻页 43→1 不重不漏）。
+
+真机：Redmi 22041216C（`OBJVWSPNSCFQU48L`）、Android 14、游戏 1.0.13084、2460×1080，高级输入模式，
+主菜单进入，无对局操作。签名 APK 0.3.0 覆盖安装，两次新会话 `verify_launcher.py --expect-loaded` 12 项均通过。
+截图人工复核：启动器单场对局第 12 天在顶、第 1 天在尾；游戏内列表／整局详情两行文字、胜场与奖杯完整，
+金框按钮与暮紫主题、分隔线不压文字；整局详情打开即第 12 天、滚到底为第 1 天；第 1 天阵容金色双方标题、
+卡名完整；长按三叉网显示暮紫金框详情，松手关闭；英雄筛选卡诺克后按钮变蓝色选中底、列表过滤为 1 局，
+恢复全部。关闭「使用新样式」重启后旧样式（无集市底图／分隔线）列表与整局详情正常，随后已恢复为开启。
+插件日志无 `history.panel.failed`／`history.query.failed`，启动期 Il2CppInterop 错误与此前会话相同。
+证据：忽略目录 `artifacts/history-ui-polish/`（`game-*.png`、`old-*.png`、`launcher-*.png`、`loaded*/`、
+`reader.json`、`LogOutput.log`）。
+
+未覆盖：标准输入模式点击打开详情、长对手名与「中途开始记录」的截断（样本中未出现）、加载中禁用色、
+多页翻页（样本每局不足 20 场）。
+
 ## 野怪预览物品卡按原生比例缩放（2026-11-07，高级模式用户自测通过）
 
 原 `AndroidMonsterCardGallery.Fit` 按原生画框 `_currentFrame` 的宽高缩放；画框空白边距随体型

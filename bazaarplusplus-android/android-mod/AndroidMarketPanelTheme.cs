@@ -13,7 +13,7 @@ internal static class AndroidMarketPanelTheme
     internal static readonly Color Selected = new(.29f, .14f, .085f, 1f);
     private static readonly Color Gold = new(.91f, .60f, .28f, .85f);
 
-    internal static void Apply(RectTransform panel, TextMeshProUGUI title)
+    internal static void Apply(RectTransform panel, TextMeshProUGUI title, float topRule = .875f, float bottomRule = .015f)
     {
         panel.GetComponent<Image>().color = Background;
         AddBackdrop(panel);
@@ -32,8 +32,8 @@ internal static class AndroidMarketPanelTheme
         Frame(panel, "BPP.Preview");
         Frame(panel, "BPP.RecommendedBoard");
         Frame(panel, "BPP.Description");
-        Rule(panel, .875f);
-        Rule(panel, .015f);
+        Rule(panel, topRule);
+        Rule(panel, bottomRule);
     }
 
     private static void Frame(RectTransform panel, string name)
