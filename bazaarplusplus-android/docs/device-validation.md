@@ -1,5 +1,26 @@
 # Android 真机验证
 
+## 构筑来源改为三个并排按钮（2026-11-07，高级模式大厅真机通过）
+
+参考桌面 LiveBuildPanel 同时展示商店、仓库与场上三区（`bazaarplusplus-mod/docs/architecture/panels.md`），
+`AndroidBuildPanelController.BuildUi` 将原循环切换的单个来源按钮改为「场上／仓库／商店」三个并排按钮，
+标题区收窄并允许自适应字号。`UpdateCandidateButtons` 为每个按钮写入「名称 (数量)」，
+并经 `AndroidPanelButtonSkin.SetSelected` 给当前来源蓝色选中底；`SelectSource` 切换来源并回到第 1 页，
+点击已选来源不做任何事。打开面板仍默认场上。
+
+离线：插件 Release 0 警告、0 错误；25 项 Python 回归（工具链 dotnet 与 JDK 24 加入 `PATH`）与 `BuildCorpus.Tests` 通过。
+
+真机：Redmi 22041216C（`OBJVWSPNSCFQU48L`）、Android 14、游戏 1.0.13084、2460×1080，高级输入模式（停靠栏显示按住预览），
+测试前停在大厅、无进行中对局。直接替换插件目录 DLL 会在启动时被启动器内置插件还原，
+故按导出 skill 重建签名 APK（SHA-256 `77e25a5136c2b4a26465b584b664e195a3571d7effef332e5340f87ea0aff277`）覆盖安装；
+新会话插件目录 DLL 摘要为 `0c8ed1635e5de60f6b913f91cdf40bbd24bb6c425a183c8a7f451683f6b1e79e`，
+与本次构建一致，`verify_launcher.py --expect-loaded` 全部通过。截图人工复核：打开构筑页三按钮并排、「场上 (0)」蓝色选中；
+依次点「仓库」「商店」，选中底随之移动，其余恢复棕色；关闭重开回到「场上」选中。插件日志无构筑面板错误，crash 缓冲区无新增原生崩溃。
+证据：忽略目录 `artifacts/build-source-tabs/`（`lobby-board.png`、`lobby-stash.png`、`lobby-shop.png`、`lobby-reopen.png`、`launcher-verify/`）。
+
+未覆盖：大厅无候选物品，未开对局，因此非空数量、切换后候选卡图与分页、跨来源保留已选候选未在本轮真机验证；
+标准输入模式、英文「Stash (12)」等较长文字的宽度及旧样式待验证。
+
 ## 历史整局按模式筛选、顶部间距与双方阵容改版（2026-11-07，高级模式真机通过）
 
 参考桌面 `HistoryPanelText.Unranked`（「普通对局」）、游戏大厅的「普通／排位」选项、

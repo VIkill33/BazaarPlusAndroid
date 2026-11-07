@@ -167,7 +167,7 @@ python3 bazaarplusplus-android/build_probe.py --framework-zip /path/to/BepInEx-a
 #### 真机自动测试要求
 
 1. 使用 `adb devices -l` 检查连接与授权；多设备时明确序列号，所有后续 ADB 操作使用 `-s <serial>`。记录设备、Android／游戏版本、输入模式及测试前游戏状态，不沿用历史记录推断当前环境。
-2. 检查本次构建的 `artifacts/mod/build-inputs.json`，部署对应 `BazaarPlusPlus.Android.dll` 到已确认的 FusionCore 游戏插件目录。仅替换目标插件，不复制框架或游戏代理；日常功能测试移出会全目录读取的运行时探针。
+2. 检查本次构建的 `artifacts/mod/build-inputs.json`，部署对应 `BazaarPlusPlus.Android.dll` 到已确认的 FusionCore 游戏插件目录。仅替换目标插件，不复制框架或游戏代理；日常功能测试移出会全目录读取的运行时探针。启动器每次启动游戏都会用 APK 内置插件还原插件目录，直接 `adb push` 的 DLL 不会生效；须按[导出 skill](.cursor/skills/export-launcher-apk/SKILL.md)重建签名 APK 并 `adb install -r` 覆盖安装，再核对新会话中的 DLL 摘要。
 3. 按加载器实际入口重启／重载，核对当前 DLL 校验值和本次启动日志，确认运行的是新构建。不能仅凭 push 成功或旧截图判定已更新。
 4. 真机界面检查与自动操作优先使用 Android CLI（命令为 `android`）：使用 `screen capture` 获取截图，按需添加 `--annotate` 辅助定位；原生启动器优先通过 `layout` 与 `input` 按文字或控件 ID 操作。多设备时显式指定目标设备，参数以本机 `--help` 为准。Unity 游戏内 UI 不预设能被布局树识别；布局服务安装失败、控件不可见或 CLI 不支持所需操作时，回退到 ADB 或现有验证脚本，继续完成可验证路径。DLL 部署、日志采集、会话与摘要断言继续复用现有工具。每步检查屏幕状态，等待有超时；坐标操作依据当前截图与分辨率定位，不能盲点固定坐标，截图标注不等于语义识别或结果断言。
 5. 自动操作必须配合结果断言：收集截图、插件日志和必要的 `logcat`，核对文本、卡图、数值、筛选结果、选择状态及生命周期，检查异常与原生崩溃。截图人工复核须如实标注，不能声称已有自动视觉断言。
