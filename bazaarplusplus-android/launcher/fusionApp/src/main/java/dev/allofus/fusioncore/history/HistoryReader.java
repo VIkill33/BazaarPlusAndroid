@@ -245,12 +245,12 @@ public final class HistoryReader {
         JSONObject after = request.optJSONObject("after");
         if (after != null) {
             long day = nonnegative(after, "day"), hour = nonnegative(after, "hour"), sequence = nonnegative(after, "sequence");
-            where += " AND (b.day>? OR (b.day=? AND b.hour>?) OR (b.day=? AND b.hour=? AND b.sequence>?))";
+            where += " AND (b.day<? OR (b.day=? AND b.hour<?) OR (b.day=? AND b.hour=? AND b.sequence<?))";
             for (long value : new long[] {day, day, hour, day, hour, sequence}) args.add(Long.toString(value));
         }
         // Project only opponent metadata from the small opening object; never query snapshot payloads here.
         try (Cursor rows = query(db, "SELECT " + BATTLE_COLUMNS + ",b.opening_json AS openingMetadata" + RUN_FROM + " JOIN battles b ON b.run_id=r.id WHERE "
-                + where + " ORDER BY b.day,b.hour,b.sequence LIMIT " + (PAGE_SIZE + 1), args)) {
+                + where + " ORDER BY b.day DESC,b.hour DESC,b.sequence DESC LIMIT " + (PAGE_SIZE + 1), args)) {
             return page(rows, false);
         }
     }

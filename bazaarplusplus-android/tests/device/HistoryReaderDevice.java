@@ -95,17 +95,17 @@ public final class HistoryReaderDevice {
                 page = own.read(request("battles").put("runId", first));
                 check("对手🐸".equals(page.getJSONArray("items").getJSONObject(0).getString("opponentName")), "opponent name survives list projection");
                 String selected = page.getJSONArray("items").getJSONObject(0).getString("id");
-                int expected = 1;
+                int expected = 43;
                 while (true) {
                     JSONArray items = page.getJSONArray("items");
                     for (int i = 0; i < items.length(); i++) {
                         JSONObject row = items.getJSONObject(i);
-                        if (row.getInt("sequence") != expected++ || row.has("opening") || row.has("snapshots")) throw new AssertionError("battle page contract");
+                        if (row.getInt("sequence") != expected-- || row.has("opening") || row.has("snapshots")) throw new AssertionError("battle page contract");
                     }
                     if (!page.getBoolean("hasMore")) break;
                     page = own.read(request("battles").put("runId", first).put("after", page.getJSONObject("after")));
                 }
-                check(expected == 44, "same-hour battles paginate by persisted sequence without a fixed cap");
+                check(expected == 0, "same-hour battles paginate newest first by persisted sequence without a fixed cap");
                 JSONObject detailRequest = request("battle").put("runId", first).put("battleId", selected);
                 JSONObject detail = own.read(detailRequest).getJSONObject("battle");
                 JSONObject groups = detail.getJSONObject("snapshots");
