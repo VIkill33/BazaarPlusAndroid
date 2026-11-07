@@ -35,7 +35,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private TextMeshProUGUI? _buildPosition;
     private AndroidBuildMatch[] _matches = Array.Empty<AndroidBuildMatch>();
     private int _buildIndex;
-    private Button? _sourceButton;
+    private readonly Button[] _sourceButtons = new Button[3];
     private Button? _candidatePageButton;
     private Button? _updateBuildsButton;
     private Task? _manualUpdate;
@@ -153,9 +153,24 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             background.color = new Color(.025f, .04f, .065f, .995f);
             background.raycastTarget = true;
             var titleLabel = NativeUi.Label(NativeUi.Rect("BPP.BuildTitle", _panel, new Vector2(.03f, .89f),
-                new Vector2(.36f, .98f)), font, () => NativeUi.Text("Recommended builds", "构筑推荐"), 40);
-            _sourceButton = NativeUi.Button(_panel, font, NativeUi.Text("Board", "场上"),
-                new Vector2(.37f, .89f), new Vector2(.53f, .98f), CycleSource);
+                new Vector2(.25f, .98f)), font, () => NativeUi.Text("Recommended builds", "构筑推荐"), 40);
+            titleLabel.enableAutoSizing = true;
+            titleLabel.fontSizeMin = 28;
+            titleLabel.fontSizeMax = 40;
+            const float sourceStep = (.53f - .26f + .01f) / 3;
+            for (var index = 0; index < _sourceButtons.Length; index++)
+            {
+                var source = (CandidateSource)index;
+                var left = .26f + index * sourceStep;
+                var button = NativeUi.Button(_panel, font, SourceName(source),
+                    new Vector2(left, .89f), new Vector2(left + sourceStep - .01f, .98f), () => SelectSource(source));
+                var label = button.GetComponentInChildren<TextMeshProUGUI>();
+                label.enableAutoSizing = true;
+                label.fontSizeMin = 20;
+                label.fontSizeMax = 30;
+                label.textWrappingMode = TextWrappingModes.NoWrap;
+                _sourceButtons[index] = button;
+            }
             _candidatePageButton = NativeUi.Button(_panel, font, "1/1",
                 new Vector2(.54f, .89f), new Vector2(.68f, .98f), NextCandidatePage);
             _updateBuildsButton = NativeUi.Button(_panel, font,
@@ -224,10 +239,12 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
             foreach (var button in new[]
             {
-                _sourceButton, _candidatePageButton, _updateBuildsButton, closeButton,
+                _candidatePageButton, _updateBuildsButton, closeButton,
                 _previousBuildButton, _nextBuildButton,
             })
                 AndroidPanelButtonSkin.Register(button);
+            for (var index = 0; index < _sourceButtons.Length; index++)
+                AndroidPanelButtonSkin.Register(_sourceButtons[index], (CandidateSource)index == _source);
             SetOpen(false);
         }
         catch
@@ -416,13 +433,15 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         var candidates = ActiveCandidates();
         var pageCount = Math.Max(1, (candidates.Count + _candidateButtons.Count - 1) / _candidateButtons.Count);
         _candidatePage = Math.Min(_candidatePage, pageCount - 1);
-        if (_sourceButton != null)
-            _sourceButton.GetComponentInChildren<TextMeshProUGUI>().text = _source switch
-            {
-                CandidateSource.Board => NativeUi.Text("Board", "场上") + $" ({_boardCandidates.Count})",
-                CandidateSource.Stash => NativeUi.Text("Stash", "仓库") + $" ({_stashCandidates.Count})",
-                _ => NativeUi.Text("Shop", "商店") + $" ({_shopCandidates.Count})",
-            };
+        for (var index = 0; index < _sourceButtons.Length; index++)
+        {
+            var button = _sourceButtons[index];
+            if (button == null) continue;
+            var source = (CandidateSource)index;
+            button.GetComponentInChildren<TextMeshProUGUI>().text =
+                $"{SourceName(source)} ({CandidatesFor(source).Count})";
+            AndroidPanelButtonSkin.SetSelected(button, source == _source);
+        }
         if (_candidatePageButton != null)
         {
             _candidatePageButton.GetComponentInChildren<TextMeshProUGUI>().text =
@@ -465,16 +484,26 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         _nextRefresh = 0;
     }
 
-    private List<(Guid Id, string Name)> ActiveCandidates() => _source switch
+    private List<(Guid Id, string Name)> ActiveCandidates() => CandidatesFor(_source);
+
+    private List<(Guid Id, string Name)> CandidatesFor(CandidateSource source) => source switch
     {
         CandidateSource.Board => _boardCandidates,
         CandidateSource.Stash => _stashCandidates,
         _ => _shopCandidates,
     };
 
-    private void CycleSource()
+    private static string SourceName(CandidateSource source) => source switch
     {
-        _source = (CandidateSource)(((int)_source + 1) % 3);
+        CandidateSource.Board => NativeUi.Text("Board", "场上"),
+        CandidateSource.Stash => NativeUi.Text("Stash", "仓库"),
+        _ => NativeUi.Text("Shop", "商店"),
+    };
+
+    private void SelectSource(CandidateSource source)
+    {
+        if (source == _source) return;
+        _source = source;
         _candidatePage = 0;
         UpdateCandidateButtons();
         _nextRefresh = 0;
