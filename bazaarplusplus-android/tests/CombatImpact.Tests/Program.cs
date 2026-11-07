@@ -73,8 +73,12 @@ Check(CombatImpactReport.Kind("PlayerDamage") == CombatImpactKind.Damage
     && CombatImpactReport.Kind("CardSlow") == CombatImpactKind.Slow
     && CombatImpactReport.Kind("CardFreeze") == CombatImpactKind.Freeze
     && CombatImpactReport.Kind("CardDestroy") == CombatImpactKind.Destroy
-    && CombatImpactReport.Kind("CardModifyAttribute") == null
+    && CombatImpactReport.Kind("CardModifyAttribute") == CombatImpactKind.Attribute
+    && CombatImpactReport.Kind("CardReload") == CombatImpactKind.Attribute
+    && CombatImpactReport.Kind("PlayerMaxHealthIncrease") == CombatImpactKind.Attribute
     && CombatImpactReport.Kind("PlayerShieldRemove") == null, "Action mapping");
+Check(CombatImpactReport.Displayable("DamageAmount") && !CombatImpactReport.Displayable("Custom_3")
+    && !CombatImpactReport.Displayable(null), "Custom and unresolved attributes stay hidden");
 
 // Crit evidence: only an unambiguous frame marks critical outcomes.
 Check(CombatImpactReport.CriticalFrame(1, 1) == true, "Single crit execution");
@@ -106,7 +110,120 @@ var crowd = new CombatImpactReport(
         .Append(new("glass", entities["glass"])).ToDictionary(),
     many, new Dictionary<string, IReadOnlyDictionary<CombatImpactKind, int>>(), new Dictionary<string, int>());
 var crowdText = AndroidCombatImpactText.Build(crowd, "glass", false, true);
-Check(crowdText.Contains("A ×1") && crowdText.Contains("C ×1") && !crowdText.Contains("D ×1") && crowdText.Contains("另 2 张"),
-    "At most three target lines: " + crowdText);
+Check(crowdText.Contains("A ×1") && crowdText.Contains("E ×1") && !crowdText.Contains("另"),
+    "Every target line is listed: " + crowdText);
+
+// Attribute changes, trigger sources and the received view.
+var buffEntities = new Dictionary<string, CombatImpactEntity>(entities);
+var buffs = new List<CombatImpactExecution>
+{
+    new("aura", "sword", CombatImpactKind.Attribute, 10, Attribute: "DamageAmount", TriggerId: "glass", Frame: 1),
+    new("aura", "sword", CombatImpactKind.Attribute, 10, Attribute: "DamageAmount", TriggerId: "glass", Frame: 2),
+    new("aura", "bow", CombatImpactKind.Attribute, 5, Attribute: "DamageAmount", TriggerId: "aura", Frame: 2),
+    new("aura", "bow", CombatImpactKind.Attribute, -1000, Attribute: "CooldownMax", Frame: 3),
+    new("sword", "sword", CombatImpactKind.Attribute, 7, Attribute: "DamageAmount", Frame: 4),
+    new("glass", "sword", CombatImpactKind.Attribute, null, Attribute: "CritChance", Frame: 5),
+    new("bow", "glass", CombatImpactKind.Attribute, 2, Attribute: "CritChance", Frame: 6),
+    new("bow", "glass", CombatImpactKind.Attribute, -1, Attribute: "CritChance", Frame: 7),
+};
+var buffReport = new CombatImpactReport(buffEntities, buffs, totals, uses);
+var auraGroups = buffReport.Caused("aura");
+Check(auraGroups.Select(group => (group.Kind, group.Attribute)).SequenceEqual(
+    [(CombatImpactKind.Attribute, (string?)"CooldownMax"), (CombatImpactKind.Attribute, "DamageAmount")]), "Attribute groups split by key");
+var damageBuff = auraGroups[1];
+Check(damageBuff.Count == 3 && damageBuff.Total == 25, "Attribute deltas sum");
+Check(damageBuff.Lines.Select(line => (line.Name, line.Count, line.Value)).SequenceEqual(
+    [("Sword", 2, (long?)20), ("Bow", 1, (long?)5)]), "Attribute targets");
+Check(damageBuff.Triggers.Select(line => (line.Name, line.Count)).SequenceEqual([("Hourglass", 2)]),
+    "Trigger sources count distinct frames and skip self triggers");
+var triggerEntities = new Dictionary<string, CombatImpactEntity>(entities);
+foreach (var c in "abcde")
+    triggerEntities[c.ToString()] = new(c.ToString(), c.ToString().ToUpperInvariant(), CombatImpactEntityKind.Item);
+var manyTriggers = "abcde".Select(c => new CombatImpactExecution("glass", "sword", CombatImpactKind.Haste, 1000,
+    TriggerId: c.ToString(), Frame: 1)).ToList();
+var triggerText = AndroidCombatImpactText.Build(new CombatImpactReport(triggerEntities, manyTriggers,
+    new Dictionary<string, IReadOnlyDictionary<CombatImpactKind, int>>(), new Dictionary<string, int>()), "glass", false, true);
+Check(triggerText.Contains("触发来源：") && triggerText.Contains("A ×1") && triggerText.Contains("E ×1")
+    && triggerText.Contains("触发来源：\n"), "Many trigger sources each get a line: " + triggerText);
+Check(buffReport.Caused("glass").Single().Total == null, "Unknown attribute delta hides total");
+Check(buffReport.Caused("bow").Single(group => group.Kind == CombatImpactKind.Attribute).Mixed, "Mixed directions");
+var swordIncoming = buffReport.Received("sword");
+Check(swordIncoming.Select(group => group.Attribute).SequenceEqual(["CritChance", "DamageAmount"]), "Received attribute groups");
+Check(swordIncoming[1].Count == 2 && swordIncoming[1].Total == 20
+    && swordIncoming[1].Lines.Single() == new CombatImpactLine("Aura", 2, 20), "Self-applied effects are not received");
+
+var buffText = AndroidCombatImpactText.Build(buffReport, "aura", false, true);
+Check(buffText.Contains("伤害增加") && buffText.Contains("×3 · 总计 +25") && buffText.Contains("Sword ×2 · +20")
+    && buffText.Contains("冷却时间</b>") && buffText.Contains("总计 -1s") && buffText.Contains("Bow ×1 · -1s") && buffText.Contains("触发来源：Hourglass ×2"),
+    "Chinese attribute text: " + buffText);
+var bowText = AndroidCombatImpactText.Build(buffReport, "bow", false, false);
+Check(bowText.Contains("Crit Chance Change") && bowText.Contains("+1%") && bowText.Contains("Hourglass ×2 · +1%"),
+    "English mixed percent text: " + bowText);
+Check(AndroidCombatImpactText.AttributeLabel("BurnApplyAmount", 1, false, true) == "灼烧增加"
+    && AndroidCombatImpactText.AttributeLabel("HealthMax", 5, false, true) == "最大生命值"
+    && AndroidCombatImpactText.AttributeLabel("Mystery", 5, false, false) == "Attribute Change", "Attribute labels");
+
+// Periodic ledger: burn/poison/regen ticks split by the stacks each source owns.
+PeriodicSide Side(params PeriodicAdjustment[] adjustments)
+{
+    var side = new PeriodicSide();
+    side.Adjustments.AddRange(adjustments);
+    return side;
+}
+PeriodicSide Apply(PeriodicSide side, PeriodicStatus status, params string?[] sources)
+{
+    side.Applies[status] = sources.ToList();
+    return side;
+}
+PeriodicSide Set(PeriodicSide side, PeriodicAttribute attribute, int previous, int current)
+{
+    side.Attributes[attribute] = new PeriodicTransition(previous, current);
+    return side;
+}
+IReadOnlyDictionary<(string, CombatImpactKind), CombatImpactPeriodic> Ledger(params PeriodicSide[] opponentFrames) =>
+    CombatImpactPeriodicLedger.Project(opponentFrames.Select(side => new PeriodicFrame(null, side)).ToArray(), (_, _) => 1);
+var burnTick = new PeriodicAdjustment(PeriodicDamage.Burn, PeriodicPool.Health, -10);
+
+var single = Ledger(
+    Set(Apply(Side(), PeriodicStatus.Burn, "bow"), PeriodicAttribute.Burn, 0, 10),
+    Set(Side(burnTick), PeriodicAttribute.Burn, 10, 9));
+Check(single[("bow", CombatImpactKind.Burn)] == new CombatImpactPeriodic(10, 0), "Single burn owner takes the tick");
+
+var shared = Ledger(
+    Set(Apply(Side(), PeriodicStatus.Burn, "bow"), PeriodicAttribute.Burn, 0, 6),
+    Set(Apply(Side(), PeriodicStatus.Burn, "torch"), PeriodicAttribute.Burn, 6, 10),
+    Set(Side(burnTick), PeriodicAttribute.Burn, 10, 9),
+    Set(Side(new PeriodicAdjustment(PeriodicDamage.Burn, PeriodicPool.Health, -9)), PeriodicAttribute.Burn, 9, 8));
+Check(shared[("bow", CombatImpactKind.Burn)].Health + shared[("torch", CombatImpactKind.Burn)].Health == 19
+    && shared[("bow", CombatImpactKind.Burn)].Health == 11, "Burn split by owned stacks across decay");
+
+var lethal = Set(Set(Side(new PeriodicAdjustment(PeriodicDamage.Burn, PeriodicPool.Shield, -3),
+        new PeriodicAdjustment(PeriodicDamage.Burn, PeriodicPool.Health, -8)),
+    PeriodicAttribute.Health, 5, -3), PeriodicAttribute.Shield, 3, 0);
+lethal.Died = true;
+var overkill = Ledger(
+    Set(Set(Set(Apply(Side(), PeriodicStatus.Burn, "bow"), PeriodicAttribute.Burn, 0, 20),
+        PeriodicAttribute.Health, 5, 5), PeriodicAttribute.HealthMax, 100, 100),
+    Set(lethal, PeriodicAttribute.Burn, 20, 19));
+Check(overkill[("bow", CombatImpactKind.Burn)] == new CombatImpactPeriodic(5, 3), "Death frame caps burn health, keeps shield");
+
+var poison = Ledger(
+    Set(Apply(Side(), PeriodicStatus.Poison, "vial", null), PeriodicAttribute.Poison, 0, 8),
+    Side(new PeriodicAdjustment(PeriodicDamage.Poison, PeriodicPool.Health, -8)));
+Check(poison[("vial", CombatImpactKind.Poison)].Health == 4 && poison.Count == 1, "Unresolved applier keeps its share unbooked");
+
+var regen = Ledger(
+    Set(Set(Set(Apply(Side(), PeriodicStatus.Regen, "salve"), PeriodicAttribute.HealthRegen, 0, 5),
+        PeriodicAttribute.Health, 98, 98), PeriodicAttribute.HealthMax, 100, 100),
+    Set(Side(new PeriodicAdjustment(PeriodicDamage.Regen, PeriodicPool.Health, 5)), PeriodicAttribute.Health, 98, 100));
+Check(regen[("salve", CombatImpactKind.Regen)] == new CombatImpactPeriodic(2, 0), "Overheal is not realized regen");
+
+var periodicReport = new CombatImpactReport(entities, executions, totals, uses, single);
+var bowBurn = periodicReport.Caused("bow").First(group => group.Kind == CombatImpactKind.Burn);
+Check(bowBurn.Periodic == new CombatImpactPeriodic(10, 0), "Report attaches periodic impact");
+var burnText = AndroidCombatImpactText.Build(periodicReport, "bow", false, true);
+Check(burnText.Contains("实际伤害 10") && !burnText.Contains("消耗护盾"), "Periodic text: " + burnText);
+var overkillText = AndroidCombatImpactText.Build(new CombatImpactReport(entities, executions, totals, uses, overkill), "bow", false, false);
+Check(overkillText.Contains("Dealt 5 · Shield consumed 3"), "English periodic text: " + overkillText);
 
 Console.WriteLine($"CombatImpact checks passed: {checks}");
