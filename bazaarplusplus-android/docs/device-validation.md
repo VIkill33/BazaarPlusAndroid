@@ -1,5 +1,41 @@
 # Android 真机验证
 
+## 历史整局按模式筛选、顶部间距与双方阵容改版（2026-11-07，高级模式真机通过）
+
+参考桌面 `HistoryPanelText.Unranked`（「普通对局」）、游戏大厅的「普通／排位」选项、
+`NativeCardFit` 与构筑阵容的模板体型规则，以及上一条历史页改版记录。
+
+- 筛选：`HistoryReader.runs` 新增可选 `playMode`，只接受 `Ranked`／`Unranked`，其余值抛参数错误；
+  `AndroidHistoryPanel` 在英雄按钮左侧加「模式」按钮，复用 `AndroidChoicePopup`（新增选中项高亮），
+  选项为全部模式／排位／普通（休闲），与英雄筛选可叠加，切换后回到第 1 页。
+- 间距：顶部按钮行与下方内容的间隔由约 11～16 增至约 40 个画布单位（1080 高），筛选按钮、整局信息条和列表均下移。
+- 阵容页：顶部对战信息条与左右两块暖金细框面板；阵容页隐藏分页，提示并入底部状态行，
+  卡图区域上下扩大。
+- 缩放：原 `AndroidHistoryFormation.Fit` 按画框宽度缩放，大型卡被缩小；同时卡面取当前模板，
+  而槽位宽度用保存的体型。现改用 `NativeCardFit`（`Attach`／`FitItem`／`FitFrame`），体型取当前模板，
+  双方物品共用列数（至少 10，超出时整行缩小，不换行）。
+
+首轮真机截图中卡牌已等高，但新加文字全部不显示：`NativeUi.Label` 默认上下 6 单位内边距使行高不足，
+TMP 省略模式丢弃整行（与上一条记录同一问题）；对方 6 件物品按模板体型合计 11 格，最后一张换到第二行。
+已去掉内边距并改为共用列数后复测通过。
+
+离线：插件 Release 编译 0 警告、0 错误；25 项 Python 回归（工具链 dotnet 与 JDK 24 加入 `PATH`）、
+`HistoryBrowse.Tests` 26 项、`BuildCorpus.Tests` 通过；`verify_history_store.py --reader` 在本机隔离库 120 项通过
+（新增「仅保留所选模式」与「拒绝未知模式」）。
+
+真机：Redmi 22041216C（`OBJVWSPNSCFQU48L`）、Android 14、游戏 1.0.13084、2460×1080，高级输入模式，大厅进入，
+无对局操作。签名 APK 覆盖安装；插件目录 DLL 摘要与本次构建一致，`verify_launcher.py --expect-loaded` 通过。
+只读检查真实历史库：14 局均为 `Unranked`。截图人工复核：模式按钮与间距正常；选择器高亮当前项；
+选「排位」后按钮变蓝色选中底，列表为空并提示调整筛选（与库一致）；选「普通（休闲）」恢复整局列表；
+整局详情信息条与顶部按钮分离；第 12 天 #12 阵容信息条、双方标题、分组标题完整，荒原恐兽（大型）与
+风暴瓶（模板为中型）与其他物品等高，双方 11 格一行，技能 10 个一行换行；长按荒原恐兽显示详情，松手关闭；
+返回整局详情无残留卡图。插件日志无 `history.preview.fallback`／`history.panel.failed`／`history.query.failed`。
+证据：忽略目录 `artifacts/history-ui/`（`before-lineups.png`、`runs-*.png`、`mode-picker.png`、`battles.png`、
+`lineups-after*.png`、`hold-*.png`、`reader-verify.log`、`inspect/`、`launcher-verify/`）。
+
+未覆盖：标准输入模式点击打开详情、排位记录非空时的列表（本机无排位记录）、模式与英雄组合筛选、
+新样式关闭时的旧样式、物品超过 10 格时其他屏幕比例的显示。
+
 ## 游戏内历史页 UI 与字体优化、单场列表倒序（2026-11-07，高级模式真机通过）
 
 参考 `docs/design.md`（游戏内面板跟随原生 UI）、桌面 `HistoryPanelView` 的原生按钮与省略号单行文本、

@@ -92,6 +92,17 @@ public final class HistoryReaderDevice {
                     "unconfirmed identity sees only its own pending session");
                 check("not_found".equals(new HistoryReader(root, "test.history.target", HistoryReader.Scope.account(other))
                     .read(request("run").put("runId", first)).getString("state")), "direct run lookup enforces account scope");
+                fixture.execSQL("UPDATE runs SET play_mode=CASE WHEN id=? THEN 'Ranked' ELSE 'Unranked' END", new Object[] {first});
+                JSONArray ranked = own.read(request("runs").put("playMode", "Ranked")).getJSONArray("items");
+                JSONObject unranked = own.read(request("runs").put("playMode", "Unranked"));
+                boolean unrankedOnly = unranked.getJSONArray("items").length() == 20 && unranked.getBoolean("hasMore");
+                for (int i = 0; i < unranked.getJSONArray("items").length(); i++)
+                    unrankedOnly &= "Unranked".equals(unranked.getJSONArray("items").getJSONObject(i).getString("playMode"));
+                check(ranked.length() == 1 && first.equals(ranked.getJSONObject(0).getString("id")) && unrankedOnly,
+                    "play mode filter keeps only the selected mode");
+                boolean rejected = false;
+                try { own.read(request("runs").put("playMode", "Arena")); } catch (IllegalArgumentException invalid) { rejected = true; }
+                check(rejected, "unknown play mode filter is rejected");
                 page = own.read(request("battles").put("runId", first));
                 check("对手🐸".equals(page.getJSONArray("items").getJSONObject(0).getString("opponentName")), "opponent name survives list projection");
                 String selected = page.getJSONArray("items").getJSONObject(0).getString("id");

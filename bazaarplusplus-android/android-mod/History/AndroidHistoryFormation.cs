@@ -24,6 +24,7 @@ internal sealed class AndroidHistoryFormation
         internal required RectTransform Box;
         internal required TextMeshProUGUI Placeholder;
         internal float Top, Height;
+        internal bool Skill;
         internal GameObject? NativeRoot;
         internal NativeCreation? Creation;
         internal NativeTask? Setup;
@@ -44,11 +45,15 @@ internal sealed class AndroidHistoryFormation
     private int? _pointer;
     private float _pressedAt, _height;
     private bool _active;
+    private const float Pad = 20, Gap = 16, Caption = 28, RowGap = 6;
+    private const int SkillColumns = 10;
+    private static readonly Color Board = new(0,0,0,.28f);
+    private static readonly Color Rule = new(.85f,.68f,.38f,.35f);
 
     internal AndroidHistoryFormation(RectTransform panel, TMP_FontAsset font)
     {
         _font = font;
-        _root = NativeUi.Rect("BPP.HistoryFormation", panel, new(.03f,.16f), new(.97f,.80f));
+        _root = NativeUi.Rect("BPP.HistoryFormation", panel, new(.03f,.07f), new(.97f,.875f));
         _viewport = NativeUi.Rect("Viewport", _root, Vector2.zero, Vector2.one);
         _viewport.gameObject.AddComponent<RectMask2D>(); _viewport.gameObject.AddComponent<Image>().color = new Color(0,0,0,.02f);
         _content = NativeUi.Rect("Content", _viewport, new(0,1), Vector2.one); _content.pivot = new(.5f,1);
@@ -65,70 +70,113 @@ internal sealed class AndroidHistoryFormation
         AndroidPanelButtonSkin.Register(NativeUi.Button(sheet, font, "关闭", new(.76f,.015f), new(.97f,.095f), () => CloseDetail()));
         _detail.gameObject.SetActive(false); _root.gameObject.SetActive(false);
     }
-    private RectTransform Area(string name, float left, float right, float top, float height, float inset = 4)
+    // Content coordinates are canvas units from the top-left of the scrolling content.
+    private RectTransform Area(string name, float x, float top, float width, float height)
     {
-        var rect = NativeUi.Rect(name, _content, new(left,1), new(right,1), new(inset,-top-height), new(-inset,-top));
+        var rect = NativeUi.Rect(name, _content, new(0,1), new(0,1), new(x,-top-height), new(x+width,-top));
         _owned.Add(rect.gameObject); return rect;
     }
-    private TextMeshProUGUI Text(string value, float left, float right, float top, float height, float size = 23, Color? color = null)
+    private RectTransform Surface(string name, float x, float top, float width, float height, Color color, bool frame)
     {
-        var label = NativeUi.Label(Area("Label",left,right,top,height),_font,value,size);
-        label.alignment = TextAlignmentOptions.MidlineLeft; label.richText = false;
-        label.color = color ?? AndroidHistoryPanel.Body;
-        return label;
+        var rect = Area(name,x,top,width,height);
+        var image = rect.gameObject.AddComponent<Image>(); image.color = color; image.raycastTarget = false;
+        if (frame) AndroidHistoryPanel.AddFrame(image, AndroidHistoryPanel.Frame);
+        return rect;
     }
-    private void Heading(string value, float left, float right, float top)
+    private static void Resize(RectTransform rect, float height) => rect.offsetMin = new(rect.offsetMin.x, rect.offsetMax.y - height);
+    private TextMeshProUGUI Text(string value, float x, float top, float width, float height, float size, Color color, bool bold = false)
     {
-        var label = Text(value,left,right,top,46,30,AndroidHistoryPanel.Heading);
-        label.fontStyle = FontStyles.Bold; label.textWrappingMode = TextWrappingModes.NoWrap; label.overflowMode = TextOverflowModes.Ellipsis;
-        // Ellipsis also drops a line that is taller than its rect.
-        label.rectTransform.offsetMin = new Vector2(12, 0); label.rectTransform.offsetMax = new Vector2(-12, 0);
+        var label = NativeUi.Label(Area("Label",x,top,width,height),_font,value,size);
+        // Ellipsis also drops a line that is taller than its rect, so the label keeps the full height.
+        label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+        label.alignment = TextAlignmentOptions.MidlineLeft; label.richText = false; label.color = color;
+        label.textWrappingMode = TextWrappingModes.NoWrap; label.overflowMode = TextOverflowModes.Ellipsis;
+        if (bold) label.fontStyle = FontStyles.Bold;
+        return label;
     }
     internal void Show(JsonElement battle)
     {
         Hide(); _active = true; _root.gameObject.SetActive(true);
+        Canvas.ForceUpdateCanvases();
+        var width = Math.Max(400,_content.rect.width);
         var opening = battle.GetProperty("opening");
         var version = HistoryViewText.Value(opening,"gameVersion");
-        Text(HistoryViewText.Battle(battle) + $"\n保存版本：{version}" + (version != Application.version ? " · 与当前版本不同，卡面仅供参考" : " · 原生卡面仅供参考"),
-            0,1,0,110,23,AndroidHistoryPanel.Muted);
-        Heading("我方：" + HistoryViewText.Value(opening,"playerHero"),0,.5f,112);
-        Heading("对方：" + HistoryViewText.Value(opening,"opponentHero"),.5f,1,112);
+        Surface("BattleInfo",0,0,width,96,AndroidMarketPanelTheme.Surface,true);
+        Text(HistoryViewText.BattleWhen(battle),Pad,6,width - 2 * Pad - 160,48,30,AndroidHistoryPanel.Heading,true);
+        var result = Text(HistoryViewText.Result(battle),width - Pad - 160,6,160,48,32,
+            HistoryViewText.Value(battle,"outcome") switch { "win" => AndroidHistoryPanel.Success, "loss" => AndroidHistoryPanel.Loss, _ => AndroidHistoryPanel.Muted },true);
+        result.alignment = TextAlignmentOptions.MidlineRight;
+        Text($"对手：{HistoryViewText.OpponentName(battle)} · {HistoryViewText.Value(opening,"opponentHero")} · 保存版本 {version}"
+            + (version != Application.version ? " · 与当前版本不同，卡面仅供参考" : ""),Pad,52,width - 2 * Pad,38,23,AndroidHistoryPanel.Muted);
         var snapshots = battle.GetProperty("snapshots");
-        Canvas.ForceUpdateCanvases();
-        var left = Group(snapshots.GetProperty("playerHand"),"物品",0,.5f,160,false);
-        left = Group(snapshots.GetProperty("playerSkills"),"技能",0,.5f,left,true);
-        var right = Group(snapshots.GetProperty("opponentHand"),"物品",.5f,1,160,false);
-        right = Group(snapshots.GetProperty("opponentSkills"),"技能",.5f,1,right,true);
-        _height = Math.Max(left,right) + 12; _content.sizeDelta = new(0,_height); _scroll.verticalNormalizedPosition = 1;
+        const float sidesTop = 96 + Gap;
+        var half = (width - Gap) / 2;
+        var leftPanel = Surface("Side",0,sidesTop,half,1,AndroidMarketPanelTheme.Surface,true);
+        var rightPanel = Surface("Side",half + Gap,sidesTop,half,1,AndroidMarketPanelTheme.Surface,true);
+        var columns = BoardColumns(snapshots);
+        var left = Side("我方",HistoryViewText.Value(opening,"playerHero"),snapshots.GetProperty("playerHand"),snapshots.GetProperty("playerSkills"),0,sidesTop,half,columns);
+        var right = Side("对方",HistoryViewText.Value(opening,"opponentHero"),snapshots.GetProperty("opponentHand"),snapshots.GetProperty("opponentSkills"),half + Gap,sidesTop,half,columns);
+        var bottom = Math.Max(left,right);
+        Resize(leftPanel,bottom - sidesTop); Resize(rightPanel,bottom - sidesTop);
+        _height = bottom + 4; _content.sizeDelta = new(0,_height); _scroll.verticalNormalizedPosition = 1;
     }
-    private float Group(JsonElement group, string name, float left, float right, float top, bool skills)
+    private float Side(string side, string hero, JsonElement hand, JsonElement skills, float x, float top, float width, int columns)
     {
-        Text(name + " · " + HistoryViewText.Group(group),left,right,top,40,24,AndroidHistoryPanel.Muted); top += 40;
-        var cards = group.GetProperty("cards");
-        if (cards.GetArrayLength() == 0) return top + 16;
-        // The native board has ten small-card sockets; a small item frame is about 0.52 wide per height.
-        // The lower 15% of each slot holds its saved name.
-        const int columns = 10;
-        var slotWidth = Math.Max(40,_content.rect.width) * (right-left) / columns;
-        var height = Math.Clamp(slotWidth / (skills ? 1f : .52f) / .85f, skills ? 70 : 140, skills ? 160 : 320);
-        var next = 0; var rows = 1;
-        foreach (var card in cards.EnumerateArray())
+        Text(side + " · " + hero,x + Pad,top + 10,width - 2 * Pad,48,30,AndroidHistoryPanel.Heading,true);
+        var y = Group(hand,"物品",x + Pad,top + 62,width - 2 * Pad,false,columns);
+        Surface("Rule",x + Pad,y,width - 2 * Pad,2,Rule,false);
+        y = Group(skills,"技能",x + Pad,y + 10,width - 2 * Pad,true,SkillColumns);
+        return y + Pad - 12;
+    }
+    // The span follows the current template because the native face is drawn from it; a card
+    // recorded as Medium that is now Large would otherwise be squeezed into two sockets.
+    private static int Span(JsonElement card)
+    {
+        if (Data.IsManagerCreated() && Guid.TryParse(HistoryViewText.Value(card,"templateId"),out var id)
+            && Data.GetStatic().GetCardById(new Il2CppSystem.Guid(id.ToString()))?.TryCast<TCardBase>() is { } template)
+            return NativeCardFit.SizeInSlots(template.Size);
+        return HistoryViewText.Value(card,"size") switch { "Medium" => 2, "Large" => 3, _ => 1 };
+    }
+    // Items keep their saved socket order on one board row; a later card never overlaps an earlier one.
+    private static List<(JsonElement Card, int Slot, int Size)> Place(JsonElement group, bool skills)
+    {
+        var saved = group.GetProperty("cards").EnumerateArray().ToList();
+        if (skills) return saved.Select((card,index) => (card,index,1)).ToList();
+        var placed = new List<(JsonElement Card, int Slot, int Size)>(); var next = 0;
+        foreach (var card in saved.Select((card,index) => (card,index))
+            .OrderBy(entry => HistoryFormationLayout.ItemSlot(HistoryViewText.Value(entry.card,"socket"),128 + entry.index)).Select(entry => entry.card))
         {
-            var size = skills ? 1 : HistoryViewText.Value(card,"size") switch { "Medium" => 2, "Large" => 3, _ => 1 };
-            var socket = HistoryViewText.Value(card,"socket");
-            var slot = skills ? next : HistoryFormationLayout.ItemSlot(socket,next);
-            var row = slot / columns; var column = slot % columns;
-            var x = left + (right-left) * column / columns; var end = left + (right-left) * Math.Min(columns,column+size) / columns;
-            var box = Area("SavedCard",x,end,top + row * height,height - 2,1);
+            var slot = Math.Max(next,HistoryFormationLayout.ItemSlot(HistoryViewText.Value(card,"socket"),next));
+            var size = Span(card); placed.Add((card,slot,size)); next = slot + size;
+        }
+        return placed;
+    }
+    private static int BoardColumns(JsonElement snapshots) => Math.Max(SkillColumns, new[] { "playerHand", "opponentHand" }
+        .Max(name => Place(snapshots.GetProperty(name),false).Select(card => card.Slot + card.Size).DefaultIfEmpty(0).Max()));
+    private float Group(JsonElement group, string name, float x, float top, float width, bool skills, int columns)
+    {
+        Text(name + " · " + HistoryViewText.Group(group),x,top,width,36,23,AndroidHistoryPanel.Muted); top += 40;
+        var placed = Place(group,skills);
+        if (placed.Count == 0) return top + 4;
+        // Item art uses the native unit aspect with a caption strip below; current templates can need more than ten sockets.
+        var slotWidth = width / columns;
+        var height = (skills ? slotWidth : slotWidth / NativeCardFit.UnitAspect) + Caption;
+        var board = skills ? null : Surface("ItemBoard",x,top,width,height,Board,false);
+        var rows = 1;
+        foreach (var (card, slot, size) in placed)
+        {
+            var row = skills ? slot / columns : 0; var column = skills ? slot % columns : slot;
+            var cardTop = top + row * (height + RowGap);
+            var box = Area("SavedCard",x + column * slotWidth,cardTop,size * slotWidth,height);
             var button = NativeUi.Button(box,_font,"",Vector2.zero,Vector2.one,() => { if (PlayerPreferences.Data?.AlternativeInput != true) ShowDetail(card); });
             button.GetComponent<Image>().color = new Color(0,0,0,.01f);
             var placeholder = NativeUi.Label(box,_font,HistoryViewText.Value(card,"name") + "\n" + HistoryViewText.Value(card,"tier"),19);
             placeholder.richText = false; placeholder.overflowMode = TextOverflowModes.Ellipsis; placeholder.color = AndroidHistoryPanel.Muted;
-            var caption = NativeUi.Label(NativeUi.Rect("SavedName",box,Vector2.zero,new(1,.15f)),_font,HistoryViewText.Value(card,"name"),19);
+            var caption = NativeUi.Label(NativeUi.Rect("SavedName",box,Vector2.zero,new(1,Caption / height)),_font,HistoryViewText.Value(card,"name"),20);
             caption.richText = false; caption.textWrappingMode = TextWrappingModes.NoWrap; caption.overflowMode = TextOverflowModes.Ellipsis;
-            caption.enableAutoSizing = true; caption.fontSizeMin = 14; caption.fontSizeMax = 19;
-            caption.rectTransform.offsetMin = new(4,1); caption.rectTransform.offsetMax = new(-4,-1);
-            var preview = new Preview { Saved=card,Box=box,Placeholder=placeholder,Top=top+row*height,Height=height };
+            caption.enableAutoSizing = true; caption.fontSizeMin = 14; caption.fontSizeMax = 20; caption.color = AndroidHistoryPanel.Body;
+            caption.rectTransform.offsetMin = new(2,0); caption.rectTransform.offsetMax = new(-2,0);
+            var preview = new Preview { Saved=card,Box=box,Placeholder=placeholder,Top=cardTop,Height=height,Skill=skills };
             var trigger = button.gameObject.AddComponent<EventTrigger>();
             Event(trigger,EventTriggerType.PointerDown,data => { if (_pressed == null) { _pressed=preview; _pointer=data.pointerId; _pressedAt=Time.realtimeSinceStartup; } });
             Event(trigger,EventTriggerType.PointerUp,data => { if (_pointer == data.pointerId) ReleaseGesture(); });
@@ -137,9 +185,11 @@ internal sealed class AndroidHistoryFormation
             Event(trigger,EventTriggerType.BeginDrag,data => { ReleaseGesture(); data.eligibleForClick=false; _scroll.OnBeginDrag(data); });
             Event(trigger,EventTriggerType.Drag,data => _scroll.OnDrag(data));
             Event(trigger,EventTriggerType.EndDrag,data => _scroll.OnEndDrag(data));
-            _previews.Add(preview); next = Math.Max(next,slot+size); rows = Math.Max(rows,row+1);
+            _previews.Add(preview); rows = Math.Max(rows,row+1);
         }
-        return top + rows * height + 4;
+        var total = rows * height + (rows - 1) * RowGap;
+        if (board != null) Resize(board,total);
+        return top + total + 12;
     }
     private static void Event(EventTrigger trigger, EventTriggerType type, Action<PointerEventData> action)
     {
@@ -181,6 +231,7 @@ internal sealed class AndroidHistoryFormation
                     if (creation.IsFaulted || creation.IsCanceled) throw new InvalidOperationException("Native card image unavailable");
                     request.Card = creation.Result;
                     if (request.Card == null) throw new InvalidOperationException("Native card image missing");
+                    NativeCardFit.Attach(request.Card,request.NativeRoot!.GetComponent<RectTransform>());
                     NativePreviewTooltips.Suppress(request.Card);
                     request.Setup = request.Card.SetUp(Data.GetStatic().GetCardById(new Il2CppSystem.Guid(HistoryViewText.Value(request.Saved,"templateId"))).TryCast<TCardBase>(),false,request.Instance,request.Cancellation!.Token);
                 }
@@ -243,31 +294,15 @@ internal sealed class AndroidHistoryFormation
             if (!Enum.TryParse<ECardAttributeType>(attribute.Name,out var key)) throw new InvalidOperationException("Historical attribute unavailable");
             request.Instance.Attributes[key] = attribute.Value.GetInt32();
         }
-        var host = NativeUi.Rect("OwnedHistoricalPreview",request.Box,new(0,.15f),Vector2.one);
+        var host = NativeUi.Rect("OwnedHistoricalPreview",request.Box,new(0,Caption / request.Height),Vector2.one);
         request.NativeRoot = host.gameObject; request.NativeRoot.transform.SetAsFirstSibling();
         request.Cancellation = new(); request.Creation = loader.GenerateUICard(host,request.Cancellation.Token,template);
     }
     private static void Fit(Preview request)
     {
-        var card = request.Card!; var rect = card.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = rect.pivot = new(.5f,.5f); rect.anchoredPosition = Vector2.zero; rect.localRotation = Quaternion.identity;
-        var fitter = card.GetComponent<AspectRatioFitter>();
-        var ratio = fitter != null && fitter.aspectRatio > .01f ? fitter.aspectRatio : .8f;
-        if (rect.rect.width <= 1 || rect.rect.height <= 1)
-        {
-            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,500);
-            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,500 * ratio);
-        }
-        card.Resize();
-        Canvas.ForceUpdateCanvases();
-        var frame = card._currentFrame?.GetComponent<RectTransform>()
-            ?? card._frameContainer?.GetComponent<RectTransform>() ?? rect;
-        if (frame.rect.width <= 1 || frame.rect.height <= 1) return;
-        var parent = request.NativeRoot!.GetComponent<RectTransform>(); var bounds = parent.rect;
-        var scale = Math.Min(bounds.width / frame.rect.width,bounds.height / frame.rect.height) * .97f;
-        rect.localScale = new(scale,scale,scale);
-        var center = parent.InverseTransformPoint(frame.TransformPoint(frame.rect.center));
-        rect.anchoredPosition -= new Vector2(center.x,center.y);
+        var host = request.NativeRoot!.GetComponent<RectTransform>();
+        if (request.Skill) NativeCardFit.FitFrame(request.Card!,host);
+        else NativeCardFit.FitItem(request.Card!,host);
     }
     private static void Retire(Preview request)
     {

@@ -24,8 +24,10 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     private sealed record Query(Task<JsonElement> Task, int Version, string Scope, Action<JsonElement> Apply);
     private readonly Page _runs = new(), _battles = new();
     private EHero? _hero;
+    private string? _mode;
+    private static readonly string?[] Modes = [null, "Ranked", "Unranked"];
     private AndroidChoicePopup? _choices;
-    private Button? _heroButton;
+    private Button? _heroButton, _modeButton;
     private readonly List<Query> _queries = new();
     private sealed record Row(Button Button, Image Portrait, TextMeshProUGUI HeroFallback,
         TextMeshProUGUI Primary, TextMeshProUGUI Secondary, Image Trophy, TextMeshProUGUI Score, TextMeshProUGUI Detail);
@@ -37,8 +39,8 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     internal static readonly Color Muted = new(.722f,.675f,.58f);
     internal static readonly Color Frame = new(.91f,.60f,.28f,.45f);
     private static readonly Color Amber = new(1f,.74f,.40f);
-    private static readonly Color Success = new(.44f,.84f,.67f);
-    private static readonly Color Loss = new(.95f,.40f,.36f);
+    internal static readonly Color Success = new(.44f,.84f,.67f);
+    internal static readonly Color Loss = new(.95f,.40f,.36f);
     private static readonly Color RowSurface = new(.157f,.110f,.141f,.96f);
     private const float RowHeight = 124;
     private readonly List<JsonElement> _items = new();
@@ -138,17 +140,18 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         _title = Label(NativeUi.Rect("Title", _panel, new(.14f,.91f), new(.72f,.98f)), "对局历史", 42);
         _title.fontStyle = FontStyles.Bold; _title.color = Heading;
         _choices = new AndroidChoicePopup(_panel, font);
-        _heroButton = Button(_panel, "英雄：全部", new(.73f,.815f), new(.97f,.895f), ChooseHero);
-        _summary = Label(NativeUi.Rect("Summary", _panel, new(.03f,.81f), new(.70f,.90f)), "", 26);
+        _modeButton = Button(_panel, "模式：全部", new(.50f,.79f), new(.72f,.87f), ChooseMode);
+        _heroButton = Button(_panel, "英雄：全部", new(.74f,.79f), new(.97f,.87f), ChooseHero);
+        _summary = Label(NativeUi.Rect("Summary", _panel, new(.03f,.785f), new(.49f,.875f)), "", 26);
         _summary.alignment = TextAlignmentOptions.MidlineLeft; _summary.color = Muted;
         _status = Label(NativeUi.Rect("Status", _panel, new(.03f,.005f), new(.85f,.058f)), "", 24);
         _status.color = Muted;
         _runHeader = CreateRow(_panel, () => { });
         var headerRect = _runHeader.Button.GetComponent<RectTransform>();
-        headerRect.anchorMin = new(.03f,.755f); headerRect.anchorMax = new(.97f,.90f);
+        headerRect.anchorMin = new(.03f,.73f); headerRect.anchorMax = new(.97f,.875f);
         headerRect.offsetMin = headerRect.offsetMax = Vector2.zero;
         _runHeader.Button.interactable = false;
-        _listRoot = NativeUi.Rect("List", _panel, new(.03f,.16f), new(.97f,.80f));
+        _listRoot = NativeUi.Rect("List", _panel, new(.03f,.16f), new(.97f,.77f));
         var viewport = NativeUi.Rect("Viewport", _listRoot, Vector2.zero, Vector2.one);
         viewport.gameObject.AddComponent<RectMask2D>(); viewport.gameObject.AddComponent<Image>().color = new Color(0,0,0,.02f);
         _content = NativeUi.Rect("Rows", viewport, new(0,1), Vector2.one); _content.pivot = new(.5f,1);
@@ -169,7 +172,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         _retryButton = Button(_panel, "重试", new(.87f,.008f), new(.97f,.056f), () => _retry?.Invoke());
         // Dividers must clear the run header below the title bar and the status line below paging.
         if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, _title, .903f, .06f);
-        foreach (var button in new[] { back, refresh, close, _heroButton, _previous, _next, _retryButton })
+        foreach (var button in new[] { back, refresh, close, _modeButton, _heroButton, _previous, _next, _retryButton })
             AndroidPanelButtonSkin.Register(button);
         foreach (var row in _rows.Append(_runHeader!))
         {
@@ -230,11 +233,29 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         _choices?.ShowHeroes(heroes, _hero, hero =>
         {
             if (_hero == hero) return;
-            _hero = hero;
-            ++_version; _loading = false; _retry = null;
-            _runs.Data = null; _runs.Tokens.Clear(); _runs.Tokens.Add(null); _runs.Scroll = 1;
-            Render(); Refresh();
+            _hero = hero; ReloadRuns();
         });
+    }
+    private static string ModeName(string? mode) => mode switch
+    {
+        "Ranked" => NativeUi.Text("Ranked", "排位"),
+        "Unranked" => NativeUi.Text("Normal", "普通（休闲）"),
+        _ => NativeUi.Text("All modes", "全部模式"),
+    };
+    private void ChooseMode()
+    {
+        var options = Modes.Select(mode => (ModeName(mode), (Action)(() =>
+        {
+            if (_mode == mode) return;
+            _mode = mode; ReloadRuns();
+        }))).ToArray();
+        _choices?.Show(NativeUi.Text("Mode", "模式"), options, Array.IndexOf(Modes, _mode));
+    }
+    private void ReloadRuns()
+    {
+        ++_version; _loading = false; _retry = null;
+        _runs.Data = null; _runs.Tokens.Clear(); _runs.Tokens.Add(null); _runs.Scroll = 1;
+        Render(); Refresh();
     }
 
     private void SetOpen(bool open)
@@ -243,7 +264,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         if (open && _scope != ScopeKey)
         {
             _runs.Data = _battles.Data = null; _runs.Tokens.Clear(); _runs.Tokens.Add(null); _battles.Tokens.Clear(); _battles.Tokens.Add(null);
-            _hero = null;
+            _hero = null; _mode = null;
             _runs.Scroll = _battles.Scroll = 1; _run = _battle = null; _kind = PageKind.Runs;
         }
         _open = open; AnyOpen = open; ++_version; _loading = false; _retry = null;
@@ -309,6 +330,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
     {
         var request = Request(_kind == PageKind.Runs ? "runs" : "battles");
         if (_kind == PageKind.Runs && _hero.HasValue) request["hero"] = _hero.Value.ToString();
+        if (_kind == PageKind.Runs && _mode != null) request["playMode"] = _mode;
         if (_kind != PageKind.Runs && _run.HasValue) request["runId"] = HistoryViewText.Value(_run.Value,"id");
         if (tokens[^1].HasValue) request["after"] = tokens[^1];
         QueryRead(request, result =>
@@ -376,6 +398,13 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
                 + (_hero.HasValue ? AndroidChoicePopup.HeroName(_hero.Value) : NativeUi.Text("All", "全部")) + " v";
             AndroidPanelButtonSkin.SetSelected(_heroButton, _hero.HasValue);
         }
+        if (_modeButton != null)
+        {
+            _modeButton.gameObject.SetActive(_kind == PageKind.Runs);
+            _modeButton.GetComponentInChildren<TextMeshProUGUI>().text = NativeUi.Text("Mode: ", "模式：")
+                + (_mode == null ? NativeUi.Text("All", "全部") : ModeName(_mode)) + " v";
+            AndroidPanelButtonSkin.SetSelected(_modeButton, _mode != null);
+        }
         var showHeader = _kind == PageKind.Battles && _run.HasValue;
         _runHeader?.Button.gameObject.SetActive(showHeader);
         if (showHeader)
@@ -389,9 +418,9 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
             _summary.text = _kind == PageKind.Runs ? "按开始时间倒序 · 点击整局查看 PvP 交手"
                 : _run.HasValue ? HistoryViewText.Run(_run.Value) : "";
         }
-        _listRoot.anchorMax = new(.97f, showHeader ? .73f : .80f);
+        _listRoot.anchorMax = new(.97f, showHeader ? .705f : .77f);
         if (_status != null) _status.text = AccountId == null ? "账号待确认，仅显示本会话暂存记录"
-            : _kind == PageKind.Formation ? "保存的属性是历史事实；原生卡面使用当前模板，仅供参考。" : "";
+            : _kind == PageKind.Formation ? "点击或长按卡牌查看完整已存字段 · 保存的属性是历史事实，原生卡面使用当前模板，仅供参考" : "";
         var formation = _kind == PageKind.Formation;
         _listRoot.gameObject.SetActive(!formation); _items.Clear();
         _formation?.Hide();
@@ -412,7 +441,8 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
                 }
             }
             _content.sizeDelta = new(0, Math.Max(1, _items.Count * RowHeight)); _scroll.verticalNormalizedPosition = CurrentPage.Scroll;
-            if (_items.Count == 0 && _status != null) _status.text = _kind == PageKind.Battles ? "本局暂无已保存的 PvP 交手记录" : _hero.HasValue ? "该英雄暂无已保存的整局记录，可切换其他英雄" : "尚无已保存的整局记录";
+            if (_items.Count == 0 && _status != null) _status.text = _kind == PageKind.Battles ? "本局暂无已保存的 PvP 交手记录"
+                : _hero.HasValue || _mode != null ? "当前筛选暂无已保存的整局记录，可调整英雄或模式" : "尚无已保存的整局记录";
         }
         Paging();
     }
@@ -421,7 +451,7 @@ public sealed class AndroidHistoryPanel(IntPtr pointer) : MonoBehaviour(pointer)
         var formation = _kind == PageKind.Formation;
         if (_previous != null) { _previous.gameObject.SetActive(!formation); _previous.interactable = !_loading && CurrentPage.Tokens.Count > 1; }
         if (_next != null) { _next.gameObject.SetActive(!formation); _next.interactable = !_loading && CurrentPage.Data.HasValue && CurrentPage.Data.Value.GetProperty("hasMore").GetBoolean(); }
-        if (_pageLabel != null) _pageLabel.text = formation ? "点击或长按卡牌，查看完整已存字段" : $"第 {CurrentPage.Tokens.Count} 页";
+        if (_pageLabel != null) { _pageLabel.gameObject.SetActive(!formation); _pageLabel.text = $"第 {CurrentPage.Tokens.Count} 页"; }
         if (_retryButton != null) _retryButton.gameObject.SetActive(!_loading && _retry != null);
         foreach (var row in _rows) row.Button.interactable = !_loading;
     }

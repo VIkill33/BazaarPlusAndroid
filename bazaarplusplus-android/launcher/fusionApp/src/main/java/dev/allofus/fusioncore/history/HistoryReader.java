@@ -220,6 +220,11 @@ public final class HistoryReader {
                 where += " AND r.hero=?"; args.add(hero);
             }
         }
+        if (request.has("playMode") && !request.isNull("playMode")) {
+            String mode = request.getString("playMode");
+            if (!mode.equals("Ranked") && !mode.equals("Unranked")) throw new IllegalArgumentException("Invalid play mode filter");
+            where += " AND r.play_mode=?"; args.add(mode);
+        }
         JSONObject after = request.optJSONObject("after");
         if (after != null) {
             long time = nonnegative(after, "startedAt");
