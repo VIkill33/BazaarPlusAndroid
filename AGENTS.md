@@ -141,6 +141,7 @@ UI 设计还须阅读 [design.md](docs/design.md)：游戏内面板跟随游戏�
 - 预览使用独立卡牌实例和属性副本，不能修改玩家物品、目录模板或实际对局。升级、附魔和奖励文字须对照原规则与游戏数值；候选权重不能擅自解释为获得概率。
 - 原生代理的空值、Nullable、集合枚举和对象生命周期须在适配边界处理。已有真机崩溃路径先查验证记录；重新引入原生钩子必须有明确依据和专项验证。
 - 把 Unity 组件引用收窄为子类型（如 `Button.targetGraphic` 转 `Image`）用 `TryCast<T>()`，不用 C# 的 `is T`／`as T`：后者只在原包装对象仍存活时成立，包装被回收后返回基类代理，判断静默失败。
+- 单行省略的 `NativeUi.Label` 须把 `rectTransform.offsetMin`／`offsetMax` 的上下内边距清零：默认上下各 6 单位会使行高不足，TMP 省略模式会丢弃整行，文字整段不显示。
 - 优先使用游戏原生卡面、图标、文本及变体规则。布局须考虑物品体型占格、横屏比例、中文长文本、滚动到底部和触控遮罩，关闭浮层不能穿透触发游戏选择。
 - 缓存、在线更新和内置数据须保留来源、版本与校验信息；加载、空数据、断网、异常和重试均有明确状态。数据来源约定见 [data/README.md](bazaarplusplus-android/data/README.md)。
 - 沿用现有命名、可空标注与日志风格，不通过关闭警告掩盖问题；临时诊断探针在问题定位后的修复中移除，避免逐帧刷日志。
@@ -161,7 +162,7 @@ python3 bazaarplusplus-android/build_probe.py --framework-zip /path/to/BepInEx-a
 /path/to/dotnet run --project bazaarplusplus-android/tests/EnchantPolicy.Tests/EnchantPolicy.Tests.csproj -p:InteropPath=/path/to/android-interop
 ```
 
-以上 `/path/to/...` 必须替换为本机实际路径；两个 C# 测试项目是可执行程序，使用 `dotnet run`。修改共享桌面规则时，还须执行对应桌面检查与测试，命令见 [development.md](docs/development.md)。缺少依赖、构建失败或跳过均不算通过。
+以上 `/path/to/...` 必须替换为本机实际路径；两个 C# 测试项目是可执行程序，使用 `dotnet run`。Python 回归中的 `test_history_artwork` 需要 `dotnet` 与 JDK 24 均在 `PATH` 上，否则因环境缺失而失败。修改共享桌面规则时，还须执行对应桌面检查与测试，命令见 [development.md](docs/development.md)。缺少依赖、构建失败或跳过均不算通过。
 
 #### 真机自动测试要求
 

@@ -36,8 +36,8 @@ internal sealed class AndroidChoicePopup(RectTransform parent, TMP_FontAsset fon
         _root = null;
     }
 
-    internal void Show(string title, IReadOnlyList<(string Label, Action Select)> options)
-        => ShowOptions(title, options);
+    internal void Show(string title, IReadOnlyList<(string Label, Action Select)> options, int selectedIndex = -1)
+        => ShowOptions(title, options, null, selectedIndex);
 
     internal void ShowCards(string title, IReadOnlyList<(string Label, Action Select)> options,
         IReadOnlyList<string?> artwork, int selectedIndex)
