@@ -4,12 +4,12 @@ version = "0.3.0"
 description = "Single-process analyzer publishing two Analyzer consumer snapshots"
 requires-python = "==3.14.*"
 dependencies = [
-    "boto3==1.43.112",
+    "boto3==1.43.124",
     "click==8.5.0",
     "duckdb==1.5.6",
     "httpx==0.28.1",
     "jsonschema==4.26.0",
-    "pyarrow==26.0.0",
+    "pyarrow==26.0.1",
     "python-dotenv==1.2.4",
 ]
 
@@ -23,8 +23,8 @@ required-version = ">=0.11.21"
 dev = [
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
-    "ruff==0.17.0",
-    "ty==0.0.86",
+    "ruff==0.17.3",
+    "ty==0.0.97",
 ]
 
 [build-system]
