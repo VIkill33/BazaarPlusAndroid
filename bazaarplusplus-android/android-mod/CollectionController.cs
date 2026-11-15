@@ -35,7 +35,12 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     private int? _day;
     private float _nextContextRead;
     private readonly AndroidCollectionCatalog _catalog = new();
-    private readonly CollectionFilterState _filter = new();
+    private CollectionFilterState _filter = new();
+    private static CollectionController? _instance;
+    private Action<CustomBuildItem?>? _pickerReturn;
+    private int _pickerRemaining;
+    private Button? _pickButton;
+    private (CollectionFilterState Filter, CollectionSourceEntry? Source, bool Follow, int Page)? _pickerRestore;
     private readonly List<Button> _rows = new();
     private List<CollectionCardVm> _visible = new();
     private EHero[] _heroes = Array.Empty<EHero>();
@@ -181,7 +186,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _sources = AndroidCollectionSources.Load();
         _choices = new AndroidChoicePopup(_panel, font);
         var title = NativeUi.Rect("BPP.Title", _panel, new Vector2(.03f, .88f), new Vector2(.6f, .98f));
-        var titleLabel = NativeUi.Label(title, font, () => NativeUi.Text("Card Collection", "卡牌图鉴"), 44);
+        var titleLabel = NativeUi.Label(title, font, () => _pickerReturn == null ? NativeUi.Text("Card Collection", "卡牌图鉴") : NativeUi.Text("Choose an item", "选择物品"), 44);
         var resetButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Reset filters", "重置筛选"), new Vector2(.64f, .88f), new Vector2(.82f, .98f), ResetFilters);
         var closeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"), new Vector2(.85f, .88f), new Vector2(.97f, .98f), () => SetOpen(false));
         _heroButton = NativeUi.Button(_panel, font, NativeUi.Text("Hero: All", "英雄：全部"), new Vector2(.03f, .78f), new Vector2(.17f, .85f), ChooseHero);
@@ -211,6 +216,10 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _enchantmentButton = NativeUi.Button(_panel, font, NativeUi.Text("Enchantment", "附魔"),
             new Vector2(.81f, .76f), new Vector2(.97f, .82f), ChooseEnchantment);
         _previewTierButton.interactable = _enchantmentButton.interactable = false;
+        _pickButton = NativeUi.Button(_panel, font, string.Empty,
+            new Vector2(.64f, .76f), new Vector2(.97f, .82f), PickItem);
+        _pickButton.gameObject.SetActive(false);
+        AndroidPanelButtonSkin.Register(_pickButton);
         _previewHost = NativeUi.Rect("BPP.Preview", _panel, new Vector2(.64f, .38f), new Vector2(.97f, .75f));
         _status = NativeUi.Label(NativeUi.Rect("BPP.Status", _panel, new Vector2(.64f, .83f), new Vector2(.97f, .87f)), font,
             NativeUi.Text("Select a card", "点选左侧卡牌"), 28);
@@ -230,6 +239,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _filter.ToggleAllHeroes();
         SetOpen(false);
         _uiBuilt = true;
+        _instance = this;
         Plugin.PluginLog?.LogInfo("[BPP][Android] event=android.collection.ui_ready");
     }
 
@@ -372,8 +382,9 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _filter.ToggleAllHeroes();
         _search?.SetTextWithoutNotify(string.Empty);
         _search?.DeactivateInputField();
-        _followSource = true;
-        _filter.UseRunDayFilter = true;
+        _followSource = _pickerReturn == null;
+        if (!_followSource) _source = null;
+        _filter.UseRunDayFilter = _pickerReturn == null;
         ReadContext();
         Changed();
     }
@@ -381,7 +392,9 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     private void Refresh()
     {
         _loadingHint?.gameObject.SetActive(!_catalog.Ready && _catalog.Error == null);
+        if (_pickerReturn != null) _filter.ActiveType = ECardType.Item;
         var items = _filter.ActiveType == ECardType.Item;
+        UpdatePickerControls();
         if (_catalog.Ready && _filter.Tags.Count > 0 && !_catalog.Cards.Any(card =>
                 card.Type == _filter.ActiveType && !card.IsPackage && card.Tags.Contains(_filter.Tags.First())))
             _filter.Tags.Clear();
@@ -463,6 +476,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (index > _pageLast || index >= _visible.Count) return;
         ClearPreview();
         _requested = _visible[index].Id;
+        UpdatePickerControls();
         _previewTier = _visible[index].StartingTier;
         _enchantment = null;
         if (_status != null) _status.text = _visible[index].DisplayName;
@@ -498,6 +512,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             ?? NativeUi.Text("Enchantment", "附魔"));
         if (_previewTierButton != null) _previewTierButton.interactable = _previewTiers.Count > 1;
         if (_enchantmentButton != null) _enchantmentButton.interactable = _enchantments.Count > 1;
+        UpdatePickerControls();
     }
 
     private void TickPreview()
@@ -674,12 +689,73 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _descriptionTags?.gameObject.SetActive(false);
     }
 
+    internal static bool TryOpenItemPicker(int remaining, Action<CustomBuildItem?> completed)
+    {
+        var owner = _instance;
+        if (owner == null || !owner._uiBuilt || owner._open || AndroidBuildPanelController.AnyOpen || AndroidHistoryPanel.AnyOpen)
+            return false;
+        owner._pickerRestore = (owner._filter, owner._source, owner._followSource, owner._page);
+        owner._filter = new CollectionFilterState { ActiveType = ECardType.Item, UseRunDayFilter = false };
+        owner._filter.ToggleAllHeroes();
+        owner._source = null;
+        owner._followSource = false;
+        owner._pickerRemaining = remaining;
+        owner._pickerReturn = completed;
+        owner._search?.SetTextWithoutNotify(string.Empty);
+        owner.SetOpen(true);
+        return true;
+    }
+
+    private void UpdatePickerControls()
+    {
+        var picking = _pickerReturn != null;
+        _skillsButton?.gameObject.SetActive(!picking);
+        _previewTierButton?.gameObject.SetActive(!picking);
+        _enchantmentButton?.gameObject.SetActive(!picking);
+        _pickButton?.gameObject.SetActive(picking);
+        if (!picking || _pickButton == null) return;
+        var card = _catalog.Cards.FirstOrDefault(card => card.Id == _requested && card.Type == ECardType.Item);
+        var fits = card != null && NativeCardFit.SizeInSlots(card.Size) <= _pickerRemaining;
+        _pickButton.interactable = fits;
+        Caption(_pickButton, (card != null && !fits ? NativeUi.Text("Not enough slots", "剩余格数不足")
+            : NativeUi.Text("Add to build", "加入阵容")) + NativeUi.Text($" · {_pickerRemaining} slots free", $" · 剩余 {_pickerRemaining} 格"));
+    }
+
+    private void PickItem()
+    {
+        if (_pickerReturn == null) return;
+        var card = _catalog.Cards.FirstOrDefault(card => card.Id == _requested && card.Type == ECardType.Item);
+        if (card == null || NativeCardFit.SizeInSlots(card.Size) > _pickerRemaining) return;
+        var item = new CustomBuildItem(card.Id, NativeCardFit.SizeInSlots(card.Size));
+        var completed = EndPicker();
+        SetOpen(false);
+        completed?.Invoke(item);
+    }
+
+    private Action<CustomBuildItem?>? EndPicker()
+    {
+        var completed = _pickerReturn;
+        _pickerReturn = null;
+        if (_pickerRestore is { } previous)
+        {
+            _filter = previous.Filter;
+            _source = previous.Source;
+            _followSource = previous.Follow;
+            _page = previous.Page;
+            _search?.SetTextWithoutNotify(_filter.SearchQuery);
+            _pickerRestore = null;
+        }
+        UpdatePickerControls();
+        return completed;
+    }
+
     private bool EntryVisible => !_open && !AndroidBuildPanelController.AnyOpen && !AndroidHistoryPanel.AnyOpen
         && AndroidLauncherSettings.Shown(AndroidDockButton.Collection);
 
     private void SetOpen(bool open)
     {
         if (open && (AndroidBuildPanelController.AnyOpen || AndroidHistoryPanel.AnyOpen)) return;
+        var cancelled = !open ? EndPicker() : null;
         _open = open;
         AnyOpen = open;
         _panel?.gameObject.SetActive(open);
@@ -701,10 +777,13 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.context source={_source?.Name} day={_day} max_tier={_dayTiers?.MaximumTier} count={_visible.Count}");
         }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.collection.visibility open={open}");
+        cancelled?.Invoke(null);
     }
 
     public void OnDestroy()
     {
+        _instance = null;
+        EndPicker(); // Destruction cancels the workflow without reopening its previous owner.
         AnyOpen = false;
         _choices?.Dispose();
         _thumbnails.Hide();

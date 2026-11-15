@@ -1,5 +1,66 @@
 # Android 真机验证
 
+## 自定义构筑收藏（2026-11-15～16，离线及本次真机主要流程通过）
+
+参考 Android README、功能清单与既有真机记录，桌面 `docs/architecture/collection.md`、
+`docs/architecture/panels.md` 及其 Gotchas；复用 Android `CollectionController` 的筛选与搜索、
+`AndroidBuildBoard`／`NativeCardFit` 的原生卡图及异步清理，不改桌面共享规则。
+
+`AndroidBuildPanelController.OpenCustomBuilds` 从推荐页进入 `AndroidCustomBuildPanel`。
+`CollectionController.TryOpenItemPicker` 固定物品类型，默认全部英雄、全部来源、不限天数，
+显式「加入阵容」返回草稿；关闭选择页不添加，并恢复普通图鉴的筛选对象、来源、跟随模式、搜索和页码。
+小／中／大型占 1／2／3 格，总计最多 10 格；允许重复模板，支持移除及调整顺序，不增加品质或附魔设置。
+保存前重新核对当前模板体型；本地 JSON 只存模板 ID、占格与顺序、收藏标识和时间，原子替换成功后才更新内存。
+损坏／未来版本文件拒绝读写且保留，写入失败保留草稿。失效模板在标题显示不可用数量。
+
+离线：`CustomBuilds.Tests` 41 项断言通过，覆盖十格边界、超限不变、移除恢复、顺序和重复模板、
+空／非法阵容、真实磁盘保存与重开、多套独立删除、写入及删除失败保护、损坏／未来版本保护，
+以及失败读取后禁止覆盖、滚动首尾可视边界。全 Python 回归 26 项、`BuildCorpus.Tests`、
+当前代理的 `EnchantPolicy.Tests` 通过。设备游戏已升级 13113，原代理摘要不符，重新拉取本机
+`BepInEx/interop/` 到忽略目录 `artifacts/custom-builds/interop/`，Release 编译 0 警告／0 错误。
+独立审查后补充缺失模板提示及图鉴组件异常销毁后重新进入推荐页的状态清理；组件销毁故障注入未做。
+
+真机：Redmi 22041216C（`OBJVWSPNSCFQU48L`）、Android 14、游戏 `1.0.13113-production-android-c0ecfda3`、
+2460×1080、中文、新样式，测试前停在系统桌面。按导出 skill 用 JDK 24 构建签名 0.4.0 APK 并覆盖安装，
+v2 验证通过，证书为 `CN=BazaarPlusPlus Android Test`。
+首次启动自动登录令牌失效（HTTP 400），先只核对入口、空草稿、图鉴选择页及逐级返回；
+用户手动登录后继续验收，未通过购买、升级、附魔或推进战斗准备测试场景。
+
+高级输入模式：
+- 从「构筑推荐 → 我的构筑 → 新建 → 从图鉴添加」进入，技能和品质／附魔预览操作隐藏。
+- 添加 GPU（1 格）、临时避难所（3 格）、另一张临时避难所（3 格）、三叉网（2 格），显示 9/10。
+- 剩 1 格时选择中型三叉网，显示「剩余格数不足」且点击不能添加；体型筛选改小型后可加到 10/10，添加入口禁用。
+- 第一张物品右移、移除末尾小型物品后恢复 9/10；搜索 `GPU`（键盘确认提交）仅返回 1 项，再添加并收藏。
+- 设备 JSON 断言顺序占格为 `[3,1,3,2,1]`，共 10 格，每件物品只有 `TemplateId`／`Size`；随后通过 UI 保存到四套。
+
+首轮滚动复现原生卡图越过顶部／底部：游戏材质不支持 `RectMask2D`。
+依据已有 `AndroidHistoryFormation.Tick` 的处理，`CustomBuildViewport.IsFullyVisible` 仅允许完整进入视口的行拥有原生卡图，
+其余行保留受裁剪的标题与背景并清理异步请求。把旧「相交即可显示」谓词代回测试后，
+`Partial bottom row cannot leak native art` 按预期失败；恢复修复后 41 项通过。
+修复版重新编译、签名覆盖安装、强制结束并通过启动器新开会话。新会话 `verify_launcher.py --expect-loaded` 12 项全部通过，
+DLL SHA-256 `e09a5110f5b8d6c63c052e2baa7f7edaa3026283ab2befacac03a4b0c43b09fa`，
+APK SHA-256 `5a770403a208201b6ff61ed9c46e767886fefdde25df22d4739131126cc8133a`。
+早于加载完成运行的一次校验读到了上一会话确认文件，失败已保留在执行记录；加载完成后重跑全部通过。
+
+标准输入模式（游戏原生设置切换、重启后保持）：
+- 重启后四套收藏的全部标识、时间、物品、占格与顺序和重启前 JSON 完全一致。
+- 四套列表可滚到底，末套卡图完整显示，部分进入视口的卡图隐藏，不再覆盖页头／底部状态；原生卡图生成异步完成后截图复核。
+- 第四套删除先确认再取消，文件仍保留四套；再次确认后仅移除第四套，前三套记录逐字段不变。
+- 标准模式新建并收藏一件物品通过。首次图鉴异步加载尚未完成时，测试脚本因集合数量断言未满足而停止；
+  等待目录就绪后重新选牌保存通过，未把加载中点击当作功能通过。
+
+测试结束恢复原高级输入模式，通过界面逐套确认删除本次创建的四套测试阵容；每次断言只删除目标且其他记录不变，
+最终设备 JSON 为零套，关闭重开仍为空。测试前不存在该文件，未删除用户原有收藏。
+修复版高级模式也已打开／关闭列表并完成删除；最后返回原游戏大厅。
+本次图鉴／构筑／卡图相关失败事件检查为空，crash 缓冲区没有本次时段的新致命崩溃标记。
+截图均为人工复核，设备 JSON、日志与会话摘要为自动断言；不声称已有自动视觉判断。
+未覆盖：英文、旧样式、其他屏幕比例、模板失效提示的真机注入、损坏文件的真机注入、
+正常图鉴筛选恢复的专项真机检查、场景切换／组件销毁故障注入。离线存储保护不代替这些真机边界。
+证据在忽略目录 `bazaarplusplus-android/artifacts/custom-builds/`：构建／回归／clipping-red 日志、当前代理、
+`final-launcher-verify/verification.json`、`saved-first.json`、`reopened-four.json`、`deleted-fourth.json`，
+以及 `draft-ten.png`、`rejected-stays-picker.png`、`search-gpu-accepted.png`、`removed-restores-space.png`、
+`fixed-scroll-settled.png`、`delete-confirm.png`、`delete-cancel.png`、`standard-save-pass.png` 等截图。
+
 ## 构筑来源改为三个并排按钮（2026-11-07，高级模式大厅真机通过）
 
 参考桌面 LiveBuildPanel 同时展示商店、仓库与场上三区（`bazaarplusplus-mod/docs/architecture/panels.md`），

@@ -58,6 +58,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private string? _itemDetail;
     private string[] _itemTags = Array.Empty<string>();
     private TextMeshProUGUI? _boardHint;
+    private AndroidCustomBuildPanel? _custom;
+    private int _pickerVersion;
 
     // Left column holds candidates and the board; the right column holds details.
     private const float LeftMin = .02f, LeftMax = .675f, RightMin = .69f, RightMax = .98f;
@@ -110,6 +112,11 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             if (_scene != -1 && scene != _scene) SetOpen(false);
             _scene = scene;
             UpdateEntryVisibility();
+            if (_open && _custom?.IsOpen == true)
+            {
+                _custom.Tick();
+                return;
+            }
             if (_open && Time.realtimeSinceStartup >= _nextRefresh)
             {
                 _nextRefresh = Time.realtimeSinceStartup + 1;
@@ -177,7 +184,17 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 () => _manualUpdate?.IsCompleted == false
                     ? NativeUi.Text("Updating...", "更新中…")
                     : NativeUi.Text("Update builds", "更新阵容"),
-                new Vector2(.70f, .89f), new Vector2(.82f, .98f), UpdateBuilds);
+                new Vector2(.70f, .89f), new Vector2(.82f, .935f), UpdateBuilds);
+            var customButton = NativeUi.Button(_panel, font, () => NativeUi.Text("My builds", "我的构筑"),
+                new Vector2(.70f, .94f), new Vector2(.82f, .985f), OpenCustomBuilds);
+            foreach (var compact in new[] { _updateBuildsButton, customButton })
+            {
+                var caption = compact.GetComponentInChildren<TextMeshProUGUI>();
+                caption.fontSize = 24;
+                caption.rectTransform.offsetMin = new Vector2(4, 0);
+                caption.rectTransform.offsetMax = new Vector2(-4, 0);
+            }
+            AndroidPanelButtonSkin.Register(customButton);
             var closeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"),
                 new Vector2(.85f, .89f), new Vector2(.97f, .98f), () => SetOpen(false));
             const float candidateStep = (LeftMax - LeftMin) / 10;
@@ -245,6 +262,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 AndroidPanelButtonSkin.Register(button);
             for (var index = 0; index < _sourceButtons.Length; index++)
                 AndroidPanelButtonSkin.Register(_sourceButtons[index], (CandidateSource)index == _source);
+            _custom = new AndroidCustomBuildPanel(_canvas.transform, font,
+                () => { _panel.gameObject.SetActive(true); _nextRefresh = 0; }, PickCustomItem);
             SetOpen(false);
         }
         catch
@@ -574,11 +593,41 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         _scroll.verticalNormalizedPosition = 1;
     }
 
+    private void OpenCustomBuilds()
+    {
+        if (_custom == null) return;
+        _board?.Hide();
+        _candidateCards.Hide();
+        _panel?.gameObject.SetActive(false);
+        _custom.Show();
+    }
+
+    private void PickCustomItem(int remaining, Action<CustomBuildItem?> completed)
+    {
+        var version = ++_pickerVersion;
+        var scene = SceneManager.GetActiveScene().handle;
+        _open = false;
+        AnyOpen = false;
+        void Returned(CustomBuildItem? item)
+        {
+            if (version != _pickerVersion || _canvas == null || SceneManager.GetActiveScene().handle != scene)
+                return;
+            _open = true;
+            AnyOpen = true;
+            completed(item);
+            UpdateEntryVisibility();
+        }
+        if (!CollectionController.TryOpenItemPicker(remaining, Returned)) Returned(null);
+        UpdateEntryVisibility();
+    }
+
     private void SetOpen(bool open)
     {
         if (open && (CollectionController.AnyOpen || AndroidHistoryPanel.AnyOpen)) return;
         if (!open)
         {
+            _pickerVersion++;
+            _custom?.Close();
             _board?.Hide();
             _candidateCards.Hide();
             _matches = Array.Empty<AndroidBuildMatch>();
@@ -589,6 +638,10 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         UpdateEntryVisibility();
         if (open)
         {
+            // A new entry always starts a fresh recommendation view, including after
+            // an atlas component was destroyed while it owned a pending selection.
+            _pickerVersion++;
+            _custom?.Close();
             _nextRefresh = 0;
             _lastDescription = null;
             _selectedCandidates.Clear();
@@ -640,6 +693,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
 
     public void OnDestroy()
     {
+        _pickerVersion++;
+        _custom?.Close();
         AnyOpen = false;
         _board?.Hide();
         _candidateCards.Hide();
