@@ -179,18 +179,18 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
                 _sourceButtons[index] = button;
             }
             _candidatePageButton = NativeUi.Button(_panel, font, "1/1",
-                new Vector2(.54f, .89f), new Vector2(.68f, .98f), NextCandidatePage);
+                new Vector2(.54f, .89f), new Vector2(.60f, .98f), NextCandidatePage);
             _updateBuildsButton = NativeUi.Button(_panel, font,
                 () => _manualUpdate?.IsCompleted == false
                     ? NativeUi.Text("Updating...", "更新中…")
                     : NativeUi.Text("Update builds", "更新阵容"),
-                new Vector2(.70f, .89f), new Vector2(.82f, .935f), UpdateBuilds);
+                new Vector2(.61f, .89f), new Vector2(.69f, .98f), UpdateBuilds);
             var customButton = NativeUi.Button(_panel, font, () => NativeUi.Text("My builds", "我的构筑"),
-                new Vector2(.70f, .94f), new Vector2(.82f, .985f), OpenCustomBuilds);
+                new Vector2(.70f, .89f), new Vector2(.82f, .98f), OpenCustomBuilds);
             foreach (var compact in new[] { _updateBuildsButton, customButton })
             {
                 var caption = compact.GetComponentInChildren<TextMeshProUGUI>();
-                caption.fontSize = 24;
+                caption.fontSize = compact == customButton ? 30 : 22;
                 caption.rectTransform.offsetMin = new Vector2(4, 0);
                 caption.rectTransform.offsetMax = new Vector2(-4, 0);
             }

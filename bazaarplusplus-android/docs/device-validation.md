@@ -2851,3 +2851,47 @@ Python unittest 25 项、`BuildCorpus.Tests` 通过；`build_probe.py --mod` 零
 
 局限：技能栏仍不打开原生提示；本场树精未触发，五行触发来源的增高未在新包上复现，只对照修复前截图与离线分行用例。
 登记 115 ms 高于此前 12–50 ms（653 帧），完成投影已在 worker。未覆盖高级输入模式与本包的 PvP 长列表。
+
+
+## 自定义构筑收藏交互完善（2026-11-16）
+
+参考桌面图鉴／构筑面板架构、`AndroidCustomBuildPanel`、`CollectionController`、
+`AndroidBuildBoard` 与 `AndroidFloatingDock` 的原生 EventTrigger 绑定；保留模板收藏、十格上限和本地原子存储。
+扩大「我的构筑」，缩窄页码与「更新阵容」并保持同排；图鉴选择模式右下角使用加大的蓝色「加入阵容」，
+说明滚动区为按钮让位，普通图鉴恢复原空间；编辑页为蓝色「保存构筑」。
+按住原生阵容卡牌约 0.35 秒后拖动，卡牌跟手，上方文字提示目标位置；阵容区内松手插入目标位置，
+阵容与删除区外松手回原位。拖动时底部展示红色删除区，进入后加亮并显示「松手删除」，松手才移除。
+系统取消触摸、关闭、保存、切换图鉴和重绘前取消手势；删除原左右移位与移除按钮。
+
+离线：`CustomBuilds.Tests` 53 项断言、Python unittest 26 项、`BuildCorpus.Tests`、`EnchantPolicy.Tests` 通过；
+固定框架及游戏 13113 Android 代理的 `build_probe.py --mod` 零警告／零错误。新增真实触摸注入工具
+`tests/device/BuildDragGesture.java`（shell app_process 执行，参数为起终点坐标，可追加 `cancel`），
+用于重复长按／拖动／松手与 ACTION_CANCEL 路径，配合截图人工复核及插件事件断言；不是自动视觉断言。
+独立代码评审未发现需修正的问题。
+
+设备 `OBJVWSPNSCFQU48L`，22041216C，Android 14，2460×1080 横屏，中文，新面板样式；
+游戏主菜单为 `1.0.13113-production-android-c0ecfda3`，未进入或推进对局。
+签名 APK 0.4.0 覆盖安装，签名 `Verifies`、v2 true、`CN=BazaarPlusPlus Android Test`。
+最终 APK SHA-256 `74b41714b9f150378ca4456cf9a85f752a5acadfcaa093da51ae69372b1535e7`；
+最终会话 `9cb524a9-b066-49d2-9e4c-c024d4c1eaec` 的 12 项加载检查通过，
+DLL SHA-256 `2bfa635acbeba4e160e4d5fd4e028f22a6192286164f6b6c56d2573bc2296aa6` 与构建及 APK 一致。
+
+步骤与结果：
+
+- 高级模式首轮：图鉴右下角蓝色按钮、蓝色保存按钮、删除旧操作按钮均已人工复核。
+  添加 GPU 与两种娃娃，拖动第一件到第三位，日志 `from=0 to=2 removed=False count=3`，卡图及清单顺序同步；
+  拖最后一件到底部松手，日志 `from=2 to=-1 removed=True count=2`，容量由 3 降到 2。
+  在红区执行 ACTION_CANCEL，无新增 drop 事件、两件物品保留；保存后磁盘确有两件，原收藏保留。
+  测试新增收藏通过列表确认删除，最终文件与原收藏逐项一致。
+- 最终包：顶部页码、缩小的更新按钮与完整高度的「我的构筑」均可见，无详情遮挡。
+  标准模式从图鉴添加两件，排序日志 `from=0 to=1 removed=False count=2`；红区加亮、文字「松手删除」及卡牌跟手截图已复核；
+  松手删除为 `from=1 to=-1 removed=True count=1`，继续删除最后一件为 `count=0`，保存按钮禁用。
+- 最终包恢复高级模式，再对单件物品执行红区 ACTION_CANCEL，无新增 drop 事件、物品回原位，红区隐藏且说明文字恢复。
+  返回丢弃测试草稿，原收藏逐项一致，保持高级模式。插件日志无自定义构筑异常；crash buffer 无本次崩溃。
+  启动日志仍有 Unity Accessibility 缺失方法与 MANAGE_GAME_MODE 权限错误，未作为本功能成功证据。
+
+证据在忽略目录 `artifacts/custom-build-drag/`：`red.log`、`final-tests.log`、`probe-build.log`、`apk-build.log`、
+`final-session/verification.json`、`header-verified.png`、`blue-add.png`、`reordered.png`、
+`standard-delete-active.png`、`standard-empty.png`、`final-cancel-restored.png` 及日志。
+局限：本轮真机拖动样本均为小型；重复模板及混合占格由离线规则测试覆盖，混合体型触控、多指抢占、后台切换、
+场景销毁、英文、旧样式、16:9 等其他比例待专项验收。更新按钮网络请求与满十件清单滚动未在本轮复测。

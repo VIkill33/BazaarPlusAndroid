@@ -6,6 +6,10 @@ using TheBazaar;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Events;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 
 namespace BazaarPlusPlus.Android;
 
@@ -31,6 +35,18 @@ internal sealed class AndroidCustomBuildPanel
     private readonly CustomBuildStore _store = new(Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.Android", "custom-builds.json"));
     private readonly List<Row> _rows = new();
     private readonly AndroidBuildBoard _draftBoard;
+    private readonly RectTransform _boardRoot;
+    private readonly RectTransform _deleteZone;
+    private readonly TextMeshProUGUI _deleteHint;
+    private readonly CustomBuildDragState _drag = new();
+    private readonly List<RectTransform> _cardHosts = new();
+    private PointerEventData? _dragPointer;
+    private RectTransform? _dragHost;
+    private Vector2 _dragStart;
+    private Vector2 _dragPress;
+    private Vector2[] _cardCenters = Array.Empty<Vector2>();
+    private int _dropIndex = -1;
+    private bool _overDelete;
     private CustomBuildDraft? _draft;
     private Guid? _deletePending;
     private bool _loaded;
@@ -59,13 +75,22 @@ internal sealed class AndroidCustomBuildPanel
         (_listContent, _listScroll) = list;
         _editor = NativeUi.Rect("Editor", _root, Vector2.zero, Vector2.one);
         _editor.SetAsFirstSibling();
-        _save = Button(_editor, () => NativeUi.Text("Save build", "收藏构筑"), .64f, .89f, .82f, .98f, Save);
+        _save = Button(_editor, () => NativeUi.Text("Save build", "保存构筑"), .64f, .89f, .82f, .98f, Save);
         _add = Button(_editor, () => NativeUi.Text("Choose from collection", "从图鉴添加"), .70f, .76f, .94f, .84f, Pick);
         _capacity = NativeUi.Label(NativeUi.Rect("Capacity", _editor, new Vector2(.05f, .76f), new Vector2(.65f, .84f)), font, string.Empty, 30);
-        var board = NativeUi.Rect("DraftBoard", _editor, new Vector2(.05f, .48f), new Vector2(.95f, .75f));
-        _draftBoard = new AndroidBuildBoard(board, (_, _, _) => { });
+        _boardRoot = NativeUi.Rect("DraftBoard", _editor, new Vector2(.05f, .48f), new Vector2(.95f, .75f));
+        _draftBoard = new AndroidBuildBoard(_boardRoot, (_, _, _) => { }, BindDrag);
+        _deleteZone = NativeUi.Rect("DeleteDropZone", _root, new Vector2(.03f, .01f), new Vector2(.97f, .17f));
+        var deleteBacking = _deleteZone.gameObject.AddComponent<Image>();
+        deleteBacking.color = new Color(.65f, .06f, .08f, .97f);
+        deleteBacking.raycastTarget = false;
+        _deleteHint = NativeUi.Label(_deleteZone, font, string.Empty, 34);
+        _deleteHint.alignment = TextAlignmentOptions.Center;
+        _deleteHint.raycastTarget = false;
+        _deleteZone.gameObject.SetActive(false);
         (_editContent, _editScroll) = Scroll(_editor, new Vector2(.05f, .10f), new Vector2(.95f, .46f));
         if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_root, title);
+        AndroidPanelButtonSkin.Register(_save, selected: true);
         _root.gameObject.SetActive(false);
         create.interactable = true;
     }
@@ -160,6 +185,8 @@ internal sealed class AndroidCustomBuildPanel
     private void RenderDraft()
     {
         if (_draft == null) return;
+        CancelDrag();
+        _cardHosts.Clear();
         _list.gameObject.SetActive(false);
         _editor.gameObject.SetActive(true);
         ClearChildren(_editContent);
@@ -167,13 +194,14 @@ internal sealed class AndroidCustomBuildPanel
         _add.interactable = _draft.UsedSlots < 10;
         _save.interactable = _draft.Items.Count > 0;
         _draftBoard.Show(Preview(_draft.Items));
+        if (string.IsNullOrEmpty(_status.text))
+            _status.text = NativeUi.Text("Hold an item to reorder · Drag down to delete", "按住物品拖动排序 · 拖到下方删除");
         _editContent.sizeDelta = new Vector2(0, _draft.Items.Count * 76);
         for (var index = 0; index < _draft.Items.Count; index++)
         {
-            var captured = index;
             var item = _draft.Items[index];
             var row = RowRoot(_editContent, index, 76);
-            var label = NativeUi.Label(NativeUi.Rect("Name", row, Vector2.zero, new Vector2(.66f, 1)), _font,
+            var label = NativeUi.Label(NativeUi.Rect("Name", row, Vector2.zero, Vector2.one), _font,
                 $"{index + 1}. {ItemName(item.TemplateId)} · {item.Size}" + NativeUi.Text(" slots", " 格"), 27);
             label.alignment = TextAlignmentOptions.MidlineLeft;
             label.enableAutoSizing = true;
@@ -183,18 +211,110 @@ internal sealed class AndroidCustomBuildPanel
             label.overflowMode = TextOverflowModes.Ellipsis;
             label.rectTransform.offsetMin = new Vector2(12, 0);
             label.rectTransform.offsetMax = new Vector2(-12, 0);
-            var left = Button(row, () => "←", .67f, .12f, .74f, .88f, () => { _draft.Move(captured, -1); RenderDraft(); });
-            var right = Button(row, () => "→", .75f, .12f, .82f, .88f, () => { _draft.Move(captured, 1); RenderDraft(); });
-            left.interactable = index > 0;
-            right.interactable = index < _draft.Items.Count - 1;
-            Button(row, () => NativeUi.Text("Remove", "移除"), .84f, .12f, .99f, .88f,
-                () => { _draft.RemoveAt(captured); _status.text = string.Empty; RenderDraft(); });
+
         }
+    }
+
+    private void BindDrag(RectTransform host, int index)
+    {
+        _cardHosts.Add(host);
+        var trigger = host.gameObject.AddComponent<EventTrigger>();
+        Bind(EventTriggerType.PointerDown, data =>
+        {
+            if (!_drag.Press(data.pointerId, Time.realtimeSinceStartup, data.position.x, data.position.y)) return;
+            _dragPointer = data;
+            _dragHost = host;
+            _dragStart = host.anchoredPosition;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(host.parent.Cast<RectTransform>(),
+                data.position, data.pressEventCamera, out _dragPress);
+            _cardCenters = _cardHosts.Select(card =>
+                RectTransformUtility.WorldToScreenPoint(data.pressEventCamera, card.TransformPoint(card.rect.center))).ToArray();
+        });
+        Bind(EventTriggerType.Drag, UpdateDrag);
+        Bind(EventTriggerType.PointerUp, data =>
+        {
+            if (!_drag.Owns(data.pointerId)) return;
+            var touchId = data.TryCast<ExtendedPointerEventData>()?.touchId;
+            var screen = Touchscreen.current;
+            if (screen != null && touchId.HasValue)
+            {
+                for (var i = 0; i < screen.touches.Count; i++)
+                {
+                    var touch = screen.touches[i];
+                    if (touch.touchId.ReadValue() == touchId.Value && touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled)
+                    { CancelDrag(); return; }
+                }
+            }
+            UpdateDrag(data);
+            var commit = _drag.Release(data.pointerId);
+            var remove = _overDelete;
+            var target = _dropIndex;
+            CancelDrag();
+            if (!commit || _draft == null) return;
+            data.eligibleForClick = false;
+            if (remove) _draft.RemoveAt(index);
+            else if (target >= 0) _draft.MoveTo(index, target);
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.drop from={index} to={target} removed={remove} count={_draft.Items.Count}");
+            _status.text = string.Empty;
+            RenderDraft();
+        });
+        void Bind(EventTriggerType type, Action<PointerEventData> callback)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(DelegateSupport.ConvertDelegate<UnityAction<BaseEventData>>(
+                (BaseEventData data) => callback(data.Cast<PointerEventData>())));
+            trigger.triggers.Add(entry);
+        }
+    }
+
+    private void UpdateDrag(PointerEventData data)
+    {
+        if (_dragHost == null || !_drag.Owns(data.pointerId)) return;
+        if (!_drag.Update(data.pointerId, Time.realtimeSinceStartup, data.position.x, data.position.y)) return;
+        data.eligibleForClick = false;
+        _deleteZone.gameObject.SetActive(true);
+        _deleteZone.SetAsLastSibling();
+        _status.transform.parent.Cast<RectTransform>().anchorMin = new Vector2(.03f, .845f);
+        _status.transform.parent.Cast<RectTransform>().anchorMax = new Vector2(.97f, .89f);
+        _overDelete = RectTransformUtility.RectangleContainsScreenPoint(_deleteZone, data.position, data.pressEventCamera);
+        _deleteHint.text = _overDelete ? NativeUi.Text("Release to delete", "松手删除")
+            : NativeUi.Text("Drag here to delete", "拖到此处删除");
+        _deleteZone.GetComponent<Image>().color = _overDelete
+            ? new Color(.9f, .08f, .1f, 1) : new Color(.65f, .06f, .08f, .97f);
+        _dropIndex = -1;
+        if (!_overDelete && RectTransformUtility.RectangleContainsScreenPoint(_boardRoot, data.position, data.pressEventCamera))
+        {
+            _dropIndex = Enumerable.Range(0, _cardCenters.Length)
+                .OrderBy(i => Mathf.Abs(_cardCenters[i].x - data.position.x)).First();
+        }
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(_dragHost.parent.Cast<RectTransform>(),
+            data.position, data.pressEventCamera, out var local);
+        _dragHost.anchoredPosition = _dragStart + local - _dragPress;
+        _dragHost.SetAsLastSibling();
+        _status.text = _overDelete ? NativeUi.Text("Release to delete", "松手删除")
+            : _dropIndex >= 0 ? NativeUi.Text($"Release at position {_dropIndex + 1}", $"松手放到第 {_dropIndex + 1} 位")
+            : NativeUi.Text("Release to cancel", "松手取消移动");
+    }
+
+    private void CancelDrag()
+    {
+        if (_dragHost != null) _dragHost.anchoredPosition = _dragStart;
+        _drag.Cancel();
+        if (_dragPointer != null)
+            _status.text = NativeUi.Text("Hold an item to reorder · Drag down to delete", "按住物品拖动排序 · 拖到下方删除");
+        _dragPointer = null;
+        _dragHost = null;
+        _dropIndex = -1;
+        _overDelete = false;
+        _deleteZone.gameObject.SetActive(false);
+        _status.transform.parent.Cast<RectTransform>().anchorMin = new Vector2(.03f, .01f);
+        _status.transform.parent.Cast<RectTransform>().anchorMax = new Vector2(.97f, .08f);
     }
 
     private void Pick()
     {
         if (_draft == null) return;
+        CancelDrag();
         _draftBoard.Hide();
         _root.gameObject.SetActive(false);
         _pick(10 - _draft.UsedSlots, item =>
@@ -209,6 +329,7 @@ internal sealed class AndroidCustomBuildPanel
 
     private void Save()
     {
+        CancelDrag();
         if (_draft == null || _draft.Items.Count == 0) return;
         try
         {
@@ -242,6 +363,7 @@ internal sealed class AndroidCustomBuildPanel
 
     private void Back()
     {
+        CancelDrag();
         if (_draft != null) { _draft = null; _status.text = string.Empty; RenderList(false); return; }
         Close();
         _back();
@@ -256,7 +378,13 @@ internal sealed class AndroidCustomBuildPanel
             _language = language;
             if (_draft != null) RenderDraft(); else RenderList();
         }
-        if (_draft != null) { _draftBoard.Tick(); return; }
+        if (_draft != null)
+        {
+            _draftBoard.Tick();
+            if (!Application.isFocused) CancelDrag();
+            else if (_dragPointer != null) UpdateDrag(_dragPointer);
+            return;
+        }
         var top = _listContent.anchoredPosition.y;
         var viewportHeight = _listScroll.viewport.rect.height;
         foreach (var row in _rows)
@@ -269,6 +397,7 @@ internal sealed class AndroidCustomBuildPanel
 
     internal void Close()
     {
+        CancelDrag();
         IsOpen = false;
         _draft = null;
         _draftBoard.Hide();

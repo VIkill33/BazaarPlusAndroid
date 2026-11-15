@@ -217,9 +217,9 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             new Vector2(.81f, .76f), new Vector2(.97f, .82f), ChooseEnchantment);
         _previewTierButton.interactable = _enchantmentButton.interactable = false;
         _pickButton = NativeUi.Button(_panel, font, string.Empty,
-            new Vector2(.64f, .76f), new Vector2(.97f, .82f), PickItem);
+            new Vector2(.69f, .025f), new Vector2(.97f, .135f), PickItem);
         _pickButton.gameObject.SetActive(false);
-        AndroidPanelButtonSkin.Register(_pickButton);
+        AndroidPanelButtonSkin.Register(_pickButton, selected: true);
         _previewHost = NativeUi.Rect("BPP.Preview", _panel, new Vector2(.64f, .38f), new Vector2(.97f, .75f));
         _status = NativeUi.Label(NativeUi.Rect("BPP.Status", _panel, new Vector2(.64f, .83f), new Vector2(.97f, .87f)), font,
             NativeUi.Text("Select a card", "点选左侧卡牌"), 28);
@@ -236,6 +236,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             _search?.GetComponentInChildren<Button>(),
         })
             AndroidPanelButtonSkin.Register(button);
+        AndroidPanelButtonSkin.Register(_pickButton, selected: true);
         _filter.ToggleAllHeroes();
         SetOpen(false);
         _uiBuilt = true;
@@ -713,6 +714,11 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         _previewTierButton?.gameObject.SetActive(!picking);
         _enchantmentButton?.gameObject.SetActive(!picking);
         _pickButton?.gameObject.SetActive(picking);
+        if (_descriptionScroll != null)
+        {
+            var descriptionRect = _descriptionScroll.GetComponent<RectTransform>();
+            descriptionRect.anchorMin = new Vector2(.64f, picking ? .16f : .04f);
+        }
         if (!picking || _pickButton == null) return;
         var card = _catalog.Cards.FirstOrDefault(card => card.Id == _requested && card.Type == ECardType.Item);
         var fits = card != null && NativeCardFit.SizeInSlots(card.Size) <= _pickerRemaining;

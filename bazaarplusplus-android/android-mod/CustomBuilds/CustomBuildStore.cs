@@ -23,12 +23,15 @@ internal sealed class CustomBuildDraft
         if (index >= 0 && index < _items.Count) _items.RemoveAt(index);
     }
 
-    internal void Move(int index, int direction)
+    internal void MoveTo(int index, int target)
     {
-        var target = index + direction;
-        if (direction is not (-1 or 1) || index < 0 || index >= _items.Count || target < 0 || target >= _items.Count) return;
-        (_items[index], _items[target]) = (_items[target], _items[index]);
+        if (index < 0 || index >= _items.Count || target < 0 || target >= _items.Count || index == target) return;
+        var item = _items[index];
+        _items.RemoveAt(index);
+        _items.Insert(target, item);
     }
+
+
 }
 
 // A failed read never silently turns an unreadable collection into an empty writable one.

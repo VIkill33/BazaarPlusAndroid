@@ -34,15 +34,17 @@ internal sealed class AndroidBuildBoard
     private readonly RectTransform _root;
     private readonly RectTransform _row;
     private readonly Action<string, string, string[]> _onSelect;
+    private readonly Action<RectTransform, int>? _bindDrag;
     private readonly List<Request> _requests = new();
     private AndroidBuild? _shownBuild;
     private Vector2 _laidOutSize;
     private int _units = 10;
 
-    internal AndroidBuildBoard(RectTransform root, Action<string, string, string[]> onSelect)
+    internal AndroidBuildBoard(RectTransform root, Action<string, string, string[]> onSelect, Action<RectTransform, int>? bindDrag = null)
     {
         _root = root;
         _onSelect = onSelect;
+        _bindDrag = bindDrag;
         _row = NativeUi.Rect("BPP.BuildBoardRow", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f));
         var backing = _row.gameObject.AddComponent<Image>();
         backing.raycastTarget = false;
@@ -91,6 +93,7 @@ internal sealed class AndroidBuildBoard
             var button = host.gameObject.AddComponent<Button>();
             button.targetGraphic = hitArea;
             button.onClick.AddListener(DelegateSupport.ConvertDelegate<UnityAction>(() => Select(request)));
+            _bindDrag?.Invoke(host, _requests.Count);
             _requests.Add(request);
         }
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.started build={build.Id} items={build.Items.Count}");
