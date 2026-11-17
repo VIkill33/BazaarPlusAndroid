@@ -18,6 +18,16 @@ internal sealed class AndroidCustomBuildPanel
 {
     private sealed record Row(RectTransform Root, AndroidBuild Preview, AndroidBuildBoard Board, int Index);
     private const float RowHeight = 250;
+    private const float ItemRowHeight = 68;
+    // One palette for the page: gold = heading/accent, cream = body, muted = meta, coral = destructive.
+    private const string GoldHex = "#FFD68C";
+    private const string MutedHex = "#B5A998";
+    private const string CoralHex = "#FF8F80";
+    private static readonly Color Gold = new(1f, .84f, .55f, 1f);
+    private static readonly Color Muted = new(.71f, .66f, .60f, 1f);
+    private static readonly Color Coral = new(1f, .56f, .50f, 1f);
+    private static readonly Color PipEmpty = new(1f, 1f, 1f, .13f);
+    private readonly Image[] _pips = new Image[10];
     private readonly RectTransform _root;
     private readonly RectTransform _list;
     private readonly RectTransform _editor;
@@ -62,12 +72,16 @@ internal sealed class AndroidCustomBuildPanel
         _root = NativeUi.Rect("BPP.CustomBuilds", parent, Vector2.zero, Vector2.one);
         _root.gameObject.AddComponent<Image>().color = new Color(.025f, .04f, .065f, .995f);
         var title = NativeUi.Label(NativeUi.Rect("Title", _root, new Vector2(.03f, .89f), new Vector2(.48f, .98f)),
-            font, () => NativeUi.Text("My builds", "我的构筑"), 40);
+            font, () => NativeUi.Text("My builds", "我的构筑"), 46);
+        title.alignment = TextAlignmentOptions.MidlineLeft;
+        title.fontStyle = FontStyles.Bold;
+        title.color = Gold;
         Button(_root, () => NativeUi.Text("Back", "返回"), .85f, .89f, .97f, .98f, Back);
-        _status = NativeUi.Label(NativeUi.Rect("Status", _root, new Vector2(.03f, .01f), new Vector2(.97f, .08f)), font, string.Empty, 25);
+        _status = NativeUi.Label(NativeUi.Rect("Status", _root, new Vector2(.03f, .01f), new Vector2(.97f, .08f)), font, string.Empty, 24);
         _status.enableAutoSizing = true;
         _status.fontSizeMin = 18;
-        _status.fontSizeMax = 25;
+        _status.fontSizeMax = 24;
+        _status.color = Muted;
         _list = NativeUi.Rect("List", _root, Vector2.zero, Vector2.one);
         _list.SetAsFirstSibling();
         var create = Button(_list, () => NativeUi.Text("New build", "新建构筑"), .64f, .89f, .82f, .98f, NewDraft);
@@ -77,15 +91,25 @@ internal sealed class AndroidCustomBuildPanel
         _editor.SetAsFirstSibling();
         _save = Button(_editor, () => NativeUi.Text("Save build", "保存构筑"), .64f, .89f, .82f, .98f, Save);
         _add = Button(_editor, () => NativeUi.Text("Choose from collection", "从图鉴添加"), .70f, .76f, .94f, .84f, Pick);
-        _capacity = NativeUi.Label(NativeUi.Rect("Capacity", _editor, new Vector2(.05f, .76f), new Vector2(.65f, .84f)), font, string.Empty, 30);
+        _capacity = NativeUi.Label(NativeUi.Rect("Capacity", _editor, new Vector2(.05f, .76f), new Vector2(.27f, .84f)), font, string.Empty, 28);
+        _capacity.alignment = TextAlignmentOptions.MidlineLeft;
+        _capacity.textWrappingMode = TextWrappingModes.NoWrap;
+        var pips = NativeUi.Rect("CapacityPips", _editor, new Vector2(.28f, .79f), new Vector2(.66f, .81f));
+        for (var slot = 0; slot < _pips.Length; slot++)
+        {
+            _pips[slot] = NativeUi.Rect("Pip", pips, new Vector2(slot / 10f, 0), new Vector2((slot + 1) / 10f, 1),
+                new Vector2(3, 0), new Vector2(-3, 0)).gameObject.AddComponent<Image>();
+            _pips[slot].raycastTarget = false;
+        }
         _boardRoot = NativeUi.Rect("DraftBoard", _editor, new Vector2(.05f, .48f), new Vector2(.95f, .75f));
         _draftBoard = new AndroidBuildBoard(_boardRoot, (_, _, _) => { }, BindDrag);
         _deleteZone = NativeUi.Rect("DeleteDropZone", _root, new Vector2(.03f, .01f), new Vector2(.97f, .17f));
         var deleteBacking = _deleteZone.gameObject.AddComponent<Image>();
         deleteBacking.color = new Color(.65f, .06f, .08f, .97f);
         deleteBacking.raycastTarget = false;
-        _deleteHint = NativeUi.Label(_deleteZone, font, string.Empty, 34);
+        _deleteHint = NativeUi.Label(_deleteZone, font, string.Empty, 36);
         _deleteHint.alignment = TextAlignmentOptions.Center;
+        _deleteHint.fontStyle = FontStyles.Bold;
         _deleteHint.raycastTarget = false;
         _deleteZone.gameObject.SetActive(false);
         (_editContent, _editScroll) = Scroll(_editor, new Vector2(.05f, .10f), new Vector2(.95f, .46f));
@@ -141,26 +165,38 @@ internal sealed class AndroidCustomBuildPanel
         ClearRows();
         var builds = _loaded ? _store.Builds : Array.Empty<CustomBuild>();
         _listContent.sizeDelta = new Vector2(0, builds.Count * RowHeight);
+        if (_loaded && builds.Count == 0)
+        {
+            var empty = NativeUi.Label(NativeUi.Rect("Empty", _listContent, new Vector2(0, 1), Vector2.one,
+                new Vector2(0, -360), Vector2.zero), _font,
+                $"<b><color={GoldHex}>" + NativeUi.Text("No saved builds yet", "还没有收藏构筑") + "</color></b>\n" +
+                $"<size=26><color={MutedHex}>" + NativeUi.Text("Tap \"New build\" at the top right to start.",
+                    "点击右上角「新建构筑」开始。") + "</color></size>", 38);
+            empty.alignment = TextAlignmentOptions.Center;
+        }
         for (var index = 0; index < builds.Count; index++)
         {
             var build = builds[index];
-            var row = RowRoot(_listContent, index, RowHeight);
+            var row = RowRoot(_listContent, index, RowHeight, accent: true);
             var missing = build.Items.Count(item => Template(item.TemplateId) == null);
             var unavailable = missing == 0 ? string.Empty
                 : NativeUi.Text($" · {missing} unavailable", $" · {missing} 件物品不可用");
-            var label = NativeUi.Label(NativeUi.Rect("Name", row, new Vector2(0, .77f), new Vector2(.68f, 1)), _font,
-                NativeUi.Text($"Build {index + 1}", $"构筑 {index + 1}") + $" · {CurrentSlots(build.Items)}/10" +
-                $"   <size=20>{build.CreatedAt.ToLocalTime():MM-dd HH:mm}</size>" + unavailable, 29);
+            var label = NativeUi.Label(NativeUi.Rect("Name", row, new Vector2(.012f, .77f), new Vector2(.60f, 1)), _font,
+                $"<b><color={GoldHex}>" + NativeUi.Text($"Build {index + 1}", $"构筑 {index + 1}") + "</color></b>" +
+                $"   <size=22><color={MutedHex}>{CurrentSlots(build.Items)}/10" + NativeUi.Text(" slots", " 格") +
+                $" · {build.CreatedAt.ToLocalTime():MM-dd HH:mm}</color>" +
+                (unavailable.Length == 0 ? string.Empty : $"<color={CoralHex}>{unavailable}</color>") + "</size>", 32);
             label.alignment = TextAlignmentOptions.MidlineLeft;
             label.enableAutoSizing = true;
             label.fontSizeMin = 20;
-            label.fontSizeMax = 29;
+            label.fontSizeMax = 32;
             label.textWrappingMode = TextWrappingModes.NoWrap;
             var confirm = _deletePending == build.Id;
-            Button(row, () => confirm ? NativeUi.Text("Confirm delete", "确认删除") : NativeUi.Text("Delete", "删除"),
-                .77f, .78f, .99f, .98f, () => Delete(build.Id));
-            if (confirm) Button(row, () => NativeUi.Text("Cancel", "取消"), .62f, .78f, .76f, .98f,
-                () => { _deletePending = null; RenderList(); });
+            var delete = Button(row, () => confirm ? NativeUi.Text("Confirm delete", "确认删除") : NativeUi.Text("Delete", "删除"),
+                confirm ? .79f : .86f, .79f, .99f, .97f, () => Delete(build.Id));
+            Caption(delete, 24, Coral, confirm);
+            if (confirm) Caption(Button(row, () => NativeUi.Text("Cancel", "取消"), .66f, .79f, .78f, .97f,
+                () => { _deletePending = null; RenderList(); }), 24, Muted, false);
             var host = NativeUi.Rect("Board", row, new Vector2(.01f, .04f), new Vector2(.99f, .76f));
             var preview = Preview(build.Items);
             _rows.Add(new(row, preview, new AndroidBuildBoard(host, (_, _, _) => { }), index));
@@ -168,8 +204,7 @@ internal sealed class AndroidCustomBuildPanel
         _listScroll.StopMovement();
         _listContent.anchoredPosition = position;
         if (!preservePosition) _listScroll.verticalNormalizedPosition = 1;
-        if (_loaded) _status.text = builds.Count == 0
-            ? NativeUi.Text("No saved builds. Create one to get started.", "还没有收藏构筑，点击「新建构筑」开始。")
+        if (_loaded) _status.text = builds.Count == 0 ? string.Empty
             : NativeUi.Text($"{builds.Count} saved builds · Scroll to browse", $"已收藏 {builds.Count} 套构筑 · 上下滑动查看");
     }
 
@@ -190,28 +225,36 @@ internal sealed class AndroidCustomBuildPanel
         _list.gameObject.SetActive(false);
         _editor.gameObject.SetActive(true);
         ClearChildren(_editContent);
-        _capacity.text = NativeUi.Text($"Used {_draft.UsedSlots}/10 slots", $"已用 {_draft.UsedSlots}/10 格");
+        var used = $"<size=38><b><color={GoldHex}>{_draft.UsedSlots}</color></b></size><color={MutedHex}> / 10</color>";
+        _capacity.text = NativeUi.Text($"Slots {used}", $"已用 {used} 格");
+        for (var slot = 0; slot < _pips.Length; slot++) _pips[slot].color = slot < _draft.UsedSlots ? Gold : PipEmpty;
         _add.interactable = _draft.UsedSlots < 10;
         _save.interactable = _draft.Items.Count > 0;
         _draftBoard.Show(Preview(_draft.Items));
         if (string.IsNullOrEmpty(_status.text))
             _status.text = NativeUi.Text("Hold an item to reorder · Drag down to delete", "按住物品拖动排序 · 拖到下方删除");
-        _editContent.sizeDelta = new Vector2(0, _draft.Items.Count * 76);
+        _editContent.sizeDelta = new Vector2(0, _draft.Items.Count * ItemRowHeight);
         for (var index = 0; index < _draft.Items.Count; index++)
         {
             var item = _draft.Items[index];
-            var row = RowRoot(_editContent, index, 76);
-            var label = NativeUi.Label(NativeUi.Rect("Name", row, Vector2.zero, Vector2.one), _font,
-                $"{index + 1}. {ItemName(item.TemplateId)} · {item.Size}" + NativeUi.Text(" slots", " 格"), 27);
+            var row = RowRoot(_editContent, index, ItemRowHeight, accent: false);
+            var label = NativeUi.Label(NativeUi.Rect("Name", row, Vector2.zero, new Vector2(.84f, 1)), _font,
+                $"<b><color={GoldHex}>{index + 1}</color></b>   {ItemName(item.TemplateId)}", 27);
             label.alignment = TextAlignmentOptions.MidlineLeft;
             label.enableAutoSizing = true;
             label.fontSizeMin = 20;
             label.fontSizeMax = 27;
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
-            label.rectTransform.offsetMin = new Vector2(12, 0);
+            label.rectTransform.offsetMin = new Vector2(16, 0);
             label.rectTransform.offsetMax = new Vector2(-12, 0);
-
+            var size = NativeUi.Label(NativeUi.Rect("Size", row, new Vector2(.84f, 0), Vector2.one), _font,
+                item.Size + NativeUi.Text(" slots", " 格"), 23);
+            size.alignment = TextAlignmentOptions.MidlineRight;
+            size.color = Muted;
+            size.textWrappingMode = TextWrappingModes.NoWrap;
+            size.rectTransform.offsetMin = new Vector2(0, 0);
+            size.rectTransform.offsetMax = new Vector2(-16, 0);
         }
     }
 
@@ -414,12 +457,28 @@ internal sealed class AndroidCustomBuildPanel
         Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.custom_build.{operation}_failed type={error.GetType().Name}");
     }
 
-    private static RectTransform RowRoot(RectTransform content, int index, float height)
+    // Build cards carry a gold edge; item rows are a quieter zebra list.
+    private static RectTransform RowRoot(RectTransform content, int index, float height, bool accent)
     {
+        var gap = accent ? 6 : 2;
         var row = NativeUi.Rect("Row", content, new Vector2(0, 1), Vector2.one,
-            new Vector2(0, -(index + 1) * height + 6), new Vector2(0, -index * height - 6));
-        row.gameObject.AddComponent<Image>().color = new Color(.10f, .07f, .12f, .85f);
+            new Vector2(0, -(index + 1) * height + gap), new Vector2(0, -index * height - gap));
+        row.gameObject.AddComponent<Image>().color = accent ? new Color(.12f, .08f, .15f, .92f)
+            : new Color(1f, 1f, 1f, index % 2 == 0 ? .07f : .03f);
+        if (!accent) return row;
+        var edge = NativeUi.Rect("Accent", row, Vector2.zero, new Vector2(0, 1), Vector2.zero, new Vector2(5, 0))
+            .gameObject.AddComponent<Image>();
+        edge.color = Gold;
+        edge.raycastTarget = false;
         return row;
+    }
+
+    private static void Caption(Button button, float size, Color color, bool bold)
+    {
+        var label = button.GetComponentInChildren<TextMeshProUGUI>();
+        label.fontSize = size;
+        label.color = color;
+        label.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
     }
 
     private void ClearRows()
