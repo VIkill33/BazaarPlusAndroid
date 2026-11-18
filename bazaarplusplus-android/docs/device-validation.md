@@ -3063,3 +3063,23 @@ APK SHA-256：`ad86b7b2e85615beed91755fe59f4ccc1a88e005074fff4bb59957502d504796`
 `custom-origin.png`、`recommended-origin.png`、`standard-legacy.png`、`standard-custom.png`、
 `standard-recommended.png`。截图人工复核；来源持久化、同物品不同来源、编辑转换及旧文件兼容
 由真实临时文件离线断言覆盖。英文、旧样式、其他屏幕比例及设备端读取失败仍待专项验证。
+
+### 推荐页再次点击取消收藏与提醒
+
+按钮从已加载收藏内容派生状态，不再仅记住最后一次点击的推荐 ID。保存／取消前重读文件，
+原子写入成功才发布内存变化；失败显示重试，不移除其他来源的同物品收藏。
+高级模式从商店来源选择符文护符对应的第 1 套推荐，点「收藏并提醒」，4 → 5 套，
+新增记录 `Recommended=true` 且 `Star` 非空。关闭重开重新选择后显示「取消收藏提醒」，
+再点回到 4 套且按钮恢复「收藏并提醒」；文件断言原 4 套逐项不变。
+再次收藏供来源预览测试，标准模式从推荐页取消，文件与高级模式取消后的内容完全一致。
+日志 `android.custom_build.favorite_toggled` 依次为 removed=False／True／False／True，
+没有收藏、构筑、图鉴、角标失败事件。独立代码审查未发现阻塞项，并复跑 96＋6 项检查通过。
+
+证据：`saved-alert.png`、`reopened-saved.png`、`removed-alert.png`、`standard-saved.png`、
+`standard-removed.png`；文件断言输入 `with-recommendation.json`、`after-removal.json`、
+`standard-after-removal.json`。截图人工复核，存储差异与事件日志自动断言。
+本轮未执行设备端磁盘写入失败注入、跨统计窗口更新、英文、旧样式或其他比例测试。
+结束恢复高级输入模式（`restored-advanced.png`），停止启动器游戏进程后逐字节还原原收藏。
+设备文件与 `original-builds.json` SHA-256 均为
+`03f8b0caa390858fbd54430bfc5629c47b4ced0b8ad5075606c5755a6a45fdc5`，共 4 套；
+没有把临时编辑或推荐收藏留在设备上，也未改变原对局物品、金币、商店或天数。

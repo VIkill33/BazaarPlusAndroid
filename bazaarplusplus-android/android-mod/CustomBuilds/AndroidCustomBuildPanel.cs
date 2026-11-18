@@ -461,16 +461,26 @@ internal sealed class AndroidCustomBuildPanel
         catch (Exception error) { Failed("save", error); }
     }
 
-    // Copies a recommended build into the saved builds with its alert on; recommendation ids change between snapshots.
+    private static CustomBuildItem[] RecommendedItems(AndroidBuild build) =>
+        build.Items.OrderBy(item => item.Slot).Select(item => new CustomBuildItem(item.TemplateId,
+            Template(item.TemplateId) is { } template ? NativeCardFit.SizeInSlots(template.Size) : item.Size)).ToArray();
+
+    internal bool IsFavorite(AndroidBuild build) => _store.FindRecommended(RecommendedItems(build)) != null;
+
+    internal void ReloadFavorites()
+    {
+        try { _store.Load(); }
+        catch (Exception error) { Failed("load", error); }
+    }
+
     internal bool Favorite(AndroidBuild build)
     {
         try
         {
             _store.Load();
-            _store.AddStarred(build.Items.OrderBy(item => item.Slot).Select(item => new CustomBuildItem(item.TemplateId,
-                Template(item.TemplateId) is { } template ? NativeCardFit.SizeInSlots(template.Size) : item.Size)).ToArray(), recommended: true);
+            var removed = _store.ToggleRecommended(RecommendedItems(build));
             AndroidFavoriteMarks.Invalidate();
-            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.favorited items={build.Items.Count} count={_store.Builds.Count}");
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.favorite_toggled removed={removed} items={build.Items.Count} count={_store.Builds.Count}");
             return true;
         }
         catch (Exception error)

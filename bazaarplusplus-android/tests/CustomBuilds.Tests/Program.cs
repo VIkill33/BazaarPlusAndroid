@@ -114,6 +114,13 @@ try
         "Identical custom and recommended builds retain distinct origins");
     recommendations.Load();
     Check(recommendations.Builds[1].Recommended == true, "Recommendation origin survives reopening");
+    Check(recommendations.ToggleRecommended(recommendedItems), "Second click removes the saved recommendation");
+    Check(recommendations.Builds.Count == 1 && recommendations.Builds[0].Recommended == false,
+        "Cancel recommendation preserves identical custom build");
+    Check(!recommendations.ToggleRecommended(recommendedItems), "Third click saves recommendation with alert again");
+    recommendations.Load();
+    Check(recommendations.Builds[1].Recommended == true && recommendations.Builds[1].Star != null,
+        "Resaved recommendation persists origin and alert");
     recommendations.Update(recommendations.Builds[1].Id, new[] { new CustomBuildItem(large, 3) });
     Check(recommendations.Builds[1].Recommended == false, "Editing recommended items makes a custom build");
     var legacyPath = Path.Combine(directory, "legacy.json");

@@ -130,6 +130,18 @@ internal sealed class CustomBuildStore(string path)
         else Persist(_builds.Append(new CustomBuild(Guid.NewGuid(), DateTimeOffset.UtcNow, arranged, NextStar(), recommended)).ToArray());
     }
 
+    internal CustomBuild? FindRecommended(IReadOnlyList<CustomBuildItem> items) =>
+        _builds.FirstOrDefault(build => build.Recommended == true && build.Items.SequenceEqual(Arranged(items)));
+
+    // Returns true when removed, false when saved. Persistence errors leave memory and disk unchanged.
+    internal bool ToggleRecommended(IReadOnlyList<CustomBuildItem> items)
+    {
+        Validate(items);
+        if (FindRecommended(items) is { } saved) { Delete(saved.Id); return true; }
+        AddStarred(items, recommended: true);
+        return false;
+    }
+
     // The first colour no starred build uses; once all are taken, colours repeat.
     private int NextStar()
     {

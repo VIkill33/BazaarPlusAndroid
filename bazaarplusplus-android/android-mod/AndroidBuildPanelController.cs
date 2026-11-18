@@ -33,7 +33,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private Button? _previousBuildButton;
     private Button? _nextBuildButton;
     private Button? _favoriteButton;
-    private int? _favorited;
+    private int? _favoriteAttempt;
+    private bool _shownFavorite;
     private bool _favoriteFailed;
     private float _clearConfirmUntil;
     private bool? _clearSucceeded;
@@ -250,8 +251,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _buildPosition = NativeUi.Label(NativeUi.Rect("BPP.BuildPosition", _panel,
                 new Vector2(LeftMin + .09f, .54f), new Vector2(LeftMax - .22f, .61f)), font, string.Empty, 26);
             _favoriteButton = NativeUi.Button(_panel, font,
-                () => ShownBuild()?.Id != _favorited ? NativeUi.Text("Save + alert", "收藏并提醒")
-                    : _favoriteFailed ? NativeUi.Text("Save failed", "收藏失败") : NativeUi.Text("Saved", "已收藏"),
+                () => _favoriteFailed && ShownBuild()?.Id == _favoriteAttempt ? NativeUi.Text("Retry", "操作失败，重试")
+                    : _shownFavorite
+                        ? NativeUi.Text("Remove + alert", "取消收藏提醒") : NativeUi.Text("Save + alert", "收藏并提醒"),
                 new Vector2(LeftMax - .21f, .54f), new Vector2(LeftMax - .09f, .61f), FavoriteBuild);
             var favoriteCaption = _favoriteButton.GetComponentInChildren<TextMeshProUGUI>();
             favoriteCaption.fontSize = 24;
@@ -374,6 +376,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (chosen != null)
         {
             var build = chosen.Build;
+            _shownFavorite = _custom?.IsFavorite(build) == true;
             body.Add(Heading($"{NativeUi.Text("Build", "推荐阵容")} #{_buildIndex + 1}"));
             body.Add(Colored(Muted, $"{NativeUi.Text("Matched", "匹配")} {chosen.MatchedCards}/{_selectedCandidates.Count}" +
                 $" · {NativeUi.Text("Ten-win runs", "十胜场次")} {build.TenWinRuns}" +
@@ -545,7 +548,8 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         _clearConfirmUntil = 0;
         _clearSucceeded = null;
         _favoriteFailed = !_custom.Favorite(build);
-        _favorited = build.Id;
+        _favoriteAttempt = build.Id;
+        _shownFavorite = _custom.IsFavorite(build);
     }
 
     private void PreviousBuild()
@@ -619,8 +623,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         _clearSucceeded = cleared;
         if (cleared)
         {
-            _favorited = null;
+            _favoriteAttempt = null;
             _favoriteFailed = false;
+            _shownFavorite = false;
         }
     }
 
@@ -669,11 +674,13 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         _clearSucceeded = null;
         _open = open;
         AnyOpen = open;
-        _favorited = null;
+        _favoriteAttempt = null;
+        _shownFavorite = false;
         if (_panel != null) _panel.gameObject.SetActive(open);
         UpdateEntryVisibility();
         if (open)
         {
+            _custom?.ReloadFavorites();
             // A new entry always starts a fresh recommendation view, including after
             // an atlas component was destroyed while it owned a pending selection.
             _pickerVersion++;
