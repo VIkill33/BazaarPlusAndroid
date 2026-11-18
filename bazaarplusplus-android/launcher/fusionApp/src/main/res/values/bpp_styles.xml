@@ -47,35 +47,73 @@
         <item name="cornerRadius">14dp</item>
     </style>
     <!-- Home-only variants keep secondary screens on their existing button styles. -->
+    <!-- Home text sits on the market artwork, so every level carries a soft shadow. -->
+    <style name="BppHomeTitle" parent="BppText">
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:shadowColor">#CC000000</item>
+        <item name="android:shadowDy">2</item>
+        <item name="android:shadowRadius">6</item>
+    </style>
+    <style name="BppHomeStateTitle" parent="BppText">
+        <item name="android:textSize">22sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="android:shadowColor">#CC000000</item>
+        <item name="android:shadowDy">1</item>
+        <item name="android:shadowRadius">4</item>
+    </style>
+    <style name="BppHomeHint" parent="BppCaption">
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:lineSpacingExtra">3dp</item>
+        <item name="android:shadowColor">#CC000000</item>
+        <item name="android:shadowDy">1</item>
+        <item name="android:shadowRadius">4</item>
+    </style>
+    <style name="BppHomeMeta" parent="BppCaption">
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingExtra">2dp</item>
+        <item name="android:shadowColor">#CC000000</item>
+        <item name="android:shadowDy">1</item>
+        <item name="android:shadowRadius">4</item>
+    </style>
     <style name="BppHomePrimary" parent="BppPrimaryButton">
+        <item name="android:letterSpacing">0.04</item>
         <item name="android:paddingHorizontal">20dp</item>
         <item name="android:drawablePadding">8dp</item>
     </style>
     <style name="BppHomeTile" parent="BppButton">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_weight">1</item>
-        <item name="android:minHeight">64dp</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:minHeight">60dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:letterSpacing">0.02</item>
         <item name="android:paddingHorizontal">4dp</item>
         <item name="android:paddingVertical">6dp</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
-        <item name="backgroundTint">@color/bpp_surface</item>
+        <item name="backgroundTint">@color/bpp_home_tile</item>
+        <item name="strokeColor">@color/bpp_history_line</item>
         <item name="strokeWidth">1dp</item>
-        <item name="iconTint">@color/bpp_text</item>
-        <item name="iconSize">24dp</item>
-        <item name="iconPadding">6dp</item>
+        <item name="iconTint">@color/bpp_accent</item>
+        <item name="iconSize">22dp</item>
+        <item name="iconPadding">4dp</item>
         <item name="iconGravity">textTop</item>
     </style>
     <style name="BppHomeMore" parent="BppButton">
         <item name="android:layout_marginTop">8dp</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:textSize">14sp</item>
+        <item name="android:letterSpacing">0.02</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
-        <item name="backgroundTint">@color/bpp_surface</item>
-        <item name="iconTint">@color/bpp_text</item>
-        <item name="iconSize">22dp</item>
+        <item name="backgroundTint">@color/bpp_home_tile</item>
+        <item name="strokeColor">@color/bpp_history_line</item>
+        <item name="iconTint">@color/bpp_accent</item>
+        <item name="iconSize">20dp</item>
         <item name="iconPadding">12dp</item>
         <item name="iconGravity">textStart</item>
     </style>
