@@ -10,8 +10,8 @@ using UnityEngine.SceneManagement;
 
 namespace BazaarPlusPlus.Android;
 
-// Flags offered cards (shop, rewards, events) that belong to a starred custom build,
-// one gem per build colour. Screen-space only: game-owned card objects are never touched.
+// Flags offered cards (shop, rewards, events) that belong to a starred custom build with
+// one gem per card, split into one band per build colour. Screen-space only: game-owned card objects are never touched.
 public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer)
 {
     // Indexed by CustomBuildStore.StarColor; the build list paints each starred row with the same colour.
@@ -134,21 +134,30 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
             var bounds = AndroidHoldPreviewVisuals.CardBounds(card);
             if (!bounds.HasValue) continue;
             var size = Mathf.Clamp(bounds.Value.height * .16f, 18, 46);
-            for (var index = 0; index < colors.Length; index++)
+            // Centred on the card's corner so a near miss lands on the table or the hit area, not the card body.
+            var corner = new Vector2(bounds.Value.xMin, bounds.Value.yMax);
+            var gem = Gem(used++);
+            gem.sizeDelta = new Vector2(size, size);
+            gem.anchoredPosition = corner;
+            var bands = gem.GetChild(0);
+            for (var index = 0; index < bands.childCount; index++)
             {
-                var gem = Gem(used++);
-                gem.sizeDelta = new Vector2(size, size);
-                gem.anchoredPosition = new Vector2(bounds.Value.xMin + size * (.75f + index * 1.3f), bounds.Value.yMax - size * .75f);
-                gem.GetChild(0).GetComponent<Image>().color = Colors[colors[index]];
-                gem.gameObject.SetActive(true);
+                var band = bands.GetChild(index).GetComponent<RectTransform>();
+                var shown = index < colors.Length;
+                band.gameObject.SetActive(shown);
+                if (!shown) continue;
+                band.anchorMin = new Vector2((float)index / colors.Length, 0);
+                band.anchorMax = new Vector2((float)(index + 1) / colors.Length, 1);
+                band.GetComponent<Image>().color = Colors[colors[index]];
             }
+            gem.gameObject.SetActive(true);
             var hit = HitArea(hits++);
             hit.Card = card;
             hit.Template = template;
-            var width = size * (1 + (colors.Length - 1) * 1.3f);
-            hit.Root.sizeDelta = new Vector2(Mathf.Max(72, width), Mathf.Max(72, size));
-            hit.Root.anchoredPosition = new Vector2(bounds.Value.xMin + size * .75f + (width - size) * .5f,
-                bounds.Value.yMax - size * .75f);
+            // About 8 mm for a fingertip, but never more than half the card so the card body stays tappable.
+            var reach = Mathf.Min(Mathf.Max(size * 2, (Screen.dpi > 0 ? Screen.dpi : 160) * .32f), bounds.Value.width * .5f);
+            hit.Root.sizeDelta = new Vector2(reach, reach);
+            hit.Root.anchoredPosition = corner;
             hit.Root.gameObject.SetActive(true);
         }
         for (var index = hits; index < _hits.Count; index++)
@@ -251,8 +260,9 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
             var rim = gem.gameObject.AddComponent<Image>();
             rim.color = new Color(.05f, .03f, .07f, .95f);
             rim.raycastTarget = false;
-            NativeUi.Rect("Gem", gem, Vector2.zero, Vector2.one, new Vector2(3, 3), new Vector2(-3, -3))
-                .gameObject.AddComponent<Image>().raycastTarget = false;
+            var bands = NativeUi.Rect("Gem", gem, Vector2.zero, Vector2.one, new Vector2(3, 3), new Vector2(-3, -3));
+            for (var band = 0; band < MaxGemsPerCard; band++)
+                NativeUi.Rect("Band", bands, Vector2.zero, Vector2.one).gameObject.AddComponent<Image>().raycastTarget = false;
             _gems.Add(gem);
         }
         return _gems[index];
