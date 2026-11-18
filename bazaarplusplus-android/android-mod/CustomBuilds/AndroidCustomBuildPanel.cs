@@ -610,7 +610,7 @@ internal sealed class AndroidCustomBuildPanel
     private static int CurrentSlots(IReadOnlyList<CustomBuildItem> items) => items.Sum(item =>
         Template(item.TemplateId) is { } template ? NativeCardFit.SizeInSlots(template.Size) : item.Size);
 
-    private static AndroidBuild Preview(IReadOnlyList<CustomBuildItem> items)
+    internal static AndroidBuild Preview(IReadOnlyList<CustomBuildItem> items)
     {
         var next = 0;
         var cards = items.Select(item =>

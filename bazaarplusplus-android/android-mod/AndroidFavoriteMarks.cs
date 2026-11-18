@@ -4,6 +4,9 @@ using TheBazaar;
 using TheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Events;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 
 namespace BazaarPlusPlus.Android;
 
@@ -24,9 +27,23 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
     internal static void Invalidate() => _stale = true;
 
     private readonly CustomBuildStore _store = new(AndroidCustomBuildPanel.StorePath);
-    private readonly Dictionary<Guid, int[]> _stars = new();
-    private readonly List<(CardController Card, int[] Colors)> _targets = new();
+    private readonly Dictionary<Guid, (CustomBuild Build, int Number)[]> _stars = new();
+    private readonly List<(CardController Card, Guid Template, int[] Colors)> _targets = new();
     private readonly List<RectTransform> _gems = new();
+    private sealed class Hit(RectTransform root)
+    {
+        internal readonly RectTransform Root = root;
+        internal CardController? Card;
+        internal Guid Template;
+        internal IntPtr PressedCard;
+        internal Guid PressedTemplate;
+    }
+    private readonly List<Hit> _hits = new();
+    private readonly AndroidFavoriteBuildPopup _popup = new();
+    private string[] _selection = Array.Empty<string>();
+    private IntPtr _state;
+    private IntPtr _player;
+    private int _scene;
     private RectTransform? _root;
     private float _nextMatch;
     private int _shown = -1;
@@ -36,9 +53,12 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
     {
         try
         {
-            if (_stale) Reload();
-            if (_stars.Count == 0 || AndroidBuildPanelController.AnyOpen || CollectionController.AnyOpen
-                || AndroidHistoryPanel.AnyOpen || AndroidHoldPreview.Active)
+            if (_stale) { _popup.Close(); Reload(); }
+            var hidden = _stars.Count == 0 || AndroidBuildPanelController.AnyOpen || CollectionController.AnyOpen
+                || AndroidHistoryPanel.AnyOpen || AndroidHoldPreview.Active;
+            if (_popup.IsOpen && (hidden || !SameSelection())) _popup.Close();
+            _popup.Tick();
+            if (hidden || _popup.IsOpen)
             {
                 _targets.Clear();
                 _nextMatch = 0;
@@ -54,7 +74,9 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
         {
             _failures++;
             Plugin.PluginLog?.LogError($"[BPP][Android] event=android.favorite_marks.failed count={_failures} exception={error}");
+            _popup.Close();
             _targets.Clear();
+            foreach (var hit in _hits) hit.Root.gameObject.SetActive(false);
             foreach (var gem in _gems) if (gem != null) gem.gameObject.SetActive(false);
             if (_failures >= 3) enabled = false;
         }
@@ -71,10 +93,11 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
             Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.favorite_marks.load_failed type={error.GetType().Name}");
             return;
         }
-        var starred = _store.Builds.Where(build => build.Star != null).ToArray();
-        foreach (var cards in starred.SelectMany(build => build.Items.Select(item =>
-            (item.TemplateId, Color: CustomBuildStore.StarColor(build.Star!.Value)))).GroupBy(entry => entry.TemplateId))
-            _stars[cards.Key] = cards.Select(entry => entry.Color).Distinct().Take(MaxGemsPerCard).ToArray();
+        var starred = _store.Builds.Select((build, index) => (Build: build, Number: index + 1))
+            .Where(entry => entry.Build.Star != null).ToArray();
+        foreach (var cards in starred.SelectMany(entry => entry.Build.Items.Select(item =>
+            (item.TemplateId, entry.Build, entry.Number))).GroupBy(entry => entry.TemplateId))
+            _stars[cards.Key] = cards.Select(entry => (entry.Build, entry.Number)).Distinct().ToArray();
         Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.favorite_marks.loaded builds={starred.Length} cards={_stars.Count}");
     }
 
@@ -90,9 +113,10 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
             {
                 var card = Data.GetCard(offered[index]);
                 var item = card?.TryCast<ItemCard>();
-                if (item == null || !_stars.TryGetValue(Guid.Parse(item.TemplateId.ToString()), out var colors)) continue;
+                if (item == null || !_stars.TryGetValue(Guid.Parse(item.TemplateId.ToString()), out var builds)) continue;
                 var controller = lookup.GetCardController(card!)?.TryCast<CardController>();
-                if (controller != null) _targets.Add((controller, colors));
+                if (controller != null) _targets.Add((controller, Guid.Parse(item.TemplateId.ToString()),
+                    builds.Select(entry => CustomBuildStore.StarColor(entry.Build.Star!.Value)).Distinct().Take(MaxGemsPerCard).ToArray()));
             }
         }
         if (_targets.Count == _shown) return;
@@ -103,7 +127,8 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
     private void Draw()
     {
         var used = 0;
-        foreach (var (card, colors) in _targets)
+        var hits = 0;
+        foreach (var (card, template, colors) in _targets)
         {
             if (card == null) continue;
             var bounds = AndroidHoldPreviewVisuals.CardBounds(card);
@@ -117,8 +142,92 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
                 gem.GetChild(0).GetComponent<Image>().color = Colors[colors[index]];
                 gem.gameObject.SetActive(true);
             }
+            var hit = HitArea(hits++);
+            hit.Card = card;
+            hit.Template = template;
+            var width = size * (1 + (colors.Length - 1) * 1.3f);
+            hit.Root.sizeDelta = new Vector2(Mathf.Max(72, width), Mathf.Max(72, size));
+            hit.Root.anchoredPosition = new Vector2(bounds.Value.xMin + size * .75f + (width - size) * .5f,
+                bounds.Value.yMax - size * .75f);
+            hit.Root.gameObject.SetActive(true);
+        }
+        for (var index = hits; index < _hits.Count; index++)
+        {
+            _hits[index].PressedCard = IntPtr.Zero;
+            _hits[index].Root.gameObject.SetActive(false);
         }
         for (var index = used; index < _gems.Count; index++) _gems[index].gameObject.SetActive(false);
+    }
+
+    private Hit HitArea(int index)
+    {
+        while (_hits.Count <= index)
+        {
+            var rect = NativeUi.Rect("BPP.FavoriteMarkHit", _root!, Vector2.zero, Vector2.zero);
+            var hit = new Hit(rect);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.color = new Color(0, 0, 0, .01f);
+            image.raycastTarget = true;
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.None;
+            var trigger = rect.gameObject.AddComponent<EventTrigger>();
+            var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+            down.callback.AddListener(DelegateSupport.ConvertDelegate<UnityAction<BaseEventData>>((BaseEventData _) =>
+            {
+                hit.PressedCard = hit.Card?.Pointer ?? IntPtr.Zero;
+                hit.PressedTemplate = hit.Template;
+            }));
+            trigger.triggers.Add(down);
+            button.onClick.AddListener(DelegateSupport.ConvertDelegate<UnityAction>(() =>
+            {
+                if (hit.Card == null || hit.PressedCard == IntPtr.Zero || hit.PressedCard != hit.Card.Pointer
+                    || hit.PressedTemplate != hit.Template || !_stars.TryGetValue(hit.Template, out var builds)) return;
+                // Match once more at release: a removed offer must not open stale data.
+                var selected = Data.CurrentState?.SelectionSet;
+                var lookup = Data.CardAndSkillLookup;
+                var present = false;
+                if (selected != null && lookup != null)
+                    for (var i = 0; i < selected.Count; i++)
+                    {
+                        var card = Data.GetCard(selected[i]);
+                        if (card != null && lookup.GetCardController(card)?.Pointer == hit.PressedCard) { present = true; break; }
+                    }
+                hit.PressedCard = IntPtr.Zero;
+                if (!present) return;
+                _selection = Selection();
+                _state = Data.CurrentState?.Pointer ?? IntPtr.Zero;
+                _player = Data.Run?.Player?.Pointer ?? IntPtr.Zero;
+                _scene = SceneManager.GetActiveScene().handle;
+                _popup.Open(hit.Template, builds);
+                _targets.Clear();
+                Draw();
+            }));
+            _hits.Add(hit);
+        }
+        return _hits[index];
+    }
+
+    private static string[] Selection()
+    {
+        var selection = Data.CurrentState?.SelectionSet;
+        if (selection == null) return Array.Empty<string>();
+        var ids = new string[selection.Count];
+        for (var i = 0; i < ids.Length; i++) ids[i] = selection[i].ToString();
+        return ids;
+    }
+
+    private bool SameSelection() => _selection.Length > 0
+        && _state == (Data.CurrentState?.Pointer ?? IntPtr.Zero)
+        && _player != IntPtr.Zero && _player == (Data.Run?.Player?.Pointer ?? IntPtr.Zero)
+        && _scene == SceneManager.GetActiveScene().handle && _selection.SequenceEqual(Selection());
+
+    public void OnDisable()
+    {
+        _popup.Close();
+        _targets.Clear();
+        foreach (var gem in _gems) if (gem != null) gem.gameObject.SetActive(false);
+        foreach (var hit in _hits) if (hit.Root != null) hit.Root.gameObject.SetActive(false);
     }
 
     private RectTransform Gem(int index)
@@ -129,8 +238,9 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
             DontDestroyOnLoad(canvas);
             var overlay = canvas.AddComponent<Canvas>();
             overlay.renderMode = RenderMode.ScreenSpaceOverlay;
-            // Above the table, below every plugin panel. No raycaster: touches always reach the game.
+            // Above the table, below every plugin panel. Only flag hit areas receive touches.
             overlay.sortingOrder = 5;
+            canvas.AddComponent<GraphicRaycaster>();
             _root = canvas.GetComponent<RectTransform>();
         }
         while (_gems.Count <= index)
