@@ -3018,3 +3018,36 @@ DLL SHA-256 `2bfa635acbeba4e160e4d5fd4e028f22a6192286164f6b6c56d2573bc2296aa6` �
 - 测试后停止启动器进程，逐字节恢复备份的原 12 套收藏（8 套提醒），本地与设备 SHA-256 一致。没有把测试清空结果留在用户设备。
 
 证据位于忽略目录 `artifacts/remove-favorites/`：`popup-page2.png`、`single-deleted.png`、`recommendation.png`、`clear-confirm.png`、`cleared.png`、`empty-list.png`、`no-gems.png`、`input-mode-mobile.png`、`device.log`、`verification/verification.json`，以及离线日志。截图人工复核，存储内容与事件日志自动断言。标准输入模式、英文、旧样式、其他屏幕比例、设备端写入失败注入及清空后的游戏进程重启未在本轮专项验证；磁盘重开和失败保护已有真实文件离线检查。
+
+
+## 2026-11-19：构筑交互调整
+
+基线为 Android `main` 的 `06cc86c0`，分支 `feat/android-build-interactions`。
+参考原插件 Collection / Panels 架构与 Android 收藏、选物和原生卡面实现；只修改 Android 层，
+保留共享筛选引擎及原生卡牌。UI 依据现有源码与本轮设备截图核对。
+设备 OBJVWSPNSCFQU48L（22041216C）、Android 14、游戏 13113、中文、2460×1080、新样式。
+开始为构筑推荐页；重启后继续既有第 2 天商店，场上 5 件、仓库 6 件、商店 3 件、金币 0。
+本轮只操作插件面板、收藏与输入模式，没有购买、领取、刷新商店、战斗或推进对局。
+
+使用对应 Android interop 插件 Release 编译零警告／零错误；26 项 Python 回归、BuildCorpus、
+EnchantPolicy 通过。使用持久签名构建启动器 0.4.0，v2 与证书校验通过，覆盖安装后新会话
+`526362f6-049f-49bc-824e-6858d800d6f8` 的 12 项加载／摘要检查通过。
+首次验证误用脚本默认的旧 APK 路径，导致版本与摘要两项不符；显式指定本次 APK 后全通过。
+DLL SHA-256：`268de57edc4c7fc3c67e2bc695569a5f010dca0646a2bde7f725e41cc7c4d73f`。
+APK SHA-256：`ad86b7b2e85615beed91755fe59f4ccc1a88e005074fff4bb59957502d504796`。
+
+### 选物筛选记忆
+
+- 6 项纯状态检查覆盖首次英雄／无英雄、成功添加后的独立快照、品质／体型／来源／天数／搜索恢复及取消隔离。
+- 高级模式首次从新建构筑打开图鉴，英雄默认卡诺克；改为全部英雄＋小型，成功添加 GPU，草稿占 1 格。
+  再次打开保留上述筛选，剩余 9 格；重置筛选后取消，下次仍恢复全部英雄＋小型。
+- 标准模式新建草稿，保留上次成功筛选；添加 GPU 后仍为 1 格，重开与重置取消路径同样正常。
+- 记忆为当前 Controller／游戏会话内状态，普通图鉴状态单独恢复；不保存页码或卡牌预览变体。
+  本轮未专项触屏检查搜索、品质、词条、来源／天数组合、其他英雄、英文、旧样式与其他屏幕比例。
+
+证据位于忽略目录 `artifacts/build-interactions/`。筛选截图：`picker-first.png`、
+`picker-filtered.png`、`added.png`、`picker-remembered.png`、`after-cancel.png`、
+`standard-added.png`、`standard-remembered.png`、`standard-after-cancel.png`；截图为人工复核。
+编译／离线日志为 `build.log`、`python.log`、`store-red.log`、`picker-red.log`；会话报告为
+`session/verification.json`。设备日志为 `device.log`，crash buffer 只有早于本轮的系统条目，
+未发现本次插件筛选／构筑／角标失败事件或本轮原生崩溃。

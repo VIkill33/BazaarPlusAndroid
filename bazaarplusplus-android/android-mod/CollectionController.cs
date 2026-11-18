@@ -39,6 +39,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
     private static CollectionController? _instance;
     private Action<CustomBuildItem?>? _pickerReturn;
     private int _pickerRemaining;
+    private readonly AndroidCollectionPickerState _pickerState = new();
     private Button? _pickButton;
     private (CollectionFilterState Filter, CollectionSourceEntry? Source, bool Follow, int Page)? _pickerRestore;
     private readonly List<Button> _rows = new();
@@ -696,13 +697,13 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         if (owner == null || !owner._uiBuilt || owner._open || AndroidBuildPanelController.AnyOpen || AndroidHistoryPanel.AnyOpen)
             return false;
         owner._pickerRestore = (owner._filter, owner._source, owner._followSource, owner._page);
-        owner._filter = new CollectionFilterState { ActiveType = ECardType.Item, UseRunDayFilter = false };
-        owner._filter.ToggleAllHeroes();
-        owner._source = null;
-        owner._followSource = false;
+        var selection = owner._pickerState.Open(AndroidCollectionContext.InRun ? Data.Run?.Player?.Hero : null);
+        owner._filter = selection.Filter;
+        owner._source = owner._sources.FirstOrDefault(source => source.SourceKey == selection.SourceKey);
+        owner._followSource = selection.Follow;
         owner._pickerRemaining = remaining;
         owner._pickerReturn = completed;
-        owner._search?.SetTextWithoutNotify(string.Empty);
+        owner._search?.SetTextWithoutNotify(owner._filter.SearchQuery);
         owner.SetOpen(true);
         return true;
     }
@@ -733,6 +734,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
         var card = _catalog.Cards.FirstOrDefault(card => card.Id == _requested && card.Type == ECardType.Item);
         if (card == null || NativeCardFit.SizeInSlots(card.Size) > _pickerRemaining) return;
         var item = new CustomBuildItem(card.Id, NativeCardFit.SizeInSlots(card.Size));
+        _pickerState.Remember(_filter, _source?.SourceKey, _followSource);
         var completed = EndPicker();
         SetOpen(false);
         completed?.Invoke(item);
@@ -774,7 +776,7 @@ public sealed class CollectionController(IntPtr pointer) : MonoBehaviour(pointer
             _catalog.Retry();
             ReadContext();
             var player = Data.Run?.Player;
-            if (_followSource && player != null && AndroidCollectionContext.InRun)
+            if (_pickerReturn == null && _followSource && player != null && AndroidCollectionContext.InRun)
             {
                 _filter.ApplySelection(new CollectionPanelSelectionState(player.Hero, null, CollectionSourceKind.Merchant));
                 if (_source != null) _filter.ActiveType = _source.Kind == CollectionSourceKind.Merchant ? ECardType.Item : ECardType.Skill;
