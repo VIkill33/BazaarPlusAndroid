@@ -75,6 +75,15 @@ internal sealed class AndroidFavoriteBuildPopup
         _page = NativeUi.Label(NativeUi.Rect("Page", panel, new Vector2(.42f, .77f), new Vector2(.58f, .96f)), font, string.Empty, 28);
         Skin(NativeUi.Button(panel, font, () => NativeUi.Text("Close", "关闭"),
             new Vector2(.80f, .77f), new Vector2(.97f, .96f), Close));
+        var remove = Skin(NativeUi.Button(panel, font, () => NativeUi.Text("Remove favorite", "取消收藏提醒"),
+            new Vector2(.60f, .77f), new Vector2(.79f, .96f), RemoveFavorite));
+        var caption = remove.GetComponentInChildren<TextMeshProUGUI>();
+        caption.enableAutoSizing = true;
+        caption.fontSizeMin = 20;
+        caption.fontSizeMax = 28;
+        caption.textWrappingMode = TextWrappingModes.NoWrap;
+        caption.rectTransform.offsetMin = new Vector2(4, 0);
+        caption.rectTransform.offsetMax = new Vector2(-4, 0);
         var host = NativeUi.Rect("Board", panel, new Vector2(.10f, .27f), new Vector2(.90f, .73f));
         _board = new AndroidBuildBoard(host, (_, _, _) => { }, keepSlots: true, captionFont: font);
         _previous = Skin(NativeUi.Button(panel, font, "◀", new Vector2(.045f, .5f), new Vector2(.045f, .5f),
@@ -88,6 +97,27 @@ internal sealed class AndroidFavoriteBuildPopup
     {
         AndroidPanelButtonSkin.Register(button);
         return button;
+    }
+
+    private void RemoveFavorite()
+    {
+        if (!IsOpen || _builds.Count == 0) return;
+        try
+        {
+            // Another panel may have changed the file since this popup opened.
+            var store = new CustomBuildStore(AndroidCustomBuildPanel.StorePath);
+            store.Load();
+            var id = _builds[_index].Build.Id;
+            store.Delete(id);
+            AndroidFavoriteMarks.Invalidate();
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.favorite_popup.removed build={id} remaining={store.Builds.Count}");
+            Close();
+        }
+        catch (Exception error)
+        {
+            _summary!.text = NativeUi.Text("Could not remove favorite. Try again.", "取消失败，请重试");
+            Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.favorite_popup.remove_failed type={error.GetType().Name}");
+        }
     }
 
     private void Page(int delta)

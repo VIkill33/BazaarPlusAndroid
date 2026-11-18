@@ -2999,3 +2999,22 @@ DLL SHA-256 `2bfa635acbeba4e160e4d5fd4e028f22a6192286164f6b6c56d2573bc2296aa6` �
 `purchase-race.png`、`medium-stable-popup.png`、`event-medium-popup.png`；日志为 `log-final.txt` 与
 `log-final-extended.txt`，自动断言摘要为 `assertions.json`。编译日志位于 `artifacts/favorite-popup-task*-*.log`，
 最终离线记录为 `artifacts/favorite-popup/final-python.log`，APK／签名报告在 `artifacts/launcher/`。
+
+
+## 2026-11-19：单套取消收藏提醒与全部清空
+
+环境：22041216C（Android 14）、游戏 13113、中文、2460×1080、新样式、高级输入模式（设置页截图确认）。基于 `e6cfb9f9` 的修复工作区；未推进商店、购买、领取、战斗或改变对局选择。测试前在构筑推荐页，重启后继续既有第 2 天商店，场上 5 件、仓库 6 件、商店 3 件、金币 0；测试结束停在相同商店。
+
+实现参考原插件 `docs/architecture/panels.md`、Android 既有提醒弹窗、收藏存储与按钮皮肤；只改 Android 收藏管理，复用 `CustomBuildStore` 的临时文件原子替换，不改原生游戏卡牌或推荐语料。单套按钮按当前页 ID 删除，成功后关闭并刷新角标；推荐页「清空收藏」需 5 秒内再次点「确认清空」，关闭页面或进入「我的构筑」重置确认。
+
+离线：新增清空／空集合／重开／写入失败／读取失败保护断言，先确认因缺少 `Clear` 编译失败，再实现并通过共 88 项收藏检查；26 项 Python 回归、BuildCorpus 与 EnchantPolicy 通过。使用本机从当前设备读取的 13113 代理编译插件，零警告／零错误。签名 APK 的 v2 与指定证书校验通过，当前新会话 12 项摘要／握手断言通过。独立审阅无阻塞项，清空结果改为状态值并在动态标签中解析语言。
+
+真机操作与证据：
+
+- 点击商店中型卡角标打开 5 页构筑；翻到第 2 页（构筑 8），点「取消收藏提醒」，弹窗关闭，文件只删除当前 ID，其他 11 套内容完全不变；提醒数 8 → 7。第一次点击后立即读取文件尚未处理到输入事件，后续等待事件完成再断言通过，未修改产品代码掩盖该时序。
+- 推荐页顶部新增按钮显示正常；首次点击不改数据，超过 5 秒后下一次点击仍只进入确认。确认中进入「我的构筑」返回、关闭页面重开后，下一次点击均不清空。
+- 5 秒内二次确认后，11 套收藏（含未开启提醒的构筑）全部清空，文件为有效空集合，「我的构筑」显示空状态；关闭推荐页后商店角标全部消失，原供牌、场上物品、金币不变。日志 `android.custom_build.cleared count=11` 与 `android.favorite_marks.loaded builds=0 cards=0` 对应。
+- 无 `favorite_marks.failed`、`favorite_popup.remove_failed`、`custom_build.clear_failed` 或 `build_panel.failed`。原生框架启动有既有的 GenericMethod hook 警告，插件加载和本轮交互正常，不据此宣称框架全量无异常。
+- 测试后停止启动器进程，逐字节恢复备份的原 12 套收藏（8 套提醒），本地与设备 SHA-256 一致。没有把测试清空结果留在用户设备。
+
+证据位于忽略目录 `artifacts/remove-favorites/`：`popup-page2.png`、`single-deleted.png`、`recommendation.png`、`clear-confirm.png`、`cleared.png`、`empty-list.png`、`no-gems.png`、`input-mode-mobile.png`、`device.log`、`verification/verification.json`，以及离线日志。截图人工复核，存储内容与事件日志自动断言。标准输入模式、英文、旧样式、其他屏幕比例、设备端写入失败注入及清空后的游戏进程重启未在本轮专项验证；磁盘重开和失败保护已有真实文件离线检查。

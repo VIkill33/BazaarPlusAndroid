@@ -480,6 +480,25 @@ internal sealed class AndroidCustomBuildPanel
         }
     }
 
+    internal bool ClearFavorites()
+    {
+        try
+        {
+            _store.Load();
+            var count = _store.Builds.Count;
+            _store.Clear();
+            _deletePending = null;
+            AndroidFavoriteMarks.Invalidate();
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.cleared count={count}");
+            return true;
+        }
+        catch (Exception error)
+        {
+            Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.custom_build.clear_failed type={error.GetType().Name}");
+            return false;
+        }
+    }
+
     private void Delete(Guid id)
     {
         if (_deletePending != id) { _deletePending = id; RenderList(); return; }

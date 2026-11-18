@@ -148,6 +148,8 @@ internal sealed class CustomBuildStore(string path)
         return true;
     }
 
+    internal void Clear() => Persist(Array.Empty<CustomBuild>());
+
     private static void Validate(IReadOnlyList<CustomBuildItem>? items)
     {
         if (items == null || items.Count is < 1 or > 10 || items.Any(item => item == null

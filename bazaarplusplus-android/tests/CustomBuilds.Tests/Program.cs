@@ -123,13 +123,26 @@ try
     Check(reopened.Builds.Count == 1 && File.ReadAllText(path) == before, "Failed write preserves memory and disk");
     Reject(() => reopened.Delete(reopened.Builds[0].Id), "Failed deletion must be reported");
     Check(reopened.Builds.Count == 1 && File.ReadAllText(path) == before, "Failed deletion preserves memory and disk");
+    Reject(() => reopened.Clear(), "Failed clear must be reported");
+    Check(reopened.Builds.Count == 1 && File.ReadAllText(path) == before, "Failed clear preserves memory and disk");
     Directory.Delete(path + ".part");
+    reopened.Add(new[] { new CustomBuildItem(large, 3) });
+    Check(reopened.Builds.Any(build => build.Star != null) && reopened.Builds.Any(build => build.Star == null), "Clear fixture contains alerted and unalerted favorites");
+    reopened.Clear();
+    Check(reopened.Builds.Count == 0, "Clear removes all favorites and their alerts");
+    var cleared = new CustomBuildStore(path);
+    cleared.Load();
+    Check(cleared.Builds.Count == 0, "Cleared favorites remain empty after reopening");
+    reopened.Clear();
+    Check(reopened.Builds.Count == 0, "Clearing an empty collection is harmless");
+    reopened.AddStarred(new[] { new CustomBuildItem(small, 1) });
     foreach (var bad in new[] { "{", "{\"Schema\":2,\"Builds\":[]}", "{\"Schema\":1,\"Builds\":null}",
         "{\"Schema\":1,\"Builds\":[{\"Id\":\"00000000-0000-0000-0000-000000000000\",\"Items\":[]}]}" })
     {
         File.WriteAllText(path, bad);
         Reject(reopened.Load, "Malformed or unsupported data must be reported");
         Check(File.ReadAllText(path) == bad && reopened.Builds.Count == 1, "Invalid load cannot overwrite saved data or current state");
+        Reject(() => reopened.Clear(), "Cannot clear a collection after a failed read");
         Reject(() => reopened.Add(draft.Items), "Cannot overwrite a collection after a failed read");
         Check(File.ReadAllText(path) == bad, "Rejected save leaves corrupt or future data intact");
     }
