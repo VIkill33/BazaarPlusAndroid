@@ -35,14 +35,17 @@ internal sealed class AndroidBuildBoard
     private readonly RectTransform _row;
     private readonly Action<string, string, string[]> _onSelect;
     private readonly Action<RectTransform, int>? _bindDrag;
+    private readonly bool _keepSlots;
     private readonly List<Request> _requests = new();
     private AndroidBuild? _shownBuild;
     private Vector2 _laidOutSize;
     private int _units = 10;
 
-    internal AndroidBuildBoard(RectTransform root, Action<string, string, string[]> onSelect, Action<RectTransform, int>? bindDrag = null)
+    internal AndroidBuildBoard(RectTransform root, Action<string, string, string[]> onSelect, Action<RectTransform, int>? bindDrag = null,
+        bool keepSlots = false)
     {
         _root = root;
+        _keepSlots = keepSlots;
         _onSelect = onSelect;
         _bindDrag = bindDrag;
         _row = NativeUi.Rect("BPP.BuildBoardRow", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f));
@@ -73,19 +76,27 @@ internal sealed class AndroidBuildBoard
                 Il2CppSystem.Guid.Parse(item.TemplateId.ToString()))?.TryCast<TCardBase>();
             return (Item: item, Span: template == null ? item.Size : NativeCardFit.SizeInSlots(template.Size));
         }).ToArray();
-        _units = Math.Max(10, spans.Sum(entry => entry.Span));
+        // Recommended boards pack left; custom boards keep the gaps the player left between items.
+        var starts = new int[spans.Length];
+        var end = 0;
+        for (var index = 0; index < spans.Length; index++)
+        {
+            starts[index] = _keepSlots ? Math.Max(end, spans[index].Item.Slot) : end;
+            end = starts[index] + spans[index].Span;
+        }
+        _units = Math.Max(10, end);
         _laidOutSize = Vector2.zero;
         Layout();
-        var start = 0;
-        foreach (var (item, span) in spans)
+        for (var index = 0; index < spans.Length; index++)
         {
+            var (item, span) = spans[index];
+            var start = starts[index];
             var host = NativeUi.Rect("BPP.BuildCard", _row,
                 new Vector2((float)start / _units, 0),
                 new Vector2((float)(start + span) / _units, 1),
                 new Vector2(1, RowPadding), new Vector2(-1, -RowPadding));
             if (span != item.Size)
                 Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.native_span template_id={item.TemplateId} recorded={item.Size} native={span}");
-            start += span;
             var request = new Request { Host = host, Item = item };
             var hitArea = host.gameObject.AddComponent<Image>();
             hitArea.color = new Color(0, 0, 0, .01f);

@@ -2,19 +2,26 @@ using System.Text.Json;
 
 namespace BazaarPlusPlus.Android;
 
-internal sealed record CustomBuildItem(Guid TemplateId, int Size);
+// Slot is the first of the ten board slots the item occupies; files written before slots existed omit it.
+internal sealed record CustomBuildItem(Guid TemplateId, int Size, int? Slot = null);
 internal sealed record CustomBuild(Guid Id, DateTimeOffset CreatedAt, IReadOnlyList<CustomBuildItem> Items);
 
 internal sealed class CustomBuildDraft
 {
-    private readonly List<CustomBuildItem> _items = new();
+    private List<CustomBuildItem> _items = new();
     internal IReadOnlyList<CustomBuildItem> Items => _items.AsReadOnly();
     internal int UsedSlots => _items.Sum(item => item.Size);
 
+    internal CustomBuildDraft() { }
+    internal CustomBuildDraft(IEnumerable<CustomBuildItem> items) => _items = Arrange(items);
+
+    // Takes the first gap that fits; with enough free slots but no such gap, neighbours close up.
     internal bool TryAdd(Guid templateId, int size)
     {
         if (templateId == Guid.Empty || size is < 1 or > 3 || UsedSlots + size > 10) return false;
-        _items.Add(new(templateId, size));
+        var slot = Enumerable.Range(0, 11 - size).Where(start => _items.All(item =>
+            item.Slot!.Value + item.Size <= start || item.Slot!.Value >= start + size)).DefaultIfEmpty(10).First();
+        _items = Arrange(_items.Append(new CustomBuildItem(templateId, size, slot)));
         return true;
     }
 
@@ -23,15 +30,38 @@ internal sealed class CustomBuildDraft
         if (index >= 0 && index < _items.Count) _items.RemoveAt(index);
     }
 
-    internal void MoveTo(int index, int target)
+    // Drops the item with its left edge on `slot`. A free run is taken as is; an occupied one pushes neighbours aside.
+    internal void MoveTo(int index, int slot)
     {
-        if (index < 0 || index >= _items.Count || target < 0 || target >= _items.Count || index == target) return;
-        var item = _items[index];
-        _items.RemoveAt(index);
-        _items.Insert(target, item);
+        if (index < 0 || index >= _items.Count) return;
+        var moved = _items[index];
+        moved = moved with { Slot = Math.Clamp(slot, 0, 10 - moved.Size) };
+        _items = Arrange(_items.Where((_, other) => other != index).Prepend(moved));
     }
 
-
+    // Returns the items left to right on non-overlapping slots inside the ten-slot board.
+    // Items keep their slot when they can; overlaps resolve by item centre, the earlier input winning a tie.
+    internal static List<CustomBuildItem> Arrange(IEnumerable<CustomBuildItem> source)
+    {
+        var items = source.ToList();
+        var packed = items.Any(item => item.Slot == null);
+        if (!packed) items = items.OrderBy(item => 2 * item.Slot!.Value + item.Size).ToList();
+        var edge = 0;
+        for (var index = 0; index < items.Count; index++)
+        {
+            var slot = packed ? edge : Math.Max(items[index].Slot!.Value, edge);
+            items[index] = items[index] with { Slot = slot };
+            edge = slot + items[index].Size;
+        }
+        if (edge <= 10) return items;
+        edge = 10;
+        for (var index = items.Count - 1; index >= 0; index--)
+        {
+            edge = Math.Min(items[index].Slot!.Value, edge - items[index].Size);
+            items[index] = items[index] with { Slot = edge };
+        }
+        return items;
+    }
 }
 
 // A failed read never silently turns an unreadable collection into an empty writable one.
@@ -56,6 +86,7 @@ internal sealed class CustomBuildStore(string path)
                 || builds.Select(build => build.Id).Distinct().Count() != builds.Length)
                 throw new InvalidDataException("Invalid custom build identity.");
             foreach (var build in builds) Validate(build.Items);
+            builds = builds.Select(build => build with { Items = Arranged(build.Items) }).ToArray();
         }
         _builds = builds;
         _loaded = true;
@@ -64,9 +95,20 @@ internal sealed class CustomBuildStore(string path)
     internal void Add(IReadOnlyList<CustomBuildItem> items)
     {
         Validate(items);
-        Persist(_builds.Append(new CustomBuild(Guid.NewGuid(), DateTimeOffset.UtcNow,
-            Array.AsReadOnly(items.ToArray()))).ToArray());
+        Persist(_builds.Append(new CustomBuild(Guid.NewGuid(), DateTimeOffset.UtcNow, Arranged(items))).ToArray());
     }
+
+    // Replaces the items in place: identity, creation time and list position are kept.
+    internal bool Update(Guid id, IReadOnlyList<CustomBuildItem> items)
+    {
+        Validate(items);
+        if (_builds.All(build => build.Id != id)) return false;
+        Persist(_builds.Select(build => build.Id == id ? build with { Items = Arranged(items) } : build).ToArray());
+        return true;
+    }
+
+    private static IReadOnlyList<CustomBuildItem> Arranged(IReadOnlyList<CustomBuildItem> items) =>
+        Array.AsReadOnly(CustomBuildDraft.Arrange(items).ToArray());
 
     internal bool Delete(Guid id)
     {

@@ -29,19 +29,29 @@ Check(draft.TryAdd(large, 3) && draft.TryAdd(large, 3) && draft.TryAdd(medium, 2
 Check(draft.UsedSlots == 10 && !draft.TryAdd(small, 1) && draft.Items.Count == 4, "Overflow cannot change the draft");
 draft.RemoveAt(1);
 Check(draft.UsedSlots == 7 && draft.TryAdd(small, 1), "Removal restores capacity");
-draft.MoveTo(3, 2);
-Check(draft.Items.Select(i => i.TemplateId).SequenceEqual(new[] { large, medium, small, medium }), "Move changes saved order");
-draft.MoveTo(0, -1);
-draft.RemoveAt(-1);
-Check(draft.UsedSlots == 8 && draft.Items.Count == 4, "Invalid move and removal are no-ops");
+bool Layout(CustomBuildDraft target, Guid[] ids, int[] slots) =>
+    target.Items.Select(i => i.TemplateId).SequenceEqual(ids) && target.Items.Select(i => i.Slot).SequenceEqual(slots.Cast<int?>());
+Check(Layout(draft, new[] { large, small, medium, medium }, new[] { 0, 3, 6, 8 }), "Add takes the first gap that fits");
+draft.MoveTo(1, 5);
+Check(Layout(draft, new[] { large, small, medium, medium }, new[] { 0, 5, 6, 8 }), "Drop on free slots keeps the gap it leaves");
+draft.MoveTo(1, 3);
+draft.MoveTo(0, -1); draft.MoveTo(9, 2); draft.RemoveAt(-1);
+Check(Layout(draft, new[] { large, small, medium, medium }, new[] { 0, 3, 6, 8 }), "Clamped and invalid moves and removals keep the layout");
 var dragDraft = new CustomBuildDraft();
 dragDraft.TryAdd(small, 1); dragDraft.TryAdd(medium, 2); dragDraft.TryAdd(large, 3); dragDraft.TryAdd(small, 1);
-dragDraft.MoveTo(0, 3);
-Check(dragDraft.Items.Select(i => i.TemplateId).SequenceEqual(new[] { medium, large, small, small }), "Drag inserts at end without swapping neighbors");
-dragDraft.MoveTo(3, 0);
-Check(dragDraft.Items.Select(i => i.TemplateId).SequenceEqual(new[] { small, medium, large, small }), "Drag inserts at beginning and retains duplicates");
-dragDraft.MoveTo(-1, 0); dragDraft.MoveTo(0, 4);
-Check(dragDraft.UsedSlots == 7 && dragDraft.Items[0].TemplateId == small, "Invalid drag preserves slots and order");
+dragDraft.MoveTo(0, 9);
+Check(Layout(dragDraft, new[] { medium, large, small, small }, new[] { 1, 3, 6, 9 }), "Drag to far free slot leaves gaps and retains duplicates");
+dragDraft.MoveTo(1, 0);
+Check(Layout(dragDraft, new[] { large, medium, small, small }, new[] { 0, 3, 6, 9 }), "Occupied drop pushes the neighbour right");
+dragDraft.MoveTo(0, 8);
+Check(Layout(dragDraft, new[] { medium, small, large, small }, new[] { 3, 5, 6, 9 }), "Drop past the edge clamps and pushes left");
+Check(dragDraft.UsedSlots == 7, "Moves never change capacity");
+var tight = new CustomBuildDraft(new[] { new CustomBuildItem(large, 3, 0), new CustomBuildItem(large, 3, 3), new CustomBuildItem(small, 1, 8) });
+Check(tight.TryAdd(large, 3) && Layout(tight, new[] { large, large, small, large }, new[] { 0, 3, 6, 7 }), "Add closes gaps when no single gap fits");
+Check(CustomBuildDraft.Arrange(new[] { new CustomBuildItem(large, 3), new CustomBuildItem(small, 1, 7) })
+    .Select(i => i.Slot).SequenceEqual(new int?[] { 0, 3 }), "Items without slots pack left in order");
+Check(CustomBuildDraft.Arrange(new[] { new CustomBuildItem(medium, 2, 0), new CustomBuildItem(large, 3, 1) })
+    .Select(i => i.Slot).SequenceEqual(new int?[] { 0, 2 }), "Overlapping saved slots are separated");
 var gesture = new CustomBuildDragState();
 Check(gesture.Press(7, 0, 10, 10), "First pointer owns drag");
 Check(!gesture.Press(8, 0, 10, 10), "Second pointer cannot steal drag");
@@ -69,15 +79,31 @@ try
     var reopened = new CustomBuildStore(path);
     reopened.Load();
     Check(reopened.Builds.Count == 2, "Reopen retains multiple builds");
-    Check(reopened.Builds[0].Items.Select(i => i.TemplateId).SequenceEqual(new[] { large, medium, small, medium }), "Disk retains order and repeats");
-    Check(reopened.Builds[0].Items.Select(i => i.Size).SequenceEqual(new[] { 3, 2, 1, 2 }), "Disk retains slot spans");
+    Check(reopened.Builds[0].Items.Select(i => i.TemplateId).SequenceEqual(new[] { large, small, medium, medium }), "Disk retains order and repeats");
+    Check(reopened.Builds[0].Items.Select(i => i.Size).SequenceEqual(new[] { 3, 1, 2, 2 }), "Disk retains slot spans");
+    Check(reopened.Builds[0].Items.Select(i => i.Slot).SequenceEqual(new int?[] { 0, 3, 6, 8 }), "Disk retains slot positions");
     var first = reopened.Builds[0].Id;
+    var created = reopened.Builds[0].CreatedAt;
+    var edit = new[] { new CustomBuildItem(medium, 2, 8), new CustomBuildItem(small, 1, 2) };
+    Check(reopened.Update(first, edit), "Existing build can be edited");
+    reopened.Load();
+    Check(reopened.Builds.Count == 2 && reopened.Builds[0].Id == first && reopened.Builds[0].CreatedAt == created, "Edit keeps identity, time and list position");
+    Check(reopened.Builds[0].Items.Select(i => i.TemplateId).SequenceEqual(new[] { small, medium })
+        && reopened.Builds[0].Items.Select(i => i.Slot).SequenceEqual(new int?[] { 2, 8 }), "Edit persists items left to right with gaps");
+    Check(!reopened.Update(Guid.NewGuid(), edit) && reopened.Builds.Count == 2, "Editing a missing build changes nothing");
+    Reject(() => reopened.Update(first, Array.Empty<CustomBuildItem>()), "Cannot edit a build down to empty");
+    var legacyPath = Path.Combine(directory, "legacy.json");
+    File.WriteAllText(legacyPath, "{\"Schema\":1,\"Builds\":[{\"Id\":\"" + Guid.NewGuid() + "\",\"CreatedAt\":\"2026-11-15T00:00:00+00:00\",\"Items\":[{\"TemplateId\":\""
+        + large + "\",\"Size\":3},{\"TemplateId\":\"" + small + "\",\"Size\":1}]}]}");
+    var legacy = new CustomBuildStore(legacyPath);
+    legacy.Load();
+    Check(legacy.Builds[0].Items.Select(i => i.Slot).SequenceEqual(new int?[] { 0, 3 }), "Files saved before slots existed load packed left");
     reopened.Delete(first);
     reopened.Load();
     Check(reopened.Builds.Count == 1 && reopened.Builds[0].Items[0].TemplateId == small, "Deletion persists and preserves other builds");
     Check(!reopened.Delete(first), "Deleting missing identity is harmless");
     using (var json = JsonDocument.Parse(File.ReadAllText(path)))
-        Check(json.RootElement.GetProperty("Builds")[0].GetProperty("Items")[0].EnumerateObject().Count() == 2, "Only template and size are stored per item");
+        Check(json.RootElement.GetProperty("Builds")[0].GetProperty("Items")[0].EnumerateObject().Count() == 3, "Only template, size and slot are stored per item");
     var before = File.ReadAllText(path);
     Directory.CreateDirectory(path + ".part");
     Reject(() => reopened.Add(draft.Items), "Write failure must be reported");
