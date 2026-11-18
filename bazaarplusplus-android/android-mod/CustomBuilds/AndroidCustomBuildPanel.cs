@@ -468,7 +468,7 @@ internal sealed class AndroidCustomBuildPanel
         {
             _store.Load();
             _store.AddStarred(build.Items.OrderBy(item => item.Slot).Select(item => new CustomBuildItem(item.TemplateId,
-                Template(item.TemplateId) is { } template ? NativeCardFit.SizeInSlots(template.Size) : item.Size)).ToArray());
+                Template(item.TemplateId) is { } template ? NativeCardFit.SizeInSlots(template.Size) : item.Size)).ToArray(), recommended: true);
             AndroidFavoriteMarks.Invalidate();
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.favorited items={build.Items.Count} count={_store.Builds.Count}");
             return true;

@@ -14,6 +14,7 @@ internal sealed class AndroidFavoriteBuildPopup
     private AndroidBuildBoard? _board;
     private TextMeshProUGUI? _title;
     private TextMeshProUGUI? _page;
+    private TextMeshProUGUI? _origin;
     private TextMeshProUGUI? _summary;
     private Image? _gem;
     private Button? _previous;
@@ -84,7 +85,11 @@ internal sealed class AndroidFavoriteBuildPopup
         caption.textWrappingMode = TextWrappingModes.NoWrap;
         caption.rectTransform.offsetMin = new Vector2(4, 0);
         caption.rectTransform.offsetMax = new Vector2(-4, 0);
-        var host = NativeUi.Rect("Board", panel, new Vector2(.10f, .27f), new Vector2(.90f, .73f));
+        _origin = NativeUi.Label(NativeUi.Rect("Origin", panel, new Vector2(.10f, .68f), new Vector2(.90f, .77f)),
+            font, string.Empty, 24);
+        _origin.rectTransform.offsetMin = Vector2.zero;
+        _origin.rectTransform.offsetMax = Vector2.zero;
+        var host = NativeUi.Rect("Board", panel, new Vector2(.10f, .27f), new Vector2(.90f, .66f));
         _board = new AndroidBuildBoard(host, (_, _, _) => { }, keepSlots: true, captionFont: font);
         _previous = Skin(NativeUi.Button(panel, font, "◀", new Vector2(.045f, .5f), new Vector2(.045f, .5f),
             () => Page(-1), new Vector2(-48, -48), new Vector2(48, 48)));
@@ -139,6 +144,12 @@ internal sealed class AndroidFavoriteBuildPopup
         _gem!.color = color;
         _title!.color = color;
         _title.text = NativeUi.Text($"Build {number}", $"构筑 {number}");
+        _origin!.text = build.Recommended switch
+        {
+            true => NativeUi.Text("Recommended 10-win build", "推荐十胜构筑"),
+            false => NativeUi.Text("Custom build", "自定义构筑"),
+            null => NativeUi.Text("Saved build · origin not recorded", "收藏构筑 · 来源未记录"),
+        };
         _page!.text = $"{_index + 1} / {_builds.Count}";
         _summary!.text = NativeUi.Text($"Owned {have} / {items.Length} · {items.Length - have} missing",
             $"已有 {have} / {items.Length} 件 · 还缺 {items.Length - have} 件");

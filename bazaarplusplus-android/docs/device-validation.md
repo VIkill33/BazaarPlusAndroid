@@ -3051,3 +3051,15 @@ APK SHA-256：`ad86b7b2e85615beed91755fe59f4ccc1a88e005074fff4bb59957502d504796`
 编译／离线日志为 `build.log`、`python.log`、`store-red.log`、`picker-red.log`；会话报告为
 `session/verification.json`。设备日志为 `device.log`，crash buffer 只有早于本轮的系统条目，
 未发现本次插件筛选／构筑／角标失败事件或本轮原生崩溃。
+
+### 角标预览来源
+
+收藏文件新增可空 `Recommended`，新建自定义为 false，从推荐页收藏为 true，旧文件缺失为 null；
+不根据物品反猜旧来源。编辑保存归自定义，提醒开关不改变来源，同物品不同来源分别保存。
+在本次实际 APK 中，修改原第 2 套后保存（原 7 件物品不变，仅来源成为自定义），
+从当前商店符文护符角标进入，翻页分别显示「收藏构筑 · 来源未记录」「自定义构筑」；
+推荐页新增收藏后，角标共三页，第 3 页显示「推荐十胜构筑」。标准／高级模式均完成翻页。
+来源文字在标题与卡面之间，未遮挡卡面、状态或按钮。证据：`legacy-origin.png`、
+`custom-origin.png`、`recommended-origin.png`、`standard-legacy.png`、`standard-custom.png`、
+`standard-recommended.png`。截图人工复核；来源持久化、同物品不同来源、编辑转换及旧文件兼容
+由真实临时文件离线断言覆盖。英文、旧样式、其他屏幕比例及设备端读取失败仍待专项验证。

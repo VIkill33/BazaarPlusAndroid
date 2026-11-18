@@ -105,11 +105,23 @@ try
     Check(reopened.Builds.Select(b => b.Star).SequenceEqual(new int?[] { 0, 1, 2 }), "Stars persist");
     Check(CustomBuildStore.StarColor(7) == 1 && CustomBuildStore.StarColor(-1) is >= 0 and < CustomBuildStore.StarColors, "Any stored star maps to a colour");
     reopened.Delete(reopened.Builds[2].Id);
+    var recommendations = new CustomBuildStore(Path.Combine(directory, "recommendations.json"));
+    recommendations.Load();
+    var recommendedItems = new[] { new CustomBuildItem(small, 1) };
+    recommendations.Add(recommendedItems);
+    recommendations.AddStarred(recommendedItems, recommended: true);
+    Check(recommendations.Builds.Count == 2 && recommendations.Builds[0].Recommended == false && recommendations.Builds[1].Recommended == true,
+        "Identical custom and recommended builds retain distinct origins");
+    recommendations.Load();
+    Check(recommendations.Builds[1].Recommended == true, "Recommendation origin survives reopening");
+    recommendations.Update(recommendations.Builds[1].Id, new[] { new CustomBuildItem(large, 3) });
+    Check(recommendations.Builds[1].Recommended == false, "Editing recommended items makes a custom build");
     var legacyPath = Path.Combine(directory, "legacy.json");
     File.WriteAllText(legacyPath, "{\"Schema\":1,\"Builds\":[{\"Id\":\"" + Guid.NewGuid() + "\",\"CreatedAt\":\"2026-11-15T00:00:00+00:00\",\"Items\":[{\"TemplateId\":\""
         + large + "\",\"Size\":3},{\"TemplateId\":\"" + small + "\",\"Size\":1}]}]}");
     var legacy = new CustomBuildStore(legacyPath);
     legacy.Load();
+    Check(legacy.Builds[0].Recommended == null, "Legacy files preserve unknown origin");
     Check(legacy.Builds[0].Items.Select(i => i.Slot).SequenceEqual(new int?[] { 0, 3 }), "Files saved before slots existed load packed left");
     reopened.Delete(first);
     reopened.Load();
