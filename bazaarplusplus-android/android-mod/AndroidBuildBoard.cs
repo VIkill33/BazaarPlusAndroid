@@ -4,6 +4,7 @@ using Il2CppInterop.Runtime;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using TheBazaar.UI;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -36,16 +37,18 @@ internal sealed class AndroidBuildBoard
     private readonly Action<string, string, string[]> _onSelect;
     private readonly Action<RectTransform, int>? _bindDrag;
     private readonly bool _keepSlots;
+    private readonly TMP_FontAsset? _captionFont;
     private readonly List<Request> _requests = new();
     private AndroidBuild? _shownBuild;
     private Vector2 _laidOutSize;
     private int _units = 10;
 
     internal AndroidBuildBoard(RectTransform root, Action<string, string, string[]> onSelect, Action<RectTransform, int>? bindDrag = null,
-        bool keepSlots = false)
+        bool keepSlots = false, TMP_FontAsset? captionFont = null)
     {
         _root = root;
         _keepSlots = keepSlots;
+        _captionFont = captionFont;
         _onSelect = onSelect;
         _bindDrag = bindDrag;
         _row = NativeUi.Rect("BPP.BuildBoardRow", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f));
@@ -62,7 +65,7 @@ internal sealed class AndroidBuildBoard
         else backing.color = new Color(.08f, .10f, .13f, .85f);
     }
 
-    internal void Show(AndroidBuild? build)
+    internal void Show(AndroidBuild? build, IReadOnlyList<string>? captions = null)
     {
         if (build == null) { Hide(); return; }
         if (ReferenceEquals(_shownBuild, build)) return;
@@ -97,6 +100,18 @@ internal sealed class AndroidBuildBoard
                 new Vector2(1, RowPadding), new Vector2(-1, -RowPadding));
             if (span != item.Size)
                 Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.build_board.native_span template_id={item.TemplateId} recorded={item.Size} native={span}");
+            if (captions != null && _captionFont != null && index < captions.Count)
+            {
+                var captionHost = NativeUi.Rect("BPP.BuildCardCaption", _row,
+                    new Vector2((float)start / _units, 0), new Vector2((float)(start + span) / _units, 0),
+                    new Vector2(0, -44), Vector2.zero);
+                var label = NativeUi.Label(captionHost, _captionFont, captions[index], 24);
+                label.rectTransform.offsetMin = Vector2.zero;
+                label.rectTransform.offsetMax = Vector2.zero;
+                label.textWrappingMode = TextWrappingModes.NoWrap;
+                label.overflowMode = TextOverflowModes.Ellipsis;
+                label.raycastTarget = false;
+            }
             var request = new Request { Host = host, Item = item };
             var hitArea = host.gameObject.AddComponent<Image>();
             hitArea.color = new Color(0, 0, 0, .01f);
@@ -234,8 +249,7 @@ internal sealed class AndroidBuildBoard
         foreach (var request in _requests)
         {
             NativePreviewTooltips.Release(request.Card);
-            NativePreviewCleanup.Retire(request.Creation, request.Setup, request.Card, request.Cancellation);
-            UnityEngine.Object.Destroy(request.Host.gameObject);
+            NativePreviewCleanup.Retire(request.Creation, request.Setup, request.Card, request.Cancellation, request.Host.gameObject);
         }
         _requests.Clear();
         for (var index = _row.childCount - 1; index >= 0; index--)

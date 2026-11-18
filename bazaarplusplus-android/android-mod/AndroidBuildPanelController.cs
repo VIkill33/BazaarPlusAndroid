@@ -312,39 +312,13 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         _boardCandidates.Clear();
         _stashCandidates.Clear();
         _shopCandidates.Clear();
-        var container = player.Hand?.Container;
-        if (container != null)
-        {
-            foreach (var socket in container.GetCardsAndSockets())
-            {
-                var item = socket.Item1?.TryCast<ItemCard>();
-                if (item == null) continue;
-                var id = Guid.Parse(item.TemplateId.ToString());
-                if (board.Add(id)) _boardCandidates.Add((id, ResolveName(id)));
-            }
-        }
-        var stashContainer = player.Stash?.Container;
-        if (stashContainer != null)
-        {
-            foreach (var socket in stashContainer.GetCardsAndSockets())
-            {
-                var item = socket.Item1?.TryCast<ItemCard>();
-                if (item == null) continue;
-                var id = Guid.Parse(item.TemplateId.ToString());
-                if (stash.Add(id)) _stashCandidates.Add((id, ResolveName(id)));
-            }
-        }
-        var selectionSet = Data.CurrentState?.SelectionSet;
-        if (selectionSet != null)
-        {
-            for (var index = 0; index < selectionSet.Count; index++)
-            {
-                var item = Data.GetCard(selectionSet[index])?.TryCast<ItemCard>();
-                if (item == null) continue;
-                var id = Guid.Parse(item.TemplateId.ToString());
-                if (shop.Add(id)) _shopCandidates.Add((id, ResolveName(id)));
-            }
-        }
+        var owned = AndroidOwnedCards.Read()!;
+        foreach (var id in owned.Board.Keys)
+            if (board.Add(id)) _boardCandidates.Add((id, ResolveName(id)));
+        foreach (var id in owned.Stash.Keys)
+            if (stash.Add(id)) _stashCandidates.Add((id, ResolveName(id)));
+        foreach (var id in owned.Offered)
+            if (shop.Add(id)) _shopCandidates.Add((id, ResolveName(id)));
         _selectedCandidates.IntersectWith(board.Concat(stash).Concat(shop));
         UpdateCandidateButtons();
         var hero = player.Hero.ToString();

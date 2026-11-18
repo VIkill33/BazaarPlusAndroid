@@ -135,4 +135,19 @@ try
     }
 }
 finally { Directory.Delete(directory, true); }
+var a = Guid.NewGuid(); var b = Guid.NewGuid(); var c = Guid.NewGuid(); var d = Guid.NewGuid();
+CustomBuildItem[] owned = { new(a, 1, 0), new(a, 1, 1), new(b, 2, 2), new(c, 1, 4), new(d, 1, 5) };
+var states = CustomBuildOwnership.Classify(owned,
+    new Dictionary<Guid, int> { [a] = 1 }, new Dictionary<Guid, int> { [a] = 1, [b] = 1 }, new HashSet<Guid> { b, c });
+Check(states.SequenceEqual(new[] { CustomBuildCardState.Board, CustomBuildCardState.Stash, CustomBuildCardState.Stash,
+    CustomBuildCardState.Offered, CustomBuildCardState.Missing }), "Board, then stash, then offered, then missing");
+var twice = CustomBuildOwnership.Classify(new CustomBuildItem[] { new(a, 1, 0), new(a, 1, 1) },
+    new Dictionary<Guid, int> { [a] = 1 }, new Dictionary<Guid, int>(), new HashSet<Guid>());
+Check(twice.SequenceEqual(new[] { CustomBuildCardState.Board, CustomBuildCardState.Missing }), "One owned copy covers one build item");
+var offeredTwice = CustomBuildOwnership.Classify(new CustomBuildItem[] { new(c, 1, 0), new(c, 1, 1) },
+    new Dictionary<Guid, int>(), new Dictionary<Guid, int>(), new HashSet<Guid> { c });
+Check(offeredTwice.All(state => state == CustomBuildCardState.Offered), "An offer is not consumed");
+Check(CustomBuildOwnership.Classify(Array.Empty<CustomBuildItem>(), new Dictionary<Guid, int>(),
+    new Dictionary<Guid, int>(), new HashSet<Guid>()).Length == 0, "Empty build classifies to nothing");
+
 Console.WriteLine($"Custom builds: {checks} checks passed.");
