@@ -27,6 +27,7 @@ public sealed class Plugin : BasePlugin
         AddComponent<CollectionController>();
         AddComponent<AndroidTooltipObserver>();
         AddComponent<AndroidBuildPanelController>();
+        AddComponent<AndroidFavoriteMarks>();
         AddComponent<AndroidHistoryPanel>();
         AddComponent<AndroidHistoryArtwork>();
         BuildRepository = new AndroidBuildRepository(

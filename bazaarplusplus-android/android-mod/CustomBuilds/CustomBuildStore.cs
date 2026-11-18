@@ -4,7 +4,8 @@ namespace BazaarPlusPlus.Android;
 
 // Slot is the first of the ten board slots the item occupies; files written before slots existed omit it.
 internal sealed record CustomBuildItem(Guid TemplateId, int Size, int? Slot = null);
-internal sealed record CustomBuild(Guid Id, DateTimeOffset CreatedAt, IReadOnlyList<CustomBuildItem> Items);
+// Star is set while the build's cards are flagged in shops and rewards; its value picks the flag colour.
+internal sealed record CustomBuild(Guid Id, DateTimeOffset CreatedAt, IReadOnlyList<CustomBuildItem> Items, int? Star = null);
 
 internal sealed class CustomBuildDraft
 {
@@ -105,6 +106,35 @@ internal sealed class CustomBuildStore(string path)
         if (_builds.All(build => build.Id != id)) return false;
         Persist(_builds.Select(build => build.Id == id ? build with { Items = Arranged(items) } : build).ToArray());
         return true;
+    }
+
+    internal const int StarColors = 6;
+    internal static int StarColor(int star) => (int)((uint)star % StarColors);
+
+    internal bool SetStar(Guid id, bool starred)
+    {
+        var build = _builds.FirstOrDefault(candidate => candidate.Id == id);
+        if (build == null || starred == (build.Star != null)) return false;
+        var star = starred ? NextStar() : (int?)null;
+        Persist(_builds.Select(candidate => candidate.Id == id ? candidate with { Star = star } : candidate).ToArray());
+        return true;
+    }
+
+    // Saves the items as a starred build, or stars the saved build that already holds exactly these items.
+    internal void AddStarred(IReadOnlyList<CustomBuildItem> items)
+    {
+        Validate(items);
+        var arranged = Arranged(items);
+        var same = _builds.FirstOrDefault(build => build.Items.SequenceEqual(arranged));
+        if (same != null) SetStar(same.Id, true);
+        else Persist(_builds.Append(new CustomBuild(Guid.NewGuid(), DateTimeOffset.UtcNow, arranged, NextStar())).ToArray());
+    }
+
+    // The first colour no starred build uses; once all are taken, colours repeat.
+    private int NextStar()
+    {
+        var used = _builds.Where(build => build.Star != null).Select(build => StarColor(build.Star!.Value)).ToList();
+        return Enumerable.Range(0, StarColors).Where(color => !used.Contains(color)).DefaultIfEmpty(used.Count % StarColors).First();
     }
 
     private static IReadOnlyList<CustomBuildItem> Arranged(IReadOnlyList<CustomBuildItem> items) =>

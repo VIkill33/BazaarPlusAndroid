@@ -42,7 +42,8 @@ internal sealed class AndroidCustomBuildPanel
     private readonly Button _add;
     private readonly Action _back;
     private readonly Action<int, Action<CustomBuildItem?>> _pick;
-    private readonly CustomBuildStore _store = new(Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.Android", "custom-builds.json"));
+    internal static readonly string StorePath = Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.Android", "custom-builds.json");
+    private readonly CustomBuildStore _store = new(StorePath);
     private readonly List<Row> _rows = new();
     private readonly AndroidBuildBoard _draftBoard;
     private readonly RectTransform _boardRoot;
@@ -185,11 +186,13 @@ internal sealed class AndroidCustomBuildPanel
         for (var index = 0; index < builds.Count; index++)
         {
             var build = builds[index];
-            var row = RowRoot(_listContent, index, RowHeight, accent: true);
+            // A starred build wears its alert colour on the row edge, matching the gems drawn on offered cards.
+            var starColor = build.Star is { } star ? AndroidFavoriteMarks.Colors[CustomBuildStore.StarColor(star)] : (Color?)null;
+            var row = RowRoot(_listContent, index, RowHeight, starColor ?? new Color(1f, 1f, 1f, .22f));
             var missing = build.Items.Count(item => Template(item.TemplateId) == null);
             var unavailable = missing == 0 ? string.Empty
                 : NativeUi.Text($" · {missing} unavailable", $" · {missing} 件物品不可用");
-            var label = NativeUi.Label(NativeUi.Rect("Name", row, new Vector2(.012f, .77f), new Vector2(.64f, 1)), _font,
+            var label = NativeUi.Label(NativeUi.Rect("Name", row, new Vector2(.012f, .77f), new Vector2(.585f, 1)), _font,
                 $"<b><color={GoldHex}>" + NativeUi.Text($"Build {index + 1}", $"构筑 {index + 1}") + "</color></b>" +
                 $"   <size=22><color={MutedHex}>" + NativeUi.Text($"{build.Items.Count} items", $"{build.Items.Count} 件") +
                 $" · {CurrentSlots(build.Items)}/10" + NativeUi.Text(" slots", " 格") +
@@ -206,8 +209,13 @@ internal sealed class AndroidCustomBuildPanel
             Caption(delete, 24, Coral, confirm);
             if (confirm) Caption(Button(row, () => NativeUi.Text("Cancel", "取消"), .66f, .79f, .78f, .97f,
                 () => { _deletePending = null; RenderList(); }), 24, Muted, false);
-            else Caption(Button(row, () => NativeUi.Text("Edit", "编辑"), .73f, .79f, .85f, .97f,
-                () => Edit(build)), 24, Gold, true);
+            else
+            {
+                Caption(Button(row, () => NativeUi.Text("Edit", "编辑"), .73f, .79f, .85f, .97f,
+                    () => Edit(build)), 24, Gold, true);
+                Caption(Button(row, () => starColor.HasValue ? NativeUi.Text("Alert on", "提醒中") : NativeUi.Text("Alert off", "开启提醒"),
+                    .59f, .79f, .72f, .97f, () => ToggleStar(build)), 24, starColor ?? Muted, starColor.HasValue);
+            }
             var host = NativeUi.Rect("Board", row, new Vector2(.01f, .04f), new Vector2(.99f, .76f));
             var preview = Preview(build.Items);
             _rows.Add(new(row, preview, new AndroidBuildBoard(host, (_, _, _) => { }, keepSlots: true), index));
@@ -218,7 +226,8 @@ internal sealed class AndroidCustomBuildPanel
         _summary.text = !_loaded || builds.Count == 0 ? string.Empty
             : NativeUi.Text($"{builds.Count} saved", $"共 {builds.Count} 套");
         if (_loaded) _status.text = builds.Count == 0 ? string.Empty
-            : NativeUi.Text("Scroll to browse · Tap Edit to rearrange a build", "上下滑动查看 · 点「编辑」调整阵容");
+            : NativeUi.Text("Turn an alert on to flag that build's cards in shops and rewards with its colour",
+                "点「开启提醒」后，商店与奖励里属于该构筑的牌会带同色角标");
     }
 
     private void NewDraft()
@@ -263,7 +272,7 @@ internal sealed class AndroidCustomBuildPanel
         for (var index = 0; index < _draft.Items.Count; index++)
         {
             var item = _draft.Items[index];
-            var row = RowRoot(_editContent, index, ItemRowHeight, accent: false);
+            var row = RowRoot(_editContent, index, ItemRowHeight, null);
             var label = NativeUi.Label(NativeUi.Rect("Name", row, Vector2.zero, new Vector2(.84f, 1)), _font,
                 $"<b><color={GoldHex}>{index + 1}</color></b>   {ItemName(item.TemplateId)}", 27);
             label.alignment = TextAlignmentOptions.MidlineLeft;
@@ -434,9 +443,41 @@ internal sealed class AndroidCustomBuildPanel
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.saved edited={edited} items={current.Length} slots={current.Sum(item => item.Size)} count={_store.Builds.Count}");
             _draft = null;
             _editing = null;
+            AndroidFavoriteMarks.Invalidate();
             RenderList(edited);
         }
         catch (Exception error) { Failed("save", error); }
+    }
+
+    private void ToggleStar(CustomBuild build)
+    {
+        try
+        {
+            _store.SetStar(build.Id, build.Star == null);
+            AndroidFavoriteMarks.Invalidate();
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.star on={build.Star == null} starred={_store.Builds.Count(saved => saved.Star != null)}");
+            RenderList();
+        }
+        catch (Exception error) { Failed("save", error); }
+    }
+
+    // Copies a recommended build into the saved builds with its alert on; recommendation ids change between snapshots.
+    internal bool Favorite(AndroidBuild build)
+    {
+        try
+        {
+            _store.Load();
+            _store.AddStarred(build.Items.OrderBy(item => item.Slot).Select(item => new CustomBuildItem(item.TemplateId,
+                Template(item.TemplateId) is { } template ? NativeCardFit.SizeInSlots(template.Size) : item.Size)).ToArray());
+            AndroidFavoriteMarks.Invalidate();
+            Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.favorited items={build.Items.Count} count={_store.Builds.Count}");
+            return true;
+        }
+        catch (Exception error)
+        {
+            Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.custom_build.favorite_failed type={error.GetType().Name}");
+            return false;
+        }
     }
 
     private void Delete(Guid id)
@@ -446,6 +487,7 @@ internal sealed class AndroidCustomBuildPanel
         {
             _store.Delete(id);
             _deletePending = null;
+            AndroidFavoriteMarks.Invalidate();
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.deleted count={_store.Builds.Count}");
             RenderList();
         }
@@ -514,9 +556,10 @@ internal sealed class AndroidCustomBuildPanel
         Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.custom_build.{operation}_failed type={error.GetType().Name}");
     }
 
-    // Build cards carry a gold edge; item rows are a quieter zebra list.
-    private static RectTransform RowRoot(RectTransform content, int index, float height, bool accent)
+    // Build cards carry a coloured edge; item rows are a quieter zebra list.
+    private static RectTransform RowRoot(RectTransform content, int index, float height, Color? edgeColor)
     {
+        var accent = edgeColor.HasValue;
         var gap = accent ? 6 : 2;
         var row = NativeUi.Rect("Row", content, new Vector2(0, 1), Vector2.one,
             new Vector2(0, -(index + 1) * height + gap), new Vector2(0, -index * height - gap));
@@ -525,7 +568,7 @@ internal sealed class AndroidCustomBuildPanel
         if (!accent) return row;
         var edge = NativeUi.Rect("Accent", row, Vector2.zero, new Vector2(0, 1), Vector2.zero, new Vector2(5, 0))
             .gameObject.AddComponent<Image>();
-        edge.color = Gold;
+        edge.color = edgeColor!.Value;
         edge.raycastTarget = false;
         return row;
     }

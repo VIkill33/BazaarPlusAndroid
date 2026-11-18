@@ -116,10 +116,17 @@ internal sealed class AndroidHoldPreviewVisuals
 
     private Rect? TargetBounds()
     {
-        if (_card != null && _card.gameObject.activeInHierarchy && _card.BoxCollider != null)
+        if (_card != null && _card.gameObject.activeInHierarchy && _card.BoxCollider != null) return CardBounds(_card);
+        return _preview != null ? UiBounds(_preview._rectTransform) : null;
+    }
+
+    // Screen rectangle of a live table card, or null while it is inactive or behind the camera.
+    internal static Rect? CardBounds(CardController card)
+    {
+        if (!card.gameObject.activeInHierarchy || card.BoxCollider == null) return null;
         {
-            var collider = _card.BoxCollider;
-            var camera = _card.mainCamera != null ? _card.mainCamera : Camera.main;
+            var collider = card.BoxCollider;
+            var camera = card.mainCamera != null ? card.mainCamera : Camera.main;
             if (camera == null) return null;
             var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
             var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
@@ -134,7 +141,6 @@ internal sealed class AndroidHoldPreviewVisuals
             }
             return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
         }
-        return _preview != null ? UiBounds(_preview._rectTransform) : null;
     }
 
     private void AddUiHole(RectTransform? rect)

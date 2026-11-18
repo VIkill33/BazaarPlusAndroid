@@ -92,6 +92,19 @@ try
         && reopened.Builds[0].Items.Select(i => i.Slot).SequenceEqual(new int?[] { 2, 8 }), "Edit persists items left to right with gaps");
     Check(!reopened.Update(Guid.NewGuid(), edit) && reopened.Builds.Count == 2, "Editing a missing build changes nothing");
     Reject(() => reopened.Update(first, Array.Empty<CustomBuildItem>()), "Cannot edit a build down to empty");
+    Check(reopened.SetStar(first, true) && reopened.Builds[0].Star == 0, "First starred build takes the first colour");
+    Check(!reopened.SetStar(first, true) && !reopened.SetStar(Guid.NewGuid(), true), "Repeated or missing star changes nothing");
+    reopened.AddStarred(new[] { new CustomBuildItem(small, 1) });
+    Check(reopened.Builds.Count == 2 && reopened.Builds[1].Star == 1, "Favouriting an identical build stars it instead of duplicating");
+    reopened.AddStarred(new[] { new CustomBuildItem(large, 3) });
+    Check(reopened.Builds.Count == 3 && reopened.Builds[2].Star == 2, "Favouriting a new build saves it starred with its own colour");
+    Check(reopened.SetStar(first, false) && reopened.Builds[0].Star == null, "Star can be turned off");
+    Check(reopened.SetStar(first, true) && reopened.Builds[0].Star == 0, "A freed colour is reused");
+    Check(reopened.Update(first, edit) && reopened.Builds[0].Star == 0, "Editing keeps the star");
+    reopened.Load();
+    Check(reopened.Builds.Select(b => b.Star).SequenceEqual(new int?[] { 0, 1, 2 }), "Stars persist");
+    Check(CustomBuildStore.StarColor(7) == 1 && CustomBuildStore.StarColor(-1) is >= 0 and < CustomBuildStore.StarColors, "Any stored star maps to a colour");
+    reopened.Delete(reopened.Builds[2].Id);
     var legacyPath = Path.Combine(directory, "legacy.json");
     File.WriteAllText(legacyPath, "{\"Schema\":1,\"Builds\":[{\"Id\":\"" + Guid.NewGuid() + "\",\"CreatedAt\":\"2026-11-15T00:00:00+00:00\",\"Items\":[{\"TemplateId\":\""
         + large + "\",\"Size\":3},{\"TemplateId\":\"" + small + "\",\"Size\":1}]}]}");

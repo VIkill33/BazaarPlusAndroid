@@ -32,6 +32,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private RectTransform? _boardHost;
     private Button? _previousBuildButton;
     private Button? _nextBuildButton;
+    private Button? _favoriteButton;
+    private int? _favorited;
+    private bool _favoriteFailed;
     private TextMeshProUGUI? _buildPosition;
     private AndroidBuildMatch[] _matches = Array.Empty<AndroidBuildMatch>();
     private int _buildIndex;
@@ -232,7 +235,16 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _previousBuildButton = NativeUi.Button(_panel, font, "‹",
                 new Vector2(LeftMin, .54f), new Vector2(LeftMin + .08f, .61f), PreviousBuild);
             _buildPosition = NativeUi.Label(NativeUi.Rect("BPP.BuildPosition", _panel,
-                new Vector2(LeftMin + .09f, .54f), new Vector2(LeftMax - .09f, .61f)), font, string.Empty, 26);
+                new Vector2(LeftMin + .09f, .54f), new Vector2(LeftMax - .22f, .61f)), font, string.Empty, 26);
+            _favoriteButton = NativeUi.Button(_panel, font,
+                () => ShownBuild()?.Id != _favorited ? NativeUi.Text("Save + alert", "收藏并提醒")
+                    : _favoriteFailed ? NativeUi.Text("Save failed", "收藏失败") : NativeUi.Text("Saved", "已收藏"),
+                new Vector2(LeftMax - .21f, .54f), new Vector2(LeftMax - .09f, .61f), FavoriteBuild);
+            var favoriteCaption = _favoriteButton.GetComponentInChildren<TextMeshProUGUI>();
+            favoriteCaption.fontSize = 24;
+            favoriteCaption.textWrappingMode = TextWrappingModes.NoWrap;
+            favoriteCaption.rectTransform.offsetMin = new Vector2(4, 0);
+            favoriteCaption.rectTransform.offsetMax = new Vector2(-4, 0);
             _nextBuildButton = NativeUi.Button(_panel, font, "›",
                 new Vector2(LeftMax - .08f, .54f), new Vector2(LeftMax, .61f), NextBuild);
             // A transparent area, not the panel-framed root, so only the compact row is decorated.
@@ -257,7 +269,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             foreach (var button in new[]
             {
                 _candidatePageButton, _updateBuildsButton, closeButton,
-                _previousBuildButton, _nextBuildButton,
+                _previousBuildButton, _nextBuildButton, _favoriteButton,
             })
                 AndroidPanelButtonSkin.Register(button);
             for (var index = 0; index < _sourceButtons.Length; index++)
@@ -350,6 +362,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (_boardHost != null) _boardHost.gameObject.SetActive(chosen != null);
         if (_previousBuildButton != null) _previousBuildButton.gameObject.SetActive(chosen != null);
         if (_nextBuildButton != null) _nextBuildButton.gameObject.SetActive(chosen != null);
+        if (_favoriteButton != null) _favoriteButton.gameObject.SetActive(chosen != null);
         if (_buildPosition != null) _buildPosition.gameObject.SetActive(chosen != null);
         if (_buildPosition != null) _buildPosition.text = matches.Length == 0 ? string.Empty :
             $"{NativeUi.Text("Build", "推荐阵容")} {_buildIndex + 1}/{matches.Length} · {NativeUi.Text("Matched", "匹配")} " +
@@ -536,6 +549,16 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         UpdateCandidateButtons();
     }
 
+    private AndroidBuild? ShownBuild() => _buildIndex < _matches.Length ? _matches[_buildIndex].Build : null;
+
+    // Saves the shown recommendation into "My builds" with its alert on.
+    private void FavoriteBuild()
+    {
+        if (_custom == null || ShownBuild() is not { } build) return;
+        _favoriteFailed = !_custom.Favorite(build);
+        _favorited = build.Id;
+    }
+
     private void PreviousBuild()
     {
         if (_matches.Length < 2) return;
@@ -634,6 +657,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         }
         _open = open;
         AnyOpen = open;
+        _favorited = null;
         if (_panel != null) _panel.gameObject.SetActive(open);
         UpdateEntryVisibility();
         if (open)
