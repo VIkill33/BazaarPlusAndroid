@@ -35,8 +35,6 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private Button? _favoriteButton;
     private int? _favorited;
     private bool _favoriteFailed;
-    private float _clearConfirmUntil;
-    private bool? _clearSucceeded;
     private TextMeshProUGUI? _buildPosition;
     private AndroidBuildMatch[] _matches = Array.Empty<AndroidBuildMatch>();
     private int _buildIndex;
@@ -69,6 +67,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     // Left column holds candidates and the board; the right column holds details.
     private const float LeftMin = .02f, LeftMax = .675f, RightMin = .69f, RightMax = .98f;
     private const string Gold = "F2C46B", Muted = "A89F8E", Faint = "7D7466";
+    private static readonly Color GoldColor = new(1f, .84f, .55f, 1f);
 
     private enum CandidateSource { Board, Stash, Shop }
 
@@ -164,111 +163,91 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             var background = _panel.gameObject.AddComponent<Image>();
             background.color = new Color(.025f, .04f, .065f, .995f);
             background.raycastTarget = true;
+            // Header keeps page-level actions only; candidate tabs and build actions sit beside what they act on.
             var titleLabel = NativeUi.Label(NativeUi.Rect("BPP.BuildTitle", _panel, new Vector2(.03f, .89f),
-                new Vector2(.20f, .98f)), font, () => NativeUi.Text("Recommended builds", "构筑推荐"), 40);
+                new Vector2(.40f, .98f)), font, () => NativeUi.Text("Recommended builds", "构筑推荐"), 46);
+            titleLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            titleLabel.fontStyle = FontStyles.Bold;
+            titleLabel.color = GoldColor;
             titleLabel.enableAutoSizing = true;
-            titleLabel.fontSizeMin = 28;
-            titleLabel.fontSizeMax = 40;
-            const float sourceStep = (.48f - .21f + .01f) / 3;
-            for (var index = 0; index < _sourceButtons.Length; index++)
-            {
-                var source = (CandidateSource)index;
-                var left = .21f + index * sourceStep;
-                var button = NativeUi.Button(_panel, font, SourceName(source),
-                    new Vector2(left, .89f), new Vector2(left + sourceStep - .01f, .98f), () => SelectSource(source));
-                var label = button.GetComponentInChildren<TextMeshProUGUI>();
-                label.enableAutoSizing = true;
-                label.fontSizeMin = 20;
-                label.fontSizeMax = 30;
-                label.textWrappingMode = TextWrappingModes.NoWrap;
-                _sourceButtons[index] = button;
-            }
-            _candidatePageButton = NativeUi.Button(_panel, font, "1/1",
-                new Vector2(.49f, .89f), new Vector2(.54f, .98f), NextCandidatePage);
+            titleLabel.fontSizeMin = 30;
+            titleLabel.fontSizeMax = 46;
             _updateBuildsButton = NativeUi.Button(_panel, font,
                 () => _manualUpdate?.IsCompleted == false
                     ? NativeUi.Text("Updating...", "更新中…")
                     : NativeUi.Text("Update builds", "更新阵容"),
-                new Vector2(.55f, .89f), new Vector2(.63f, .98f), UpdateBuilds);
+                new Vector2(.60f, .895f), new Vector2(.73f, .975f), UpdateBuilds);
             var customButton = NativeUi.Button(_panel, font, () => NativeUi.Text("My builds", "我的构筑"),
-                new Vector2(.64f, .89f), new Vector2(.76f, .98f), OpenCustomBuilds);
-            var clearButton = NativeUi.Button(_panel, font,
-                () => Time.realtimeSinceStartup < _clearConfirmUntil ? NativeUi.Text("Confirm clear", "确认清空")
-                    : _clearSucceeded == true ? NativeUi.Text("Cleared", "已清空")
-                    : _clearSucceeded == false ? NativeUi.Text("Clear failed", "清空失败")
-                    : NativeUi.Text("Clear favorites", "清空收藏"),
-                new Vector2(.77f, .89f), new Vector2(.90f, .98f), ClearFavorites);
-            AndroidPanelButtonSkin.Register(clearButton);
-            foreach (var compact in new[] { _updateBuildsButton, customButton, clearButton })
-            {
-                var caption = compact.GetComponentInChildren<TextMeshProUGUI>();
-                caption.fontSize = compact == customButton ? 30 : 22;
-                caption.enableAutoSizing = true;
-                caption.fontSizeMin = 18;
-                caption.fontSizeMax = caption.fontSize;
-                caption.textWrappingMode = TextWrappingModes.NoWrap;
-                caption.rectTransform.offsetMin = new Vector2(4, 0);
-                caption.rectTransform.offsetMax = new Vector2(-4, 0);
-            }
-            AndroidPanelButtonSkin.Register(customButton);
+                new Vector2(.74f, .895f), new Vector2(.87f, .975f), OpenCustomBuilds);
             var closeButton = NativeUi.Button(_panel, font, () => NativeUi.Text("Close", "关闭"),
-                new Vector2(.91f, .89f), new Vector2(.98f, .98f), () => SetOpen(false));
+                new Vector2(.88f, .895f), new Vector2(.98f, .975f), () => SetOpen(false));
+            const float tabBottom = .805f, tabTop = .865f, tabWidth = .12f;
+            for (var index = 0; index < _sourceButtons.Length; index++)
+            {
+                var source = (CandidateSource)index;
+                var left = LeftMin + index * (tabWidth + .008f);
+                _sourceButtons[index] = NativeUi.Button(_panel, font, SourceName(source),
+                    new Vector2(left, tabBottom), new Vector2(left + tabWidth, tabTop), () => SelectSource(source));
+            }
+            _candidatePageButton = NativeUi.Button(_panel, font, "1/1",
+                new Vector2(LeftMax - .095f, tabBottom), new Vector2(LeftMax, tabTop), NextCandidatePage);
             const float candidateStep = (LeftMax - LeftMin) / 10;
             for (var slot = 0; slot < 10; slot++)
             {
                 var captured = slot;
                 var left = LeftMin + slot * candidateStep;
                 var button = NativeUi.Button(_panel, font, string.Empty,
-                    new Vector2(left, .64f), new Vector2(left + candidateStep * .92f, .86f),
+                    new Vector2(left, .605f), new Vector2(left + candidateStep * .92f, .79f),
                     () => ToggleCandidate(captured));
                 var label = button.GetComponentInChildren<TextMeshProUGUI>();
-                label.fontSize = 25;
+                label.fontSize = 22;
                 label.enableAutoSizing = true;
-                label.fontSizeMin = 18;
-                label.fontSizeMax = 25;
+                label.fontSizeMin = 16;
+                label.fontSizeMax = 22;
                 label.textWrappingMode = TextWrappingModes.NoWrap;
                 label.overflowMode = TextOverflowModes.Ellipsis;
                 var labelRect = label.GetComponent<RectTransform>();
                 labelRect.anchorMin = Vector2.zero;
                 labelRect.anchorMax = new Vector2(1, .22f);
-                labelRect.offsetMin = new Vector2(5, 3);
-                labelRect.offsetMax = new Vector2(-5, -3);
+                labelRect.offsetMin = new Vector2(5, 0);
+                labelRect.offsetMax = new Vector2(-5, 0);
                 var markerRect = NativeUi.Rect("BPP.CandidateSelection", button.transform,
-                    Vector2.one, Vector2.one, new Vector2(-38, -38), new Vector2(-4, -4));
+                    Vector2.one, Vector2.one, new Vector2(-36, -36), new Vector2(-4, -4));
                 var markerBackground = markerRect.gameObject.AddComponent<Image>();
                 markerBackground.color = new Color(.06f, .10f, .12f, .95f);
                 markerBackground.raycastTarget = false;
-                var marker = NativeUi.Label(markerRect, font, string.Empty, 26);
+                var marker = NativeUi.Label(markerRect, font, string.Empty, 24);
                 marker.GetComponent<RectTransform>().offsetMin = Vector2.zero;
                 marker.GetComponent<RectTransform>().offsetMax = Vector2.zero;
                 _candidateMarkers.Add(marker);
                 button.gameObject.SetActive(false);
                 _candidateButtons.Add(button);
             }
+            const float navBottom = .525f, navTop = .59f;
             _previousBuildButton = NativeUi.Button(_panel, font, "‹",
-                new Vector2(LeftMin, .54f), new Vector2(LeftMin + .08f, .61f), PreviousBuild);
+                new Vector2(LeftMin, navBottom), new Vector2(LeftMin + .05f, navTop), PreviousBuild);
+            _nextBuildButton = NativeUi.Button(_panel, font, "›",
+                new Vector2(LeftMin + .055f, navBottom), new Vector2(LeftMin + .105f, navTop), NextBuild);
             _buildPosition = NativeUi.Label(NativeUi.Rect("BPP.BuildPosition", _panel,
-                new Vector2(LeftMin + .09f, .54f), new Vector2(LeftMax - .22f, .61f)), font, string.Empty, 26);
+                new Vector2(LeftMin + .11f, navBottom), new Vector2(LeftMax - .15f, navTop)), font, string.Empty, 28);
+            _buildPosition.alignment = TextAlignmentOptions.MidlineLeft;
+            _buildPosition.textWrappingMode = TextWrappingModes.NoWrap;
+            _buildPosition.overflowMode = TextOverflowModes.Ellipsis;
+            _buildPosition.rectTransform.offsetMin = new Vector2(12, 0);
+            _buildPosition.rectTransform.offsetMax = new Vector2(-12, 0);
             _favoriteButton = NativeUi.Button(_panel, font,
                 () => ShownBuild()?.Id != _favorited ? NativeUi.Text("Save + alert", "收藏并提醒")
                     : _favoriteFailed ? NativeUi.Text("Save failed", "收藏失败") : NativeUi.Text("Saved", "已收藏"),
-                new Vector2(LeftMax - .21f, .54f), new Vector2(LeftMax - .09f, .61f), FavoriteBuild);
-            var favoriteCaption = _favoriteButton.GetComponentInChildren<TextMeshProUGUI>();
-            favoriteCaption.fontSize = 24;
-            favoriteCaption.textWrappingMode = TextWrappingModes.NoWrap;
-            favoriteCaption.rectTransform.offsetMin = new Vector2(4, 0);
-            favoriteCaption.rectTransform.offsetMax = new Vector2(-4, 0);
-            _nextBuildButton = NativeUi.Button(_panel, font, "›",
-                new Vector2(LeftMax - .08f, .54f), new Vector2(LeftMax, .61f), NextBuild);
+                new Vector2(LeftMax - .14f, navBottom), new Vector2(LeftMax, navTop), FavoriteBuild);
             // A transparent area, not the panel-framed root, so only the compact row is decorated.
             var boardArea = NativeUi.Rect("BPP.RecommendedBoardArea", _panel,
-                new Vector2(LeftMin, .06f), new Vector2(LeftMax, .52f));
+                new Vector2(LeftMin, .04f), new Vector2(LeftMax, .505f));
             _boardHint = NativeUi.Label(boardArea, font, string.Empty, 26);
             _boardHint.color = new Color(.66f, .62f, .56f, 1);
             _boardHost = NativeUi.Rect("BPP.RecommendedBoard", boardArea, new Vector2(0, .3f), Vector2.one);
             _board = new AndroidBuildBoard(_boardHost, new DetailSink(this).Accept);
             (_text, _content, _scroll) = NativeUi.ScrollText(_panel, font,
-                new Vector2(RightMin, .03f), new Vector2(RightMax, .86f));
+                new Vector2(RightMin, .03f), new Vector2(RightMax, .865f));
             _text.fontSize = 24;
             _text.enableAutoSizing = false;
             _detailText = NativeUi.Label(_content!, font, string.Empty, 24);
@@ -279,16 +258,24 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _tagFrame = NativeUi.Rect("BPP.BuildItemTags", _content!, new Vector2(0, 1), Vector2.one);
             _tagFrame.gameObject.SetActive(false);
             if (AndroidLauncherSettings.MarketPanels) AndroidMarketPanelTheme.Apply(_panel, titleLabel);
+            // One caption style for every action: 26 for text, larger glyphs for arrows, shrink instead of wrapping.
+            foreach (var button in new[] { _updateBuildsButton, customButton, closeButton, _favoriteButton })
+                Caption(button, 26);
+            foreach (var button in _sourceButtons) Caption(button, 24);
+            Caption(_candidatePageButton, 24);
+            Caption(_previousBuildButton, 44);
+            Caption(_nextBuildButton, 44);
             foreach (var button in new[]
             {
-                _candidatePageButton, _updateBuildsButton, closeButton,
+                _candidatePageButton, _updateBuildsButton, customButton, closeButton,
                 _previousBuildButton, _nextBuildButton, _favoriteButton,
             })
                 AndroidPanelButtonSkin.Register(button);
             for (var index = 0; index < _sourceButtons.Length; index++)
                 AndroidPanelButtonSkin.Register(_sourceButtons[index], (CandidateSource)index == _source);
+            // Saved builds may have been deleted or cleared on that page.
             _custom = new AndroidCustomBuildPanel(_canvas.transform, font,
-                () => { _panel.gameObject.SetActive(true); _nextRefresh = 0; }, PickCustomItem);
+                () => { _panel.gameObject.SetActive(true); _favorited = null; _nextRefresh = 0; }, PickCustomItem);
             SetOpen(false);
         }
         catch
@@ -352,8 +339,10 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (_favoriteButton != null) _favoriteButton.gameObject.SetActive(chosen != null);
         if (_buildPosition != null) _buildPosition.gameObject.SetActive(chosen != null);
         if (_buildPosition != null) _buildPosition.text = matches.Length == 0 ? string.Empty :
-            $"{NativeUi.Text("Build", "推荐阵容")} {_buildIndex + 1}/{matches.Length} · {NativeUi.Text("Matched", "匹配")} " +
-            $"{chosen!.MatchedCards}/{_selectedCandidates.Count}";
+            $"<b>{Colored(Gold, $"{NativeUi.Text("Build", "阵容")} {_buildIndex + 1}/{matches.Length}")}</b>" +
+            $"   <size=22>{Colored(Muted, $"{NativeUi.Text("Matched", "匹配")} {chosen!.MatchedCards}/{_selectedCandidates.Count}" +
+            $" · {chosen!.Build.TenWinRateBps / 100.0:0.#}%")}</size>";
+        AndroidPanelButtonSkin.SetSelected(_favoriteButton, chosen != null && chosen.Build.Id == _favorited && !_favoriteFailed);
         if (_previousBuildButton != null) _previousBuildButton.interactable = matches.Length > 1;
         if (_nextBuildButton != null) _nextBuildButton.interactable = matches.Length > 1;
 
@@ -424,6 +413,20 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
 
     private static string Colored(string hex, string text) => $"<color=#{hex}>{text}</color>";
 
+    private static void Caption(Button? button, float size)
+    {
+        if (button == null) return;
+        var caption = button.GetComponentInChildren<TextMeshProUGUI>();
+        caption.fontSize = size;
+        caption.enableAutoSizing = true;
+        caption.fontSizeMin = Mathf.Min(18, size);
+        caption.fontSizeMax = size;
+        caption.textWrappingMode = TextWrappingModes.NoWrap;
+        // Zero vertical padding: the default 6 units leaves too little height for a single shrunk line.
+        caption.rectTransform.offsetMin = new Vector2(6, 0);
+        caption.rectTransform.offsetMax = new Vector2(-6, 0);
+    }
+
     private void ClearItemDetail()
     {
         _itemTitle = null;
@@ -464,7 +467,7 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         if (_candidatePageButton != null)
         {
             _candidatePageButton.GetComponentInChildren<TextMeshProUGUI>().text =
-                $"{_candidatePage + 1}/{pageCount}";
+                pageCount > 1 ? $"{_candidatePage + 1}/{pageCount}  ›" : "1/1";
             _candidatePageButton.interactable = pageCount > 1;
         }
         for (var slot = 0; slot < _candidateButtons.Count; slot++)
@@ -542,10 +545,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
     private void FavoriteBuild()
     {
         if (_custom == null || ShownBuild() is not { } build) return;
-        _clearConfirmUntil = 0;
-        _clearSucceeded = null;
         _favoriteFailed = !_custom.Favorite(build);
         _favorited = build.Id;
+        AndroidPanelButtonSkin.SetSelected(_favoriteButton, !_favoriteFailed);
     }
 
     private void PreviousBuild()
@@ -605,30 +607,9 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
         _scroll.verticalNormalizedPosition = 1;
     }
 
-    private void ClearFavorites()
-    {
-        if (_custom == null) return;
-        if (Time.realtimeSinceStartup >= _clearConfirmUntil)
-        {
-            _clearConfirmUntil = Time.realtimeSinceStartup + 5;
-            _clearSucceeded = null;
-            return;
-        }
-        _clearConfirmUntil = 0;
-        var cleared = _custom.ClearFavorites();
-        _clearSucceeded = cleared;
-        if (cleared)
-        {
-            _favorited = null;
-            _favoriteFailed = false;
-        }
-    }
-
     private void OpenCustomBuilds()
     {
         if (_custom == null) return;
-        _clearConfirmUntil = 0;
-        _clearSucceeded = null;
         _board?.Hide();
         _candidateCards.Hide();
         _panel?.gameObject.SetActive(false);
@@ -665,8 +646,6 @@ public sealed class AndroidBuildPanelController(IntPtr pointer) : MonoBehaviour(
             _candidateCards.Hide();
             _matches = Array.Empty<AndroidBuildMatch>();
         }
-        _clearConfirmUntil = 0;
-        _clearSucceeded = null;
         _open = open;
         AnyOpen = open;
         _favorited = null;

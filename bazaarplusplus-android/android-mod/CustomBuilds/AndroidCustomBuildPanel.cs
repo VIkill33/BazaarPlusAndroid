@@ -51,6 +51,8 @@ internal sealed class AndroidCustomBuildPanel
     private readonly TextMeshProUGUI _deleteHint;
     private readonly CustomBuildDragState _drag = new();
     private readonly TextMeshProUGUI _summary;
+    private readonly Button _clearAll;
+    private bool _clearPending;
     private PointerEventData? _dragPointer;
     private RectTransform? _dragHost;
     private RectTransform? _dropMark;
@@ -89,7 +91,10 @@ internal sealed class AndroidCustomBuildPanel
         _list = NativeUi.Rect("List", _root, Vector2.zero, Vector2.one);
         _list.SetAsFirstSibling();
         var create = Button(_list, () => NativeUi.Text("New build", "新建构筑"), .64f, .89f, .82f, .98f, NewDraft);
-        _summary = NativeUi.Label(NativeUi.Rect("Summary", _list, new Vector2(.23f, .89f), new Vector2(.62f, .97f)), font, string.Empty, 26);
+        // Bulk clear lives beside the list it empties, not on the recommendation page; it asks once before acting.
+        _clearAll = Button(_list, () => _clearPending ? NativeUi.Text("Confirm clear", "确认清空") : NativeUi.Text("Clear all", "清空全部"),
+            .47f, .89f, .62f, .98f, ClearAll);
+        _summary = NativeUi.Label(NativeUi.Rect("Summary", _list, new Vector2(.23f, .89f), new Vector2(.46f, .97f)), font, string.Empty, 26);
         _summary.alignment = TextAlignmentOptions.BottomLeft;
         _summary.color = Muted;
         _summary.textWrappingMode = TextWrappingModes.NoWrap;
@@ -159,6 +164,7 @@ internal sealed class AndroidCustomBuildPanel
         _draft = null;
         _editing = null;
         _deletePending = null;
+        _clearPending = false;
         _status.text = string.Empty;
         try { _store.Load(); _loaded = true; }
         catch (Exception error) { _loaded = false; Failed("load", error); }
@@ -223,6 +229,8 @@ internal sealed class AndroidCustomBuildPanel
         _listScroll.StopMovement();
         _listContent.anchoredPosition = position;
         if (!preservePosition) _listScroll.verticalNormalizedPosition = 1;
+        _clearAll.gameObject.SetActive(_loaded && builds.Count > 0);
+        Caption(_clearAll, 24, Coral, _clearPending);
         _summary.text = !_loaded || builds.Count == 0 ? string.Empty
             : NativeUi.Text($"{builds.Count} saved", $"共 {builds.Count} 套");
         if (_loaded) _status.text = builds.Count == 0 ? string.Empty
@@ -257,6 +265,7 @@ internal sealed class AndroidCustomBuildPanel
     {
         if (_draft == null) return;
         CancelDrag();
+        _clearPending = false;
         _list.gameObject.SetActive(false);
         _editor.gameObject.SetActive(true);
         ClearChildren(_editContent);
@@ -480,27 +489,26 @@ internal sealed class AndroidCustomBuildPanel
         }
     }
 
-    internal bool ClearFavorites()
+    private void ClearAll()
     {
+        _deletePending = null;
+        if (!_clearPending) { _clearPending = true; RenderList(); return; }
+        _clearPending = false;
         try
         {
             _store.Load();
             var count = _store.Builds.Count;
             _store.Clear();
-            _deletePending = null;
             AndroidFavoriteMarks.Invalidate();
             Plugin.PluginLog?.LogInfo($"[BPP][Android] event=android.custom_build.cleared count={count}");
-            return true;
+            RenderList(false);
         }
-        catch (Exception error)
-        {
-            Plugin.PluginLog?.LogWarning($"[BPP][Android] event=android.custom_build.clear_failed type={error.GetType().Name}");
-            return false;
-        }
+        catch (Exception error) { Failed("clear", error); }
     }
 
     private void Delete(Guid id)
     {
+        _clearPending = false;
         if (_deletePending != id) { _deletePending = id; RenderList(); return; }
         try
         {
