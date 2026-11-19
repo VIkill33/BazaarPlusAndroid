@@ -134,8 +134,16 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
             var bounds = AndroidHoldPreviewVisuals.CardBounds(card);
             if (!bounds.HasValue) continue;
             var size = Mathf.Clamp(bounds.Value.height * .16f, 18, 46);
-            // Centred on the card's corner so a near miss lands on the table or the hit area, not the card body.
-            var corner = new Vector2(bounds.Value.xMin, bounds.Value.yMax);
+            var dpi = Screen.dpi > 0 ? Screen.dpi : 160;
+            // About 8 mm wide and 10 mm tall for a fingertip, never wider than the card.
+            var wide = Mathf.Min(Mathf.Max(size * 2, dpi * .32f), bounds.Value.width);
+            var tall = Mathf.Min(Mathf.Max(size * 2, dpi * .4f), Screen.height - bounds.Value.yMax);
+            // Sit wholly above the card's top edge: a miss toward the card hits this area or the table,
+            // never the card collider, so it cannot select or buy. Fall back to the corner when the card touches the screen top.
+            var above = tall >= size * 1.5f;
+            var corner = above
+                ? new Vector2(bounds.Value.xMin + wide / 2, bounds.Value.yMax + tall / 2)
+                : new Vector2(bounds.Value.xMin, bounds.Value.yMax);
             var gem = Gem(used++);
             gem.sizeDelta = new Vector2(size, size);
             gem.anchoredPosition = corner;
@@ -154,9 +162,9 @@ public sealed class AndroidFavoriteMarks(IntPtr pointer) : MonoBehaviour(pointer
             var hit = HitArea(hits++);
             hit.Card = card;
             hit.Template = template;
-            // About 8 mm for a fingertip, but never more than half the card so the card body stays tappable.
-            var reach = Mathf.Min(Mathf.Max(size * 2, (Screen.dpi > 0 ? Screen.dpi : 160) * .32f), bounds.Value.width * .5f);
-            hit.Root.sizeDelta = new Vector2(reach, reach);
+            // The corner fallback keeps the old half-card limit so the card body stays tappable.
+            var reach = Mathf.Min(Mathf.Max(size * 2, dpi * .32f), bounds.Value.width * .5f);
+            hit.Root.sizeDelta = above ? new Vector2(wide, tall) : new Vector2(reach, reach);
             hit.Root.anchoredPosition = corner;
             hit.Root.gameObject.SetActive(true);
         }
